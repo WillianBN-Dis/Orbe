@@ -1,0 +1,45 @@
+# Orbe na nuvem — plano autorizado e ponto de retomada
+
+## Objetivo e decisões confirmadas
+- Site responsivo para clientes; app MAUI Windows/Android para proprietário/equipe. Botão Entrar como cliente abre o site. Remover toda demonstração e qualquer bypass de autenticação. Manter identidade Orbe.
+- ASP.NET Core .NET 10 (site Razor Pages + API), PostgreSQL, hospedagem prevista Railway. Banco/contas/agenda/financeiro centrais na nuvem, funcionando sem PC. Apresentar custo antes de contratar; não criar cobranças automaticamente. E-mail de confirmação/recuperação requer provedor SMTP configurado por segredo e remetente válido, nunca senha em código/log.
+- Importar uma única vez dados do Orbe no Nexus; NÃO sincronizar depois. Nexus fica independente para outros usos. Backup e importação guiada, sem modificar banco original ou ler catálogo/credenciais pessoais automaticamente. Credenciais de contas antigas do Nexus não são importadas.
+- Somente WillianBN (Owner) cria/desativa/reset acesso Staff; cadastra serviço (nome, duração em minutos, preço em centavos) e atribui funcionários habilitados. Owner inicial por bootstrap administrativo não público, sem senha padrão.
+- Cada Staff define sua PRÓPRIA jornada semanal (várias janelas/dia), exceções por data, folgas e compromissos; sem aprovação do Owner. Owner pode ajustar qualquer agenda. Staff não muda outros funcionários e vê/gerencia somente próprios atendimentos e financeiro.
+- Client tem cadastro próprio com nome completo, WhatsApp, e-mail, nascimento, senha; confirmar e-mail, recuperar senha. Vê/edita somente próprio perfil e reservas, nunca financeiro ou dados de outros. Nenhuma conta é recuperada por nome/telefone/nascimento sem autenticação.
+- Menus de conta para editar perfil, trocar senha, sair. Desativação/senha revoga sessões. Senhas hash padrão ASP.NET Identity; sessões opacas revogáveis/cookies HttpOnly para site e tokens seguros no MAUI; CSRF no site, autorização servidor, rate limit login/recuperação/reserva.
+
+## Agenda e reservas
+- Fluxo serviço -> funcionário habilitado -> dia -> horário -> confirmação automática. Um serviço/funcionário por reserva. Duração inteira precisa caber em uma janela, sem atravessar almoço/folga/compromisso/outro atendimento. Exceção de data substitui jornada semanal; exceção vazia fecha o dia. Bloqueios em intervalo ou dia inteiro. Site não exibe motivo privado dos bloqueios; dias sem vagas indisponíveis.
+- Defaults Owner configuráveis: passo 15min, antecedência 120min, horizonte 60 dias incluindo hoje (datas [hoje,hoje+60)), cancelamento/remarcação até 24h antes inclusive, fuso America/Sao_Paulo. Guardar instantes UTC no servidor; converter pelo fuso do negócio, não do celular. Duração/preço congelados na reserva; catálogo alterado não muda reservas antigas.
+- Servidor calcula fim/preço, não confia nesses dados enviados pelo cliente. Operações de reserva e bloqueio/jornada precisam serializar por funcionário em PostgreSQL (lock transacional da linha do funcionário + restrição de sobreposição para intervalos ocupados ativos), validar horário na mesma transação, e usar chave de idempotência por autor/requisição. Não basta a disponibilidade calculada no cliente. Se disputa, 409 com novas vagas; nunca duas reservas sobrepostas. Jornadas/bloqueios que conflitam com reservas confirmadas são recusados e retornam conflitos ao Staff/Owner autorizado.
+- Cliente cancela ou remarca só próprias reservas futuras dentro do prazo. Remarcação mantém serviço/funcionário; reserva nova e liberação antiga na mesma transação, sem perder antiga em erro. Cancelamento muda status e libera ocupação, mantém histórico/financeiro. Excluir pela equipe autorizada apaga evento + lançamentos vinculados atomicamente, preserva avulsos. Agendar não gera receita.
+- Staff financeiro filtrado no servidor por employeeId; valores vinculados pertencem ao funcionário do agendamento. Owner visão global. Registros importados não atribuídos: só Owner até classificar. Evitar associação automática de clientes/funcionários por nomes.
+
+## Interfaces e armazenamento a implementar
+- Reutilizar Agenda.Core para valores em centavos e formatos de migração. Novo Orbe.Cloud.Core para políticas/availability; servidor Orbe.Server com ASP.NET Identity/EF Core/Npgsql/PostgreSQL e site público no mesmo domínio/API. API versionada /api/v1.
+- Recursos: auth/registro Cliente/confirmação/recuperação/login/logout/me; Owner funcionários/serviços/habilitações/política/importação/abertura; Staff/Owner jornadas, exceções e bloqueios; públicos serviços/funcionários habilitados/disponibilidade sem PII; autenticados reserva/listar próprias/cancelar/remarcar; equipe agenda/financeiro filtrados. Incluir controle de versão/concorrência nas alterações, não aceitar papel/employeeId arbitrário de Staff/Client.
+- Entidades: contas/papéis, perfil Client, Staff ativo, Service, StaffService, jornadas semanais, exceções de data, ocupações/bloqueios/reservas com IDs estáveis e versões, MoneyEntry com vínculo e StaffId, política da empresa, idempotência, auditoria mínima sem segredos. Constraints de banco + transações para sobreposição e cascata financeira.
+- Portal público de reservas permanece FECHADO por padrão até Owner confirmar importação, atribuir eventos antigos, criar serviços, habilitar Staff e configurar jornadas. Desligar/desativar Staff não cancela silenciosamente reservas existentes.
+- App troca acesso Nexus direto por sessão de API da nuvem. Preservar UX de calendário/financeiro; acrescentar login, conta, equipe/serviços Owner e disponibilidade própria. Nenhum token Nexus em aplicativo/site novos. Manter versão 1.0.2 existente intacta até entrega nova completa.
+
+## Migração e operação
+- Importador pelo Owner, com backup SQLite original e prévia de contagens/valores/vínculos; IDs/datas/valores preservados, importação idempotente. Cliente textual antigo fica como rótulo legado, não vira conta autenticada. Atribuição explícita dos eventos antigos antes de abrir vagas. Avulsos sem funcionário só Owner até classificar.
+- Desenvolvimento: banco PostgreSQL temporário de testes e e-mail fake em memória APENAS testes; production não pode usar fake/desativar confirmação. Não há docker/psql no PATH nesta máquina (confirmar alternativas portáteis/dependências quando continuar).
+- Produção: HTTPS, segredos fora Git, backups diários + restauração testada, logs sanitizados/health endpoint e CI/testes. Contratação/deploy real depende das credenciais de hospedagem/remetente e orçamento apresentado; completar e validar localmente antes de solicitar ação de usuário.
+- Release nova GitHub ao concluir (não sobrescrever 1.0.0, 1.0.1, 1.0.2), Windows autocontido, APK mesma assinatura. Não rotular entrega parcial como pronta. Obsidian atualizado continuamente.
+
+## Implementado nesta etapa
+- src/Orbe.Cloud.Core: BookingPolicy, WorkingWindow/WeeklyWindow/DateSchedule, OccupiedInterval, AvailableSlot, Availability.Calculate e CanClientChange. Núcleo puro, sem banco e sem autorização/lock ainda. Retorna propostas de slots; não confirma reservas. Rejeita durações/janelas inválidas/sobrepostas/exceções duplicadas. Filtra UTC/lead time/horizon, períodos ocupados com limites [inicio,fim), ignora horários locais ambíguos/inexistentes em DST.
+- tests/Orbe.Cloud.Checks: 22 verificações passaram em 25/10/2026. Comando: & "$env:LOCALAPPDATA\NexusDev\dotnet\dotnet.exe" run --project tests/Orbe.Cloud.Checks -c Release.
+- Servidor/login/site/EF/migração/app/deploy NÃO implementados ainda. Não confundir testes puros com validação de concorrência/autorização.
+
+## Próxima sequência
+1. Criar servidor ASP.NET Core com PostgreSQL/Identity/migrations, bootstrap Owner, sessões/perfis/rate limits/e-mail por interface testável. Config fechado por padrão. Estabelecer banco PostgreSQL isolado para testes reais.
+2. Implementar regras transacionais e API de administração/Staff/Client, reserva idempotente, bloqueios/jornadas contra conflitos, cancelamento/remarcação e exclusão financeira atômica. Testes reais de concorrência e isolamento (incluindo acesso cruzado e campos forjados).
+3. Implementar portal responsivo público/conta/booking e UI MAUI autenticada; remover DemoData/flags/páginas antigas, adaptar smoke checks para tela login sem credenciais reais.
+4. Implementar importação guiada e atribuição + gate de abertura; validar backup/contagens/vínculos sem dados pessoais reais.
+5. QA site desktop/celular, Windows e emulador Android, instalador isolado; preparar Railway e custo, configurar domínio/remetente/segredos quando disponíveis; publicar nova versão apenas com evidência/limites claros.
+
+## Continuação automática
+Usuário autorizou verificar a cada 10 minutos quando a cota acabar. Automação ativa implementar-orbe-nuvem-login-e-agendamento neste chat. Conferir get_usage_limits primeiro; se menos de 25% livre ou indisponível, ficar em silêncio e aguardar próxima execução. Salvar checkpoint antes de esgotar. Remover automação somente ao concluir. Não usar subagentes. Nenhum dado, credencial, Firewall ou Nexus pessoal deve ser alterado como parte de testes.
