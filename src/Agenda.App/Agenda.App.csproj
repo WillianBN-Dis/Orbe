@@ -14,6 +14,11 @@
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
     <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
   </PropertyGroup>
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <!-- Avoid missing JNI callbacks (MauiApplication.n_onCreate) in standalone Release APKs. -->
+    <AndroidEnableMarshalMethods>false</AndroidEnableMarshalMethods>
+    <ApplicationDisplayVersion>1.0.1</ApplicationDisplayVersion><ApplicationVersion>10001</ApplicationVersion>
+  </PropertyGroup>
   <ItemGroup>
     <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#0D101B" />
     <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#0D101B" BaseSize="128,128" />
@@ -27,7 +32,3 @@
     <ProjectReference Include="..\Agenda.Core\Agenda.Core.csproj" />
   </ItemGroup>
 </Project>
-
-
-
-

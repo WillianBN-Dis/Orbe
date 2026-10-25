@@ -14,6 +14,12 @@ O script usa SDK/JDK em `%LOCALAPPDATA%/AgendaDev`, Release, assemblies embutido
 
 ## Release
 
+Correção Android 1.0.1: `./release-android.ps1 -Version 1.0.1 -VersionCode 10001`.
+Antes da distribuição, execute `./tests/android-smoke.ps1 -Apk dist/Orbe-1.0.1.apk -Version 1.0.1` em AVD isolado chamado `Orbe_QA_*`.
+O teste aceita somente emuladores, instala como atualização, abre duas vezes, navega ao Financeiro e retorna do segundo plano; salva telas e log de crash em `artifacts/qa/android/1.0.1`.
+Não use apenas o sucesso da compilação como validação Android: a versão 1.0.0 compilava, mas falhava antes da UI com `MauiApplication.n_onCreate`.
+O projeto desativa `AndroidEnableMarshalMethods` para evitar essa falha JNI na distribuição Release; mantenha o teste de execução ao alterar SDK ou configuração de publicação.
+
 Atualizar versão no projeto MAUI, rótulo da interface, changelog e documentação. Usar uma versão nova, nunca sobrescrever uma versão publicada. Compilar e testar, verificar APK com apksigner, criar commit/tag e publicar no repositório `WillianBN-Dis/Orbe`.
 
 Arquivos públicos: `Orbe-Setup.exe`, `Orbe-1.0.0.apk`, `001-inicial.sql`, `PRIMEIROS-PASSOS.md` e `SHA256SUMS.txt`. Publicar primeiro como rascunho; confirmar os arquivos e depois marcar a release como publicada/latest. Verificar o link público fixo do instalador e seu hash após a publicação.

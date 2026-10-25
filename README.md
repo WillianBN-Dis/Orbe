@@ -10,7 +10,7 @@
 
 Windows x64, versão 1809 ou posterior. Um único `Orbe-Setup.exe` inclui .NET e Windows App SDK; não é necessário instalar SDK, Python ou runtime separado. Assistente em português, instalação por usuário e atalho opcional na área de trabalho. Atualize executando o novo instalador.
 
-Android: baixe o APK assinado na release. A instalação é direta, sem Play Store. A versão estável usa assinatura própria; a prévia local de desenvolvimento pode precisar ser removida antes da primeira instalação estável.
+Android: [baixe o APK corrigido 1.0.1](https://github.com/WillianBN-Dis/Orbe/releases/download/v1.0.1/Orbe-1.0.1.apk). A versão 1.0.0 permanece no histórico, mas seu APK apresenta falha na abertura. A instalação é direta, sem Play Store. A versão estável usa assinatura própria; a prévia local de desenvolvimento pode precisar ser removida antes da primeira instalação estável.
 
 ## Recursos
 - Calendário mensal com marcadores, agenda do dia, filtros e navegação por data.
@@ -57,4 +57,4 @@ O instalador é testado com identificação e pasta temporárias, abertura real 
 
 Sem sincronização offline, acesso pela internet, contas próprias, recorrência, lembretes ou recebimento automático. Correção de lançamento por exclusão e recadastro. Escritas não são repetidas automaticamente; em conflito, atualizar antes de refazer a alteração. O Nexus não oferece transações entre requisições nem snapshot global de leitura.
 
-O instalador Windows não possui assinatura Authenticode. O APK é assinado com chave de distribuição própria, mas execução Android em aparelho/emulador ainda não foi validada. Não há atualizador automático nesta versão.
+O instalador Windows não possui assinatura Authenticode. O APK é assinado com chave de distribuição própria, com execução da correção 1.0.1 validada no emulador Android 16 (instalação limpa e atualização); teste em aparelho físico permanece pendente. Não há atualizador automático nesta versão.

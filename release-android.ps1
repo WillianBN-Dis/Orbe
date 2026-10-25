@@ -1,5 +1,6 @@
-param([string]$Version='1.0.0')
+param([string]$Version='1.0.1', [int]$VersionCode=10001)
 $ErrorActionPreference='Stop'
+if($Version -notmatch '^\d+\.\d+\.\d+$' -or $VersionCode -lt 1){throw 'Informe versão semântica e código Android positivo.'}
 $dotnet=Join-Path $env:LOCALAPPDATA 'NexusDev\dotnet\dotnet.exe'
 if(!(Test-Path -LiteralPath $dotnet)){$dotnet=(Get-Command dotnet -ErrorAction Stop).Source}
 $java=Join-Path $env:LOCALAPPDATA 'AgendaDev\jdk'
@@ -21,7 +22,9 @@ try {
  }
  Push-Location $PSScriptRoot
  try {
-  & $dotnet publish src/Agenda.App -f net10.0-android -p:AgendaTargetFramework=net10.0-android -c Release -p:AndroidPackageFormats=apk -p:EmbedAssembliesIntoApk=true -p:PublishTrimmed=false -p:RunAOTCompilation=false "-p:AndroidSdkDirectory=$sdk" "-p:JavaSdkDirectory=$java" -p:AndroidKeyStore=true "-p:AndroidSigningKeyStore=$key" -p:AndroidSigningKeyAlias=orbe -p:AndroidSigningStorePass=env:ORBE_ANDROID_SIGNING_PASSWORD -p:AndroidSigningKeyPass=env:ORBE_ANDROID_SIGNING_PASSWORD "-p:ApplicationDisplayVersion=$Version"
+  & $dotnet clean src/Agenda.App -f net10.0-android -p:AgendaTargetFramework=net10.0-android -c Release "-p:AndroidSdkDirectory=$sdk" "-p:JavaSdkDirectory=$java"
+  if($LASTEXITCODE -ne 0){throw 'Limpeza Android falhou.'}
+  & $dotnet publish src/Agenda.App -f net10.0-android -p:AgendaTargetFramework=net10.0-android -c Release -p:AndroidPackageFormats=apk -p:EmbedAssembliesIntoApk=true -p:PublishTrimmed=false -p:RunAOTCompilation=false "-p:AndroidSdkDirectory=$sdk" "-p:JavaSdkDirectory=$java" -p:AndroidKeyStore=true "-p:AndroidSigningKeyStore=$key" -p:AndroidSigningKeyAlias=orbe -p:AndroidSigningStorePass=env:ORBE_ANDROID_SIGNING_PASSWORD -p:AndroidSigningKeyPass=env:ORBE_ANDROID_SIGNING_PASSWORD "-p:ApplicationDisplayVersion=$Version" "-p:ApplicationVersion=$VersionCode"
   if($LASTEXITCODE -ne 0){throw 'Publicação Android falhou.'}
   New-Item -ItemType Directory -Force dist | Out-Null
   $apk=Get-ChildItem src/Agenda.App/bin/Release/net10.0-android/publish -Filter '*-Signed.apk' | Select-Object -First 1
