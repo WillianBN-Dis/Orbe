@@ -107,7 +107,7 @@ public sealed partial class DashboardPage
         else if(action=="Excluir agendamento")
         {
             if(demo||repository is null){await NeedConnection();return;}
-            if(await DisplayAlertAsync("Excluir agendamento?",$"“{stored.Value.Title}” será excluído. O histórico financeiro será preservado.","Excluir","Manter"))
+            if(await DisplayAlertAsync("Excluir agendamento e lançamentos?",$"“{stored.Value.Title}” e todos os lançamentos financeiros vinculados a ele serão excluídos. O resultado financeiro será recalculado. Lançamentos sem vínculo com este agendamento serão mantidos.","Excluir tudo vinculado","Manter"))
                 await Guard(async()=>{await repository.Delete(stored);await Reload();await Render();});
         }
     }
@@ -210,5 +210,3 @@ internal sealed class FinancialDrawing(IReadOnlyList<FinancialBucket> buckets,bo
     }
     private static string ShortMoney(double cents){var reais=cents/100;return Math.Abs(reais)>=1000?"R$ "+(reais/1000).ToString("0.#",Finance.Brazilian)+" mil":"R$ "+reais.ToString("0",Finance.Brazilian);}
 }
-
-

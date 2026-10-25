@@ -152,6 +152,23 @@ public sealed class AgendaRepository(NexusClient client, string database)
         e.Validate();
         return client.Insert(database, "lancamentos", new { id = e.Id, descricao = e.Description.Trim(), tipo = e.Kind.ToString(), data = e.Date.ToString("yyyy-MM-dd"), valor_centavos = e.Cents, agendamento_id = e.AppointmentId });
     }
-    public Task Delete(Stored<Appointment> a) => client.Delete(database, "agendamentos", a.Snapshot);
+    public async Task Delete(Stored<Appointment> a)
+    {
+        // Check the appointment before touching its finances; DELETE still checks its snapshot.
+        var current = (await Appointments()).SingleOrDefault(x => x.Value.Id == a.Value.Id);
+        if (current is null || JsonSerializer.Serialize(current.Snapshot) != JsonSerializer.Serialize(a.Snapshot))
+            throw new NexusException("O agendamento mudou ou já foi excluído. Atualize a agenda antes de tentar novamente.", HttpStatusCode.Conflict);
+        var linked = (await Entries()).Where(x => x.Value.AppointmentId == a.Value.Id).ToArray();
+        try
+        {
+            // Keep the appointment available for recovery if one of the financial deletes fails.
+            foreach (var entry in linked) await Delete(entry);
+            await client.Delete(database, "agendamentos", a.Snapshot);
+        }
+        catch (NexusException error)
+        {
+            throw new NexusException("A exclusão pode ter sido concluída apenas em parte. Atualize a agenda e o financeiro para conferir antes de tentar novamente. " + error.Message, error.Status);
+        }
+    }
     public Task Delete(Stored<MoneyEntry> e) => client.Delete(database, "lancamentos", e.Snapshot);
 }

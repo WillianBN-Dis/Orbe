@@ -1,5 +1,12 @@
 # Histórico
 
+## 1.0.2
+
+- Excluir um agendamento também exclui todos os seus lançamentos financeiros vinculados, com confirmação explícita e atualização dos resultados.
+- Formulário financeiro permite selecionar um agendamento vinculado ou manter o lançamento avulso.
+- Lançamentos avulsos e de outros eventos são preservados. Conflitos e falhas parciais interrompem a operação, sem repetir escritas automaticamente.
+- Não requer alterações na estrutura do banco existente.
+
 ## 1.0.1 — correção Android
 
 - Corrigida a falha de inicialização `MauiApplication.n_onCreate` do APK Release: desativada a geração de marshal methods JNI no Android.

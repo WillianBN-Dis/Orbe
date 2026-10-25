@@ -9,7 +9,7 @@
 
 Android: use o IPv4 privado do computador Nexus e mantenha os dispositivos na mesma rede. O Nexus deve estar em execução. Não há sincronização offline ou acesso pela internet.
 
-Agendar não gera recebimento. O lucro considera somente receitas menos despesas registradas. Excluir um evento preserva os lançamentos. Não compartilhe sua chave.
+Agendar não gera recebimento. O lucro considera somente receitas menos despesas registradas. Excluir um evento também exclui os lançamentos vinculados a ele. Para vincular, use Lançar recebimento na agenda ou selecione Agendamento vinculado no formulário financeiro. Lançamentos sem vínculo são mantidos. Não compartilhe sua chave.
 
 O instalador/desinstalador gerencia somente os arquivos do programa. Não apaga bancos Nexus, catálogo, credenciais ou preferências do aplicativo. A atualização é manual, executando o instalador mais recente.
 

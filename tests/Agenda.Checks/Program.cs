@@ -69,6 +69,7 @@ sealed class FakeHandler : HttpMessageHandler
             return Response(Failure ?? HttpStatusCode.OK, "{\"sucesso\":true}");
         }
         if (request.RequestUri!.AbsolutePath == "/api/bancos") return Response(HttpStatusCode.OK, "[{\"id\":\"test-bank\",\"nome\":\"Teste\"}]");
+        if (request.RequestUri.AbsolutePath.Contains("/lancamentos/")) return Response(HttpStatusCode.OK, "{\"colunas\":[],\"identidade\":[\"rowid\"],\"offset\":0,\"limite\":200,\"temMais\":false,\"registros\":[]}");
         ReadPages++;
         var first = request.RequestUri.Query.Contains("offset=0&");
         var rows = Enumerable.Range(first ? 0 : 200, first ? 200 : 1).Select(i => new {

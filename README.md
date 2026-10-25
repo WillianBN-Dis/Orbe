@@ -10,7 +10,7 @@
 
 Windows x64, versão 1809 ou posterior. Um único `Orbe-Setup.exe` inclui .NET e Windows App SDK; não é necessário instalar SDK, Python ou runtime separado. Assistente em português, instalação por usuário e atalho opcional na área de trabalho. Atualize executando o novo instalador.
 
-Android: [baixe o APK corrigido 1.0.1](https://github.com/WillianBN-Dis/Orbe/releases/download/v1.0.1/Orbe-1.0.1.apk). A versão 1.0.0 permanece no histórico, mas seu APK apresenta falha na abertura. A instalação é direta, sem Play Store. A versão estável usa assinatura própria; a prévia local de desenvolvimento pode precisar ser removida antes da primeira instalação estável.
+Android: [baixe o APK 1.0.2](https://github.com/WillianBN-Dis/Orbe/releases/download/v1.0.2/Orbe-1.0.2.apk). A versão 1.0.0 permanece no histórico, mas seu APK apresenta falha na abertura. A instalação é direta, sem Play Store. A versão estável usa assinatura própria; a prévia local de desenvolvimento pode precisar ser removida antes da primeira instalação estável.
 
 ## Recursos
 - Calendário mensal com marcadores, agenda do dia, filtros e navegação por data.
@@ -20,7 +20,7 @@ Android: [baixe o APK corrigido 1.0.1](https://github.com/WillianBN-Dis/Orbe/rel
 - Tema escuro, navegação lateral no computador e inferior em telas estreitas.
 - Demonstração opcional, claramente identificada, com dados fictícios em memória e salvamento desativado.
 
-**Lucro = recebimentos menos despesas.** Agendar não gera receita. Excluir um evento preserva seus lançamentos financeiros. Valores em centavos inteiros; horários locais do negócio.
+**Lucro = recebimentos menos despesas.** Agendar não gera receita. Excluir um evento também exclui seus lançamentos financeiros vinculados; lançamentos avulsos e de outros eventos são mantidos. Valores em centavos inteiros; horários locais do negócio.
 
 ## Dados e Nexus
 
@@ -42,12 +42,12 @@ Requer .NET SDK 10 e workloads `maui-windows`/`maui-android`. Para gerar o insta
 ```powershell
 ./build.ps1 -Target Windows
 ./build.ps1 -Target Android
-./release.ps1 -Version 1.0.0
-./installer/test-installer.ps1 -Version 1.0.0
-./release-android.ps1 -Version 1.0.0
+./release.ps1 -Version 1.0.2
+./installer/test-installer.ps1 -Version 1.0.2
+./release-android.ps1 -Version 1.0.2 -VersionCode 10002
 ```
 
-O teste padrão possui 25 verificações de regras/HTTP. O teste opcional `tests/Agenda.NexusChecks` possui 8 verificações contra o servidor Nexus real com conta, chave e banco exclusivamente temporários; requer o repositório Nexus em uma pasta irmã, ou `-p:NexusRoot=CAMINHO`.
+O teste padrão possui 25 verificações de regras/HTTP. O teste opcional `tests/Agenda.NexusChecks` possui 12 verificações contra o servidor Nexus real com conta, chave e banco exclusivamente temporários; requer o repositório Nexus em uma pasta irmã, ou `-p:NexusRoot=CAMINHO`.
 
 O instalador é testado com identificação e pasta temporárias, abertura real do aplicativo, reinstalação e desinstalação. O comando `--startup-check` usa dados sintéticos, verifica a janela e encerra sem ler credenciais pessoais.
 

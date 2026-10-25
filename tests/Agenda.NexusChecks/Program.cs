@@ -35,19 +35,46 @@ try
     await repo.Save(new MoneyEntry(Guid.NewGuid().ToString("N"), "Recebimento", EntryKind.Receita, new(2026,10,24), 15000, a.Id));
     await repo.Save(new MoneyEntry(Guid.NewGuid().ToString("N"), "Despesa", EntryKind.Despesa, new(2026,10,24), 3000, null));
     Check(Finance.Summarize((await repo.Entries()).Select(e=>e.Value), new(2026,10,24), Period.Dia).Profit == 12000, "Financeiro com dados reais da API");
+    await repo.Save(new MoneyEntry(Guid.NewGuid().ToString("N"), "Outro recebimento vinculado", EntryKind.Receita, new(2026,10,24), 1000, a.Id));
+    await repo.Save(new MoneyEntry(Guid.NewGuid().ToString("N"), "Despesa vinculada", EntryKind.Despesa, new(2026,10,24), 500, a.Id));
+    var other = a with { Id = Guid.NewGuid().ToString("N"), Title = "Outro agendamento" };
+    await repo.Save(other);
+    await repo.Save(new MoneyEntry(Guid.NewGuid().ToString("N"), "Vinculado a outro evento", EntryKind.Receita, new(2026,10,24), 2000, other.Id));
+    try { await repo.Delete(snapshot); throw new Exception("Snapshot antigo aceito"); }
+    catch (NexusException e) { Check(e.Status == HttpStatusCode.Conflict && (await repo.Entries()).Count == 5, "Agendamento desatualizado não exclui financeiro"); }
+    using var failingClient = new NexusClient(api.Address, token, new FailSecondDelete());
+    try { await new AgendaRepository(failingClient, bank.Id).Delete((await repo.Appointments()).Single(x => x.Value.Id == a.Id)); throw new Exception("Falha parcial ignorada"); }
+    catch (NexusException e) { Check(e.Message.Contains("apenas em parte") && (await repo.Appointments()).Any(x => x.Value.Id == a.Id) && (await repo.Entries()).Count == 4, "Falha parcial mantém evento e informa recuperação, sem repetir escrita"); }
+    await repo.Delete((await repo.Appointments()).Single(x => x.Value.Id == a.Id));
+    var remaining = await repo.Entries();
+    Check((await repo.Appointments()).All(x => x.Value.Id != a.Id) && remaining.Count == 2 && remaining.All(x => x.Value.AppointmentId != a.Id), "Excluir evento remove todos os vinculados e preserva avulsos/outros eventos");
     await repo.Delete((await repo.Appointments()).Single());
-    Check((await repo.Appointments()).Count == 0 && (await repo.Entries()).Count == 2, "Excluir evento preserva financeiro");
+    Check((await repo.Entries()).Single().Value.AppointmentId is null, "Excluir segundo evento preserva lançamento avulso");
+    await repo.Save(a);
+    await repo.Delete((await repo.Appointments()).Single());
+    Check((await repo.Appointments()).Count == 0 && (await repo.Entries()).Count == 1, "Excluir evento sem lançamentos funciona e mantém avulso");
     var entry = (await repo.Entries()).First(); await repo.Delete(entry);
-    Check((await repo.Entries()).Count == 1, "Excluir lançamento pela API real");
+    Check((await repo.Entries()).Count == 0, "Excluir lançamento pela API real");
     var readKey = store.CreateApiKey("fixture-ro", false, [bank.Id]);
     using var readClient = new NexusClient(api.Address, readKey);
     try { await new AgendaRepository(readClient, bank.Id).Save(a); throw new Exception("Escrita permitida"); }
     catch (NexusException e) { Check(e.Status == HttpStatusCode.Forbidden, "Chave somente leitura não grava"); }
     Console.WriteLine($"{checks} verificações reais passaram. Dados exclusivamente temporários.");
 }
+
 finally
 {
     if (api is not null) await api.DisposeAsync();
     if (!root.StartsWith(Path.GetTempPath(), StringComparison.OrdinalIgnoreCase)) throw new Exception("Diretório de teste inválido");
     Directory.Delete(root, true);
+}
+
+sealed class FailSecondDelete : DelegatingHandler
+{
+    private int deletes;
+    public FailSecondDelete() : base(new HttpClientHandler()) { }
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        => request.Method == HttpMethod.Delete && ++deletes == 2
+            ? Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable))
+            : base.SendAsync(request, ct);
 }

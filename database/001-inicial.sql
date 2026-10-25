@@ -10,7 +10,7 @@ CREATE TABLE agendamentos (
  valor_previsto_centavos INTEGER NOT NULL DEFAULT 0 CHECK(valor_previsto_centavos >= 0)
 );
 
--- Vínculo informativo: excluir um evento preserva seu histórico financeiro.
+-- O Orbe exclui os lançamentos vinculados antes de excluir o evento, pela API Nexus.
 CREATE TABLE lancamentos (
  id TEXT PRIMARY KEY NOT NULL,
  descricao TEXT NOT NULL CHECK(length(trim(descricao)) > 0),

@@ -1,4 +1,4 @@
-param([string]$Version='1.0.0')
+param([string]$Version='1.0.2')
 $ErrorActionPreference='Stop'
 $iscc=Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe'
 $root=Join-Path ([IO.Path]::GetTempPath()) ('orbe-installer-qa-'+[guid]::NewGuid().ToString('N'))
@@ -30,7 +30,7 @@ try {
  if(Test-Path -LiteralPath (Join-Path $target 'Agenda.App.exe')){throw 'Desinstalação deixou o programa.'}
  if(Test-Path -LiteralPath "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\${testId}_is1"){throw 'Registro de desinstalação permaneceu.'}
  New-Item -ItemType Directory -Force artifacts/qa|Out-Null
- 'Instalação, abertura real WinUI via MAUI, reinstalação, preservação de arquivo não gerenciado e desinstalação: passaram. Conta/registro/pasta exclusivos de QA.'|Set-Content artifacts/qa/installer-1.0.0.txt -Encoding utf8
+ 'Instalação, abertura real WinUI via MAUI, reinstalação, preservação de arquivo não gerenciado e desinstalação: passaram. Conta/registro/pasta exclusivos de QA.'|Set-Content "artifacts/qa/installer-$Version.txt" -Encoding utf8
  Write-Output 'PASS instalação, abertura WinUI real, reinstalação e desinstalação com preservação de dados sintéticos.'
 }finally{
  if(Test-Path -LiteralPath (Join-Path $target 'unins000.exe')){RunInstaller (Join-Path $target 'unins000.exe') @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART')}

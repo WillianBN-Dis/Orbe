@@ -1,4 +1,4 @@
-param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='1.0.0',[switch]$SkipTests)
+param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='1.0.2',[switch]$SkipTests)
 $ErrorActionPreference='Stop'
 $dotnet=Join-Path $env:LOCALAPPDATA 'NexusDev\dotnet\dotnet.exe'
 if(!(Test-Path -LiteralPath $dotnet)){$dotnet=(Get-Command dotnet -ErrorAction Stop).Source}
@@ -7,6 +7,8 @@ if(!(Test-Path -LiteralPath $iscc)){$iscc=(Get-Command ISCC.exe -ErrorAction Sto
 Push-Location $PSScriptRoot
 try {
  if(!$SkipTests){& $dotnet run --project tests/Agenda.Checks;if($LASTEXITCODE -ne 0){throw 'Testes falharam.'}}
+ & $dotnet restore src/Agenda.App -p:AgendaTargetFramework=net10.0-windows10.0.19041.0 -p:RuntimeIdentifier=win-x64
+ if($LASTEXITCODE -ne 0){throw 'Restauração Windows falhou.'}
  & $dotnet clean src/Agenda.App -c Release -f net10.0-windows10.0.19041.0 -p:AgendaTargetFramework=net10.0-windows10.0.19041.0 -v:q
  if($LASTEXITCODE -ne 0){throw 'Limpeza de build falhou.'}
  $payload=Join-Path $PSScriptRoot 'artifacts\release-windows'

@@ -39,13 +39,16 @@ public sealed partial class DashboardPage
         var when=new DatePicker{Date=Selected.ToDateTime(TimeOnly.MinValue),Format="dd/MM/yyyy"};
         var amount=Input("0,00",appointment is null?"":(appointment.ExpectedCents/100m).ToString("F2",Finance.Brazilian));amount.Keyboard=Keyboard.Numeric;
         var id=Guid.NewGuid().ToString("N");
+        var choices=appointments.Select(x=>x.Value).OrderBy(x=>x.Start).ToArray();
+        var linked=new Picker{Title="Agendamento vinculado",ItemsSource=new[]{"Sem vínculo"}.Concat(choices.Select(x=>$"{x.Start:dd/MM/yyyy HH:mm} · {x.Title}")).ToArray(),SelectedIndex=appointment is null?0:Array.FindIndex(choices,x=>x.Id==appointment.Id)+1};
         return OpenForm("Novo lançamento","Cada movimento deixa suas finanças mais claras.","wallet",[
             Field("Descrição",description),Columns(!compact,Field("Tipo de movimentação",kind),Field("Data efetiva",when)),
             Field("Valor · R$",amount,"Informe o valor efetivamente recebido ou gasto."),
-            Card(Text(appointment is null?"Este lançamento será incluído no resultado do dia, mês e ano da data escolhida.":$"Vinculado ao agendamento: {appointment.Title}. Excluir o evento não apaga este lançamento.",12,Muted),16,CanvasColor)],async()=>
+            Field("Agendamento vinculado · opcional",linked,"Excluir o agendamento também excluirá os lançamentos vinculados a ele. Sem vínculo, o lançamento será mantido."),
+            Card(Text("Este lançamento será incluído no resultado do dia, mês e ano da data escolhida.",12,Muted),16,CanvasColor)],async()=>
         {
             if(demo||repository is null){await NeedConnection();return false;}
-            await repository.Save(new MoneyEntry(id,description.Text??"",(EntryKind)kind.SelectedIndex,DateOnly.FromDateTime(when.Date??DateTime.Today),Finance.ParseCents(amount.Text??""),appointment?.Id));return true;
+            await repository.Save(new MoneyEntry(id,description.Text??"",(EntryKind)kind.SelectedIndex,DateOnly.FromDateTime(when.Date??DateTime.Today),Finance.ParseCents(amount.Text??""),linked.SelectedIndex>0?choices[linked.SelectedIndex-1].Id:null));return true;
         });
     }
     private async Task OpenForm(string title,string subtitle,string glyph,View[] fields,Func<Task<bool>> save)
@@ -128,5 +131,3 @@ internal sealed class EditorPage:ContentPage
     public bool Saving{get;set;}
     protected override bool OnBackButtonPressed()=>Saving||base.OnBackButtonPressed();
 }
-
-
