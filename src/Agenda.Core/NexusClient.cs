@@ -6,6 +6,8 @@ using System.Text.Json;
 namespace Agenda.Core;
 
 public sealed record DatabaseChoice(string Id, string Nome);
+public sealed record NexusColumn(string Name, string Type, bool Required, int Key, int Hidden);
+public sealed record NexusSchema(NexusColumn[] Columns, string[] Identity);
 public sealed record RowSnapshot(JsonElement[] Chave, JsonElement[] Valores);
 public sealed record Stored<T>(T Value, RowSnapshot Snapshot);
 public sealed record RecordPage(string[] Colunas, string[] Identidade, int Offset, int Limite, bool TemMais, RowSnapshot[] Registros);
@@ -44,9 +46,11 @@ public sealed class NexusClient : IDisposable
             var response = await http.SendAsync(request, ct);
             if (response.IsSuccessStatusCode) return response;
             var status = response.StatusCode;
+            var detail = status == HttpStatusCode.BadRequest ? await ExplainBadRequest(response, ct) : null;
             response.Dispose();
             throw new NexusException(status switch
             {
+                HttpStatusCode.BadRequest => detail!,
                 HttpStatusCode.Unauthorized => "Chave inválida ou revogada. Confira a conexão com o Nexus.",
                 HttpStatusCode.Forbidden => "A chave não permite esta operação. Confira as permissões de escrita no Nexus.",
                 HttpStatusCode.NotFound => "Banco ou tabela indisponível. Confira o banco selecionado e prepare as tabelas no Nexus.",
@@ -58,12 +62,50 @@ public sealed class NexusClient : IDisposable
         catch (HttpRequestException) { throw new NexusException("Não foi possível acessar o Nexus. Confira o endereço, a rede e se a API está ligada. Se estava salvando, atualize antes de tentar novamente."); }
         catch (TaskCanceledException) when (!ct.IsCancellationRequested) { throw new NexusException("O Nexus demorou para responder. Se estava salvando, atualize os dados para conferir se a gravação foi concluída."); }
     }
+    private static async Task<string> ExplainBadRequest(HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+            var error = document.RootElement.TryGetProperty("erro", out var value) ? value.GetString() ?? "" : "";
+            if (error.Contains("Tabela não encontrada", StringComparison.OrdinalIgnoreCase))
+                return "O Nexus aceitou a chave, mas a tabela solicitada não existe neste banco. Prepare as tabelas agendamentos e lancamentos com o script do Orbe no editor SQL do Nexus.";
+            if (error.Contains("Coluna de ordenação", StringComparison.OrdinalIgnoreCase))
+                return "O banco foi encontrado, mas a tabela não contém a coluna id esperada pelo Orbe. Confira a estrutura no editor SQL do Nexus.";
+        }
+        catch (JsonException) { }
+        return "O Nexus rejeitou a solicitação (HTTP 400). Confira a estrutura das tabelas e os valores informados.";
+    }
     public async Task<DatabaseChoice[]> Databases(CancellationToken ct = default)
     {
         using var response = await Send(HttpMethod.Get, "api/bancos", ct: ct);
         return await response.Content.ReadFromJsonAsync<DatabaseChoice[]>(Json, ct) ?? [];
     }
     private static string Path(string db, string table) => $"api/bancos/{Uri.EscapeDataString(db)}/tabelas/{Uri.EscapeDataString(table)}/registros";
+    public async Task VerifyDatabase(string db, CancellationToken ct = default)
+    {
+        var prefix = $"api/bancos/{Uri.EscapeDataString(db)}/tabelas";
+        using var response = await Send(HttpMethod.Get, prefix, ct: ct);
+        var tables = await response.Content.ReadFromJsonAsync<string[]>(Json, ct) ?? [];
+        var expected = new Dictionary<string, string[]>
+        {
+            ["agendamentos"] = ["id", "titulo", "tipo", "inicio", "fim", "cliente", "observacoes", "valor_previsto_centavos"],
+            ["lancamentos"] = ["id", "descricao", "tipo", "data", "valor_centavos", "agendamento_id"]
+        };
+        var missingTables = expected.Keys.Except(tables, StringComparer.Ordinal).ToArray();
+        if (missingTables.Length > 0)
+            throw new NexusException("A conexão com o Nexus funcionou. Faltam as tabelas: " + string.Join(", ", missingTables) + ". Abra o editor SQL desse banco no Nexus e execute cada CREATE TABLE de 001-inicial.sql separadamente. Criar somente o banco vazio ainda não prepara o Orbe.");
+        foreach (var (table, columns) in expected)
+        {
+            using var structure = await Send(HttpMethod.Get, prefix + "/" + table + "/estrutura", ct: ct);
+            var schema = await structure.Content.ReadFromJsonAsync<NexusSchema>(Json, ct) ?? throw new NexusException("Estrutura inválida recebida do Nexus.");
+            var missing = columns.Except(schema.Columns.Select(c => c.Name), StringComparer.Ordinal).ToArray();
+            if (missing.Length > 0) throw new NexusException($"A tabela {table} não está pronta. Faltam as colunas: {string.Join(", ", missing)}. Confira 001-inicial.sql; nenhum dado foi alterado.");
+            var id = schema.Columns.Single(c => c.Name == "id");
+            if (!id.Type.Contains("TEXT", StringComparison.OrdinalIgnoreCase) || schema.Identity.Length == 0)
+                throw new NexusException($"A tabela {table} precisa de id TEXT PRIMARY KEY. O ID automático INTEGER do modo Visual do Nexus não é compatível. Prepare um banco dedicado pelo editor SQL com 001-inicial.sql; seus dados existentes não foram alterados.");
+        }
+    }
     public async Task<IReadOnlyList<Stored<T>>> Read<T>(string db, string table, Func<IReadOnlyDictionary<string, JsonElement>, T> map, CancellationToken ct = default)
     {
         var result = new List<Stored<T>>();
@@ -93,6 +135,7 @@ public sealed class NexusClient : IDisposable
 
 public sealed class AgendaRepository(NexusClient client, string database)
 {
+    public Task Verify() => client.VerifyDatabase(database);
     public Task<IReadOnlyList<Stored<Appointment>>> Appointments() => client.Read(database, "agendamentos", r => new Appointment(
         r["id"].GetString()!, r["titulo"].GetString()!, Enum.Parse<EventKind>(r["tipo"].GetString()!),
         DateTime.ParseExact(r["inicio"].GetString()!, "yyyy-MM-dd'T'HH:mm:ss", null), DateTime.ParseExact(r["fim"].GetString()!, "yyyy-MM-dd'T'HH:mm:ss", null),
