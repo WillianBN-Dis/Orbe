@@ -1,0 +1,3 @@
+Open Sans Regular/Semibold, version 1.10: Digitized data copyright 2010-2011, Google Corporation. Licensed under the Apache License, Version 2.0. Metadata verified in the bundled font. Original files are unchanged.
+
+Microsoft .NET and .NET MAUI components retain their respective licenses and notices. Additional dependencies are distributed with their license/notice files where provided by their NuGet packages.

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+    <NexusRoot Condition="'$(NexusRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\Nexus</NexusRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Agenda.Core/Agenda.Core.csproj" />
+    <ProjectReference Include="$(NexusRoot)/native/Nexus.Api/Nexus.Api.csproj" />
+    <None Include="../../database/001-inicial.sql" Link="schema.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
