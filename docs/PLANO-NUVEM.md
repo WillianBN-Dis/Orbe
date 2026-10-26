@@ -2,7 +2,7 @@
 
 ## Objetivo e decisões confirmadas
 - Site responsivo para clientes; app MAUI Windows/Android para proprietário/equipe. Botão Entrar como cliente abre o site. Remover toda demonstração e qualquer bypass de autenticação. Manter identidade Orbe.
-- ASP.NET Core .NET 10 (site Razor Pages + API), PostgreSQL, hospedagem prevista Railway. Banco/contas/agenda/financeiro centrais na nuvem, funcionando sem PC. Apresentar custo antes de contratar; não criar cobranças automaticamente. E-mail de confirmação/recuperação requer provedor SMTP configurado por segredo e remetente válido, nunca senha em código/log.
+- ASP.NET Core .NET 10 (site Razor Pages + API), PostgreSQL, hospedagem de testes Discloud (site 512 MB + PostgreSQL gerenciado separado, mínimo 512 MB). Banco/contas/agenda/financeiro centrais na nuvem, funcionando sem PC. Apresentar custo antes de contratar; não criar cobranças automaticamente. E-mail de confirmação/recuperação requer provedor SMTP configurado por segredo e remetente válido, nunca senha em código/log.
 - Importar uma única vez dados do Orbe no Nexus; NÃO sincronizar depois. Nexus fica independente para outros usos. Backup e importação guiada, sem modificar banco original ou ler catálogo/credenciais pessoais automaticamente. Credenciais de contas antigas do Nexus não são importadas.
 - Somente WillianBN (Owner) cria/desativa/reset acesso Staff; cadastra serviço (nome, duração em minutos, preço em centavos) e atribui funcionários habilitados. Owner inicial por bootstrap administrativo não público, sem senha padrão.
 - Cada Staff define sua PRÓPRIA jornada semanal (várias janelas/dia), exceções por data, folgas e compromissos; sem aprovação do Owner. Owner pode ajustar qualquer agenda. Staff não muda outros funcionários e vê/gerencia somente próprios atendimentos e financeiro.
@@ -39,7 +39,11 @@
 2. Implementar regras transacionais e API de administração/Staff/Client, reserva idempotente, bloqueios/jornadas contra conflitos, cancelamento/remarcação e exclusão financeira atômica. Testes reais de concorrência e isolamento (incluindo acesso cruzado e campos forjados).
 3. Implementar portal responsivo público/conta/booking e UI MAUI autenticada; remover DemoData/flags/páginas antigas, adaptar smoke checks para tela login sem credenciais reais.
 4. Implementar importação guiada e atribuição + gate de abertura; validar backup/contagens/vínculos sem dados pessoais reais.
-5. QA site desktop/celular, Windows e emulador Android, instalador isolado; preparar Railway e custo, configurar domínio/remetente/segredos quando disponíveis; publicar nova versão apenas com evidência/limites claros.
+5. QA site desktop/celular, Windows e emulador Android, instalador isolado; preparar Discloud e conferir capacidade, configurar domínio/remetente/segredos quando disponíveis; publicar nova versão apenas com evidência/limites claros.
 
 ## Continuação automática
 Usuário autorizou verificar a cada 10 minutos quando a cota acabar. Automação ativa implementar-orbe-nuvem-login-e-agendamento neste chat. Conferir get_usage_limits primeiro; se menos de 25% livre ou indisponível, ficar em silêncio e aguardar próxima execução. Salvar checkpoint antes de esgotar. Remover automação somente ao concluir. Não usar subagentes. Nenhum dado, credencial, Firewall ou Nexus pessoal deve ser alterado como parte de testes.
+
+## Implementação em andamento — 26/10/2026
+Novo servidor em src/Orbe.Server, solução Orbe.Cloud.sln e testes tests/Orbe.Server.Checks. Ainda não é release pronta. Modelos Identity/EF, autenticação, autorização, jornadas/bloqueios, reservas transacionais e financeiro implementados; 27 verificações HTTP/PostgreSQL reais passaram. Mais22 testes puros de disponibilidade anteriores. Produção exige certificado de proteção, segredos privados e SMTP válido; reservas fechadas por padrão. Site/UI MAUI/importação/deploy continuam pendentes.
+Hospedagem de teste alterada pelo usuário para Discloud:512MBsite e PostgreSQL por preset gerenciado separado, mínimo512MB; sem contratarplano novo. Capacidade existente verificada. PostgreSQL de testes local isolado em artifacts/cloud-dev,127.0.0.1:55439/orbe_cloud_test. Não tocar Nexus pessoal. Próximas etapas: importador/testes adicionais, portal e MAUI, publicação controlada Discloud, pacote final.

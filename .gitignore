@@ -13,4 +13,5 @@ AGENTS.md
 *.jks
 *.key
 .env*
+*.secrets.json
 
