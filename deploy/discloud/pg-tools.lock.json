@@ -1,0 +1,16 @@
+{
+  "postgresql-client-17": {
+    "Package": "postgresql-client-17",
+    "Version": "17.11-1.pgdg12+2",
+    "Filename": "pool/main/p/postgresql-17/postgresql-client-17_17.11-1.pgdg12+2_amd64.deb",
+    "SHA256": "1e286c060f8f9ab6485b1b02df6543ce38610bc828c63695528f0593658113ed",
+    "Depends": "libpq5 (>= 17.11), postgresql-client-common (>= 182~), sensible-utils, libc6 (>= 2.34), liblz4-1 (>= 0.0~r127), libreadline8 (>= 6.0), libssl3 (>= 3.0.0), libzstd1 (>= 1.5.2), zlib1g (>= 1:1.1.4)"
+  },
+  "libpq5": {
+    "Package": "libpq5",
+    "Version": "18.6-1.pgdg12+2",
+    "Filename": "pool/main/p/postgresql-18/libpq5_18.6-1.pgdg12+2_amd64.deb",
+    "SHA256": "9dc15f3f41090e632e0449693323f18c96bfd25794c439d8bcde06af6c5012f6",
+    "Depends": "libc6 (>= 2.34), libgssapi-krb5-2 (>= 1.17), libldap-2.5-0 (>= 2.5.4), libssl3 (>= 3.0.0)"
+  }
+}

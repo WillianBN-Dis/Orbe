@@ -51,6 +51,10 @@ if(!$SkipBuild){& $dotnet publish (Join-Path $workspace 'src/Orbe.Server') -c Re
 if(!(Test-Path -LiteralPath (Join-Path $server 'Orbe.Server'))){throw 'Pacote Linux ausente.'}
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'index.js') -Destination (Join-Path $output 'package/index.js')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'package.json') -Destination (Join-Path $output 'package/package.json')
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'backup.js') -Destination (Join-Path $output 'package/backup.js')
+$python=Join-Path $env:USERPROFILE '.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe'
+& $python (Join-Path $PSScriptRoot 'prepare-pg-tools.py') (Join-Path $output 'package/pg-tools')
+if($LASTEXITCODE -ne 0){throw 'Falha ao preparar pg_dump oficial verificado. Publicação interrompida.'}
 @("NAME=Orbe Testes","TYPE=site","ID=$SiteName","MAIN=index.js","RAM=512","VERSION=latest","AUTORESTART=true","VLAN=true")|Set-Content (Join-Path $output 'package/discloud.config') -Encoding ascii
 $revision=(& git -C $workspace rev-parse --short HEAD).Trim()
 function Package([bool]$DatabaseReady){
@@ -58,6 +62,11 @@ function Package([bool]$DatabaseReady){
  if($state.TrustedProxyAddresses){$secret.Proxy=@{Addresses=@($state.TrustedProxyAddresses)}}
  if($ProbeProxy){$secret.Logging=@{LogLevel=@{'Microsoft.AspNetCore.HttpOverrides.ForwardedHeadersMiddleware'='Debug'}}}
  if($DatabaseReady){$secret.ConnectionStrings=@{Orbe="Host=$($state.DatabaseHost);Port=5432;Database=orbe_test;Username=orbe;Password=$($vault.DbPassword);Maximum Pool Size=10;Timeout=15;Command Timeout=15"}}
+ if($DatabaseReady){
+  $certificate=[Security.Cryptography.X509Certificates.X509CertificateLoader]::LoadPkcs12([Convert]::FromBase64String($vault.Certificate),$vault.CertificatePassword,[Security.Cryptography.X509Certificates.X509KeyStorageFlags]::EphemeralKeySet)
+  $rsaPublic=[Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPublicKey($certificate)
+  try{$secret.Backups=@{Enabled=$true;Directory='.orbe-backups';HourUtc=6;RetentionDays=7;MaxBytes=1073741824;PublicKeyPem=$rsaPublic.ExportSubjectPublicKeyInfoPem();Environment=@{PGHOST=$state.DatabaseHost;PGPORT='5432';PGDATABASE='orbe_test';PGUSER='orbe';PGPASSWORD=$vault.DbPassword}}}finally{$rsaPublic.Dispose();$certificate.Dispose()}
+ }
  $secret|ConvertTo-Json -Depth 12|Set-Content -LiteralPath (Join-Path $server 'orbe.secrets.json') -Encoding utf8
  $zip=Join-Path $output 'orbe-test-private.zip'
  if(Test-Path -LiteralPath $zip){Remove-Item -LiteralPath $zip}
