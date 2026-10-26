@@ -42,7 +42,7 @@ public sealed partial class DashboardPage : ContentPage
         base.OnAppearing();compact=Width<860;lastWidth=Width;
         await Guard(async()=>
         {
-            profile=await client.Me();await client.ConfigureZone();people=(await client.Get<CloudEmployee[]>("team/employees")).Where(x=>x.Enabled).ToArray();
+            profile=await client.Me();await client.ConfigureZone();people=(await client.Get<CloudEmployee[]>("team/employees")).Where(x=>profile.Owner||x.Enabled).ToArray();
             if(!loaded)
             {
                 var employee=profile.Owner?Preferences.Default.Get("orbe-employee-id",""):profile.EmployeeId;

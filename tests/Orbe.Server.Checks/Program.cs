@@ -39,6 +39,7 @@ internal static class ChecksMain
   await using(var reset=new NpgsqlConnection(connection)){await reset.OpenAsync();await using var cmd=new NpgsqlCommand("DROP SCHEMA public CASCADE; CREATE SCHEMA public",reset);await cmd.ExecuteNonQueryAsync();}
   using var factory=new OrbeFactory(connection);
   var anonymous=factory.CreateClient();
+  using(var cacheResponse=await anonymous.GetAsync("/api/v1/public/info"))Check(cacheResponse.Headers.CacheControl?.NoStore==true,"Respostas da API não ficam no cache compartilhado do navegador");
   Check((await Get(anonymous,"/health")).GetProperty("status").GetString()=="ready","Health verifica conexão real ao PostgreSQL");
   var closed=await Get(anonymous,"/api/v1/public/info");Check(!closed.GetProperty("publicBookingOpen").GetBoolean(),"Reservas públicas fechadas por padrão");
   async Task<HttpClient> Login(string name)
@@ -111,7 +112,13 @@ internal static class ChecksMain
    try{await db.SaveChangesAsync();throw new Exception("Banco aceitou sobreposição");}catch(DbUpdateException e)when(e.InnerException is PostgresException{SqlState:"23P01"}){Check(true,"PostgreSQL impede sobreposição mesmo fora da API");}
   }
   var browser=factory.CreateClient();var csrf=await Get(browser,"/api/v1/auth/csrf");browser.DefaultRequestHeaders.Add("X-CSRF-TOKEN",csrf.GetProperty("token").GetString());await Send(browser,HttpMethod.Post,"/api/v1/auth/login",new{login="staff1",password=Password});browser.DefaultRequestHeaders.Remove("X-CSRF-TOKEN");await Send(browser,HttpMethod.Put,"/api/v1/auth/me",new{fullName="Forjado",phone="11999990000"},400);Check(true,"Sessão do navegador exige proteção CSRF para alterar dados");
+  var inactiveAppointment=await Send(owner,HttpMethod.Post,"/api/v1/team/appointments",new{employeeId=e2,title="Histórico de profissional inativo",start=At(14).AddDays(21),end=At(15).AddDays(21),expectedCents=0});
   var employees=await Get(owner,"/api/v1/owner/employees");var latest=employees.EnumerateArray().Single(x=>Id(x)==e2);await SetEmployee(e2,latest,false);await Send(staff2,HttpMethod.Get,"/api/v1/auth/me",expected:401);Check(true,"Desativar funcionário invalida acesso já emitido");
+  await SetHours(owner,e2,week);Check(true,"Owner ajusta jornada de profissional inativo sem reabrir seu acesso");
+  await Send(owner,HttpMethod.Put,"/api/v1/team/appointments/"+Id(inactiveAppointment),new{employeeId=e2,title="Histórico ajustado",start=At(14).AddDays(21),end=At(15).AddDays(21),expectedCents=0,version=inactiveAppointment.GetProperty("version").GetString()});Check(true,"Owner pode editar atendimento existente de profissional desativado");
+  await Send(owner,HttpMethod.Post,"/api/v1/team/entries",new{employeeId=e2,appointmentId=Id(inactiveAppointment),description="Recebimento após desativação",kind="Receita",date="2026-11-02",cents=500});Check(true,"Owner registra financeiro histórico sem reativar conta desativada");
+  await Send(owner,HttpMethod.Post,"/api/v1/team/appointments",new{employeeId=e2,title="Novo não permitido",start=At(16).AddDays(21),end=At(17).AddDays(21),expectedCents=0},400);Check(true,"Novos atendimentos continuam bloqueados para profissional inativo");
+  await Send(staff1,HttpMethod.Get,"/api/v1/team/hours?employeeId="+e2,expected:403);Check(true,"Permissão de manutenção do inativo não libera agenda de outro funcionário");
   await Send(client1,HttpMethod.Post,"/api/v1/auth/password",new{currentPassword=Password,newPassword="AnotherSyntheticPassword123"});await Send(client1,HttpMethod.Get,"/api/v1/auth/me",expected:401);Check(true,"Troca de senha revoga sessão anterior");
   await Send(anonymous,HttpMethod.Post,"/api/v1/auth/recover",new{email="cliente2@example.test"});
   var recovery=factory.Mail.Items.Last(x=>x.To=="cliente2@example.test"&&x.Subject.Contains("Recuperar"));var recoveryUrl=new Uri(recovery.Body[recovery.Body.IndexOf("http",StringComparison.Ordinal)..]);var recoveryQuery=Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(recoveryUrl.Query);
@@ -153,6 +160,8 @@ internal static class ChecksMain
   }
   using(var limited=new OrbeFactory(connection,2)){var c=limited.CreateClient();await Send(c,HttpMethod.Post,"/api/v1/auth/recover",new{email="absent@example.test"});await Send(c,HttpMethod.Post,"/api/v1/auth/recover",new{email="absent@example.test"});await Send(c,HttpMethod.Post,"/api/v1/auth/recover",new{email="absent@example.test"},429);Check(true,"Limite de tentativas é aplicado pelo servidor");}
   factory.Mail.Ready=false;
+  var opening=JsonSerializer.Deserialize<Dictionary<string,JsonElement>>((await Get(owner,"/api/v1/owner/settings")).GetRawText())!;opening["publicBookingOpen"]=JsonSerializer.SerializeToElement(true);
+  await Send(owner,HttpMethod.Put,"/api/v1/owner/settings",opening,409);Check(true,"Servidor recusa abrir reservas públicas enquanto SMTP está adiado");
   var knownRecovery=await Send(anonymous,HttpMethod.Post,"/api/v1/auth/recover",new{email="owner@example.test"},503);
   var absentRecovery=await Send(anonymous,HttpMethod.Post,"/api/v1/auth/recover",new{email="unregistered@example.test"},503);
   Check(knownRecovery.GetProperty("message").GetString()==absentRecovery.GetProperty("message").GetString(),"Sem SMTP a recuperação fica fechada sem revelar se a conta existe");

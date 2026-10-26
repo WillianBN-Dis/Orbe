@@ -25,7 +25,7 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
  }
  public async Task<object> ReadHours(string? employee)
  {
-  var id=await actor.Employee(employee);var person=await db.Employees.SingleAsync(x=>x.Id==id);var hours=await Hours(id);
+  var id=await actor.Employee(employee,true);var person=await db.Employees.SingleAsync(x=>x.Id==id);var hours=await Hours(id);
   return new{employeeId=id,person.Version,weekly=hours.Week,exceptions=hours.Days};
  }
  private static bool Fits(DateTimeOffset start,DateTimeOffset end,BookingPolicy policy,WeeklyWindow[] week,DateSchedule[] days)
@@ -49,7 +49,7 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
  }
  public async Task SaveHours(string? employee,HoursInput input)
  {
-  var id=await actor.Employee(employee);ValidateHours(input);
+  var id=await actor.Employee(employee,true);ValidateHours(input);
   await using var tx=await db.Database.BeginTransactionAsync();await Lock(id);
   var person=await db.Employees.SingleAsync(x=>x.Id==id);Version(input.Version,person.Version);
   var policy=(await Settings()).Policy();var now=clock.GetUtcNow();
@@ -161,7 +161,7 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
  }
  public async Task<ScheduleItem> EditBlock(string id,BlockInput input)
  {
-  var employee=await actor.Employee(input.EmployeeId);var item=await Accessible(id,true);
+  var employee=await actor.Employee(input.EmployeeId,true);var item=await Accessible(id,true);
   if(item.EmployeeId!=employee||item.Kind=="Atendimento"||input.Kind!=item.Kind||input.Version is null||string.IsNullOrWhiteSpace(input.Title)||input.Title.Length>200||input.End<=input.Start||input.End-input.Start>TimeSpan.FromDays(366)||input.Notes?.Length>2000)throw new ApiError(400,"Confira o bloqueio. Profissional e tipo são preservados na edição.");
   await using var tx=await db.Database.BeginTransactionAsync();await Lock(employee);await db.Entry(item).ReloadAsync();Version(input.Version.Value,item.Version);
   item.Title=input.Title.Trim();item.Start=input.Start.ToUniversalTime();item.End=input.End.ToUniversalTime();item.Notes=input.Notes;item.Version=Guid.NewGuid();await db.SaveChangesAsync();await tx.CommitAsync();return item;

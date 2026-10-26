@@ -49,7 +49,7 @@ public static class Routes
   team.MapPut("/appointments/{id}",async(string id,TeamAppointmentInput input,Actor actor,OrbeDb db,Scheduling s)=>
   {
    var item=await s.Accessible(id,true);Text(input.Title,200,"o título");
-   if(item.Kind!="Atendimento"||item.Status!="Confirmed"||item.EmployeeId!=await actor.Employee(input.EmployeeId)||input.End<=input.Start||input.End-input.Start>TimeSpan.FromDays(1)||input.ExpectedCents<0||input.Version!=item.Version||input.ClientId!=item.ClientId)throw new ApiError(409,"Atualize o agendamento antes de editar. Funcionário e conta da cliente são preservados.");
+   if(item.Kind!="Atendimento"||item.Status!="Confirmed"||item.EmployeeId!=await actor.Employee(input.EmployeeId,true)||input.End<=input.Start||input.End-input.Start>TimeSpan.FromDays(1)||input.ExpectedCents<0||input.Version!=item.Version||input.ClientId!=item.ClientId)throw new ApiError(409,"Atualize o agendamento antes de editar. Funcionário e conta da cliente são preservados.");
    await using var tx=await db.Database.BeginTransactionAsync();await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Employees\" WHERE \"Id\"={item.EmployeeId} FOR UPDATE");await db.Entry(item).ReloadAsync();if(input.Version!=item.Version)throw new ApiError(409,"Agendamento alterado por outra sessão.");
    item.Title=input.Title.Trim();item.Start=input.Start.ToUniversalTime();item.End=input.End.ToUniversalTime();item.Notes=input.Notes;item.LegacyClient=input.LegacyClient;item.ExpectedCents=input.ExpectedCents;item.DurationMinutes=(int)(input.End-input.Start).TotalMinutes;item.Version=Guid.NewGuid();await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(item);
   });
@@ -64,7 +64,7 @@ public static class Routes
   {
    Text(input.Description,200,"a descrição");if(input.Kind is not ("Receita" or "Despesa")||input.Cents<=0)throw new ApiError(400,"Informe um valor positivo e o tipo do lançamento.");
    if(input.Id is not null&&!Guid.TryParse(input.Id,out _))throw new ApiError(400,"Identificador de confirmação inválido.");
-   var employee=actor.Owner&&input.EmployeeId is null?null:await actor.Employee(input.EmployeeId);
+   var employee=actor.Owner&&input.EmployeeId is null?null:await actor.Employee(input.EmployeeId,true);
    await using var tx=await db.Database.BeginTransactionAsync();
    if(input.Id is not null)await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({'M'+input.Id},0))");
    if(input.AppointmentId is not null)
@@ -106,12 +106,13 @@ public static class Routes
   owner.MapPost("/services",async(ServiceInput input,OrbeDb db)=>{ValidateService(input);var row=new Service{Name=input.Name.Trim(),DurationMinutes=input.DurationMinutes,PriceCents=input.PriceCents,Enabled=input.Enabled};db.Services.Add(row);await db.SaveChangesAsync();return Results.Ok(row);});
   owner.MapPut("/services/{id}",async(string id,ServiceInput input,OrbeDb db)=>{ValidateService(input);var row=await db.Services.SingleOrDefaultAsync(x=>x.Id==id)??throw new ApiError(404,"Serviço não encontrado.");if(row.Version!=input.Version)throw new ApiError(409,"Serviço alterado. Atualize a lista.");row.Name=input.Name.Trim();row.DurationMinutes=input.DurationMinutes;row.PriceCents=input.PriceCents;row.Enabled=input.Enabled;row.Version=Guid.NewGuid();await db.SaveChangesAsync();return Results.Ok(row);});
   owner.MapGet("/settings",async(OrbeDb db)=>Results.Ok(await db.Settings.SingleAsync()));
-  owner.MapPut("/settings",async(PolicyInput input,OrbeDb db)=>
+  owner.MapPut("/settings",async(PolicyInput input,OrbeDb db,IEmailDelivery email)=>
   {
    Text(input.Name,100,"o nome do estabelecimento");var row=await db.Settings.SingleAsync();if(row.Version!=input.Version)throw new ApiError(409,"Configurações alteradas. Atualize.");
    new Orbe.Cloud.Core.BookingPolicy(input.SlotMinutes,input.LeadMinutes,input.HorizonDays,input.CancellationHours,input.TimeZoneId).Validate();
    if(input.PublicBookingOpen)
    {
+    if(!email.Ready)throw new ApiError(409,"Configure o envio de e-mails antes de abrir as reservas públicas.");
     if(!input.ImportCompleted||await db.Appointments.AnyAsync(x=>x.EmployeeId==null))throw new ApiError(409,"Conclua a importação e atribua os agendamentos antigos antes de abrir reservas.");
     if(!await db.EmployeeServices.AnyAsync(x=>db.Employees.Any(e=>e.Id==x.EmployeeId&&e.Enabled&&e.User.Active)&&db.Services.Any(s=>s.Id==x.ServiceId&&s.Enabled)&&db.WeekWindows.Any(w=>w.EmployeeId==x.EmployeeId)))throw new ApiError(409,"Configure ao menos um profissional ativo, serviço e jornada antes de abrir reservas.");
    }

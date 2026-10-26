@@ -101,9 +101,15 @@ public sealed partial class DashboardPage
     }
     private async Task AppointmentActions(Stored<Appointment> stored)
     {
-        var action=await DisplayActionSheetAsync(stored.Value.Title,"Voltar",null,"Editar agendamento","Lançar recebimento","Excluir agendamento");
+        var actions=stored.Value.Kind==EventKind.Atendimento?new[]{"Editar agendamento","Lançar recebimento","Cancelar atendimento","Excluir agendamento"}:new[]{"Editar agendamento","Excluir agendamento"};
+        var action=await DisplayActionSheetAsync(stored.Value.Title,"Voltar",null,actions);
         if(action=="Editar agendamento")await OpenAppointment(stored);
         else if(action=="Lançar recebimento")await OpenEntry(stored.Value);
+        else if(action=="Cancelar atendimento")
+        {
+            if(await DisplayAlertAsync("Cancelar atendimento?","O horário será liberado. O histórico e os lançamentos financeiros serão preservados.","Cancelar atendimento","Manter"))
+                await Guard(async()=>{await client.Post<System.Text.Json.JsonElement>("bookings/"+Uri.EscapeDataString(stored.Value.Id)+"/cancel",new{version=stored.Snapshot.Valores[0].GetGuid()});await Reload();await Render();});
+        }
         else if(action=="Excluir agendamento")
         {
             if(repository is null){await NeedConnection();return;}

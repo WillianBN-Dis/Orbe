@@ -10,7 +10,7 @@ public sealed partial class DashboardPage
   var scope=Stack(14,Text("Agenda em foco",19,Ink,true));
   if(profile.Owner&&repository is not null)
   {
-   var choices=new[]{"Visão geral · todos os profissionais"}.Concat(people.Select(x=>x.DisplayName)).ToArray();var picker=new Picker{ItemsSource=choices,SelectedIndex=current is null?0:Array.FindIndex(people,x=>x.Id==current)+1};
+   var choices=new[]{"Visão geral · todos os profissionais"}.Concat(people.Select(x=>x.Caption)).ToArray();var picker=new Picker{ItemsSource=choices,SelectedIndex=current is null?0:Array.FindIndex(people,x=>x.Id==current)+1};
    picker.SelectedIndexChanged+=async(_,_)=>await Guard(async()=>{var previous=repository.EmployeeId;repository.EmployeeId=picker.SelectedIndex<=0?null:people[picker.SelectedIndex-1].Id;try{await Reload();}catch{repository.EmployeeId=previous;throw;}Preferences.Default.Set("orbe-employee-id",repository.EmployeeId??"");BuildShell();});scope.Add(Field("Profissional",picker));
   }
   else scope.Add(Text(people.FirstOrDefault(x=>x.Id==profile.EmployeeId)?.DisplayName??profile.FullName,14,Muted));

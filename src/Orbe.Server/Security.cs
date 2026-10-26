@@ -47,10 +47,10 @@ public sealed class Actor(IHttpContextAccessor accessor,OrbeDb db)
  public bool Client=>User.IsInRole(Roles.Client);
  public void RequireOwner(){if(!Owner)throw new ApiError(403,"Esta ação é exclusiva de WillianBN.");}
  public void RequireTeam(){if(!Owner&&!User.IsInRole(Roles.Staff))throw new ApiError(403,"Acesso exclusivo da equipe.");}
- public async Task<string> Employee(string? requested)
+ public async Task<string> Employee(string? requested,bool allowInactive=false)
  {
   RequireTeam();
-  if(Owner){if(string.IsNullOrWhiteSpace(requested)||!await db.Employees.AnyAsync(x=>x.Id==requested&&x.Enabled))throw new ApiError(400,"Selecione um funcionário ativo.");return requested;}
+  if(Owner){if(string.IsNullOrWhiteSpace(requested)||!await db.Employees.AnyAsync(x=>x.Id==requested&&(allowInactive||x.Enabled)))throw new ApiError(400,allowInactive?"Selecione um funcionário válido.":"Selecione um funcionário ativo.");return requested;}
   var own=await db.Employees.SingleOrDefaultAsync(x=>x.UserId==Id&&x.Enabled)??throw new ApiError(403,"Funcionário indisponível.");
   if(requested is not null&&requested!=own.Id)throw new ApiError(403,"Você só pode acessar a própria agenda.");
   return own.Id;

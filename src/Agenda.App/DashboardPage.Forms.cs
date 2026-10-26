@@ -8,6 +8,7 @@ public sealed partial class DashboardPage
     private Task OpenAppointment(Stored<Appointment>? original=null)
     {
         if(repository is null||repository.EmployeeId is null)return NeedConnection();
+        if(original is null&&people.Any(x=>x.Id==repository.EmployeeId&&!x.Enabled))return DisplayAlertAsync("Profissional inativo","Você pode consultar e ajustar o histórico. Reative o profissional antes de criar novos atendimentos.","Entendi");
         var a=original?.Value;var eventId=a?.Id??Guid.NewGuid().ToString("N");
         var title=Input("Ex.: Atendimento individual",a?.Title);var person=Input("Nome da pessoa ou cliente",a?.Client);
         var notes=new Editor{Text=a?.Notes,Placeholder="Algum detalhe importante para este compromisso?",AutoSize=EditorAutoSizeOption.TextChanges,MinimumHeightRequest=90,TextColor=Ink,PlaceholderColor=Dim,FontSize=14};

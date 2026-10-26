@@ -9,7 +9,7 @@ public sealed record CloudProfile(string Id,string FullName,string Email,string?
 {public bool Owner=>Roles.Contains("Owner");public bool Team=>Owner||Roles.Contains("Staff");}
 public sealed record CloudSession(string AccessToken,DateTimeOffset ExpiresAt,CloudProfile Profile);
 public sealed record CloudInfo(string Name,bool PublicBookingOpen,string TimeZoneId,int CancellationHours,bool EmailReady);
-public sealed record CloudEmployee(string Id,string DisplayName,bool Enabled,Guid Version);
+public sealed record CloudEmployee(string Id,string DisplayName,bool Enabled,Guid Version){public string Caption=>DisplayName+(Enabled?"":" · inativo");}
 public sealed record CloudItem(string Id,string? EmployeeId,string? ClientId,string? ServiceId,string Title,string Kind,string Status,DateTimeOffset Start,DateTimeOffset End,string? LegacyClient,string? ClientName,string? Notes,long ExpectedCents,int DurationMinutes,Guid Version);
 public sealed record CloudMoney(string Id,string? EmployeeId,string? AppointmentId,string Description,string Kind,DateOnly Date,long Cents,Guid Version);
 public sealed class CloudApi:IDisposable

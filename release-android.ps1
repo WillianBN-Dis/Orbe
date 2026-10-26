@@ -1,4 +1,4 @@
-param([string]$Version='1.0.2', [int]$VersionCode=10002)
+param([string]$Version='2.0.0', [int]$VersionCode=20000)
 $ErrorActionPreference='Stop'
 if($Version -notmatch '^\d+\.\d+\.\d+$' -or $VersionCode -lt 1){throw 'Informe versão semântica e código Android positivo.'}
 $dotnet=Join-Path $env:LOCALAPPDATA 'NexusDev\dotnet\dotnet.exe'

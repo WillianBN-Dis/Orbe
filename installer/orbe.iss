@@ -30,7 +30,12 @@ UninstallDisplayIcon={app}\Agenda.App.exe
 WizardStyle=modern
 Compression=lzma2
 SolidCompression=yes
+#ifdef OrbeQa
+CloseApplications=no
+CreateUninstallRegKey=no
+#else
 CloseApplications=yes
+#endif
 RestartApplications=no
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -43,8 +48,10 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 Name: "desktopicon"; Description: "Criar um atalho na área de trabalho"; GroupDescription: "Atalhos:"; Flags: unchecked
 [Files]
 Source: "{#OrbePayload}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+#ifndef OrbeQa
 [Icons]
 Name: "{autoprograms}\Orbe"; Filename: "{app}\Agenda.App.exe"; WorkingDir: "{app}"
 Name: "{autodesktop}\Orbe"; Filename: "{app}\Agenda.App.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+#endif
 [Run]
 Filename: "{app}\Agenda.App.exe"; Description: "Abrir Orbe"; Flags: nowait postinstall skipifsilent

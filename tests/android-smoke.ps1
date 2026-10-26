@@ -1,6 +1,6 @@
 param(
  [Parameter(Mandatory)][string]$Apk,
- [string]$Version='1.0.2',
+ [string]$Version='2.0.0',
  [string]$Serial='emulator-5554'
 )
 $ErrorActionPreference='Stop'

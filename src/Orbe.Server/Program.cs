@@ -39,6 +39,7 @@ app.UseForwardedHeaders();
 app.Use(async(c,next)=>
  {
   c.Response.Headers.XContentTypeOptions="nosniff";c.Response.Headers["Referrer-Policy"]="no-referrer";
+  if(c.Request.Path.StartsWithSegments("/api"))c.Response.Headers.CacheControl="no-store";
   c.Response.Headers["Content-Security-Policy"]="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
   if(app.Environment.IsProduction())c.Response.Headers.StrictTransportSecurity="max-age=31536000";
   if(app.Configuration.GetValue<bool>("Database:SkipInitialize")&&c.Request.Path.StartsWithSegments("/api")){c.Response.StatusCode=503;await c.Response.WriteAsJsonAsync(new{message="O servidor está sendo preparado. As reservas continuam fechadas."});return;}
