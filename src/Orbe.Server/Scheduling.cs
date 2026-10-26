@@ -8,7 +8,7 @@ public sealed record HoursInput(Guid Version,WeeklyWindow[] Weekly,DateSchedule[
 public sealed record ReservationInput(string EmployeeId,string ServiceId,DateTimeOffset Start);
 public sealed record MoveInput(DateTimeOffset Start,Guid Version);
 public sealed record VersionInput(Guid Version);
-public sealed record BlockInput(string? EmployeeId,string Title,string Kind,DateTimeOffset Start,DateTimeOffset End,string? Notes,Guid? Version=null);
+public sealed record BlockInput(string? EmployeeId,string Title,string Kind,DateTimeOffset Start,DateTimeOffset End,string? Notes,Guid? Version=null,string? Id=null);
 public sealed record TeamAppointmentInput(string? EmployeeId,string Title,DateTimeOffset Start,DateTimeOffset End,string? ClientId,string? LegacyClient,string? Notes,long ExpectedCents,Guid? Version,string? Id=null);
 public sealed record MoneyInput(string? EmployeeId,string? AppointmentId,string Description,string Kind,DateOnly Date,long Cents,string? Id=null);
 
@@ -150,11 +150,14 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
  {
   var employee=await actor.Employee(input.EmployeeId);
   if(string.IsNullOrWhiteSpace(input.Title)||input.Title.Length>200||input.Kind is not ("Folga" or "Compromisso" or "Outro")||input.End<=input.Start||input.End-input.Start>TimeSpan.FromDays(366)||input.Notes?.Length>2000)throw new ApiError(400,"Confira o título e o período do bloqueio.");
+  if(input.Id is not null&&!Guid.TryParse(input.Id,out _))throw new ApiError(400,"Identificador de confirmação inválido.");
   await using var tx=await db.Database.BeginTransactionAsync();await Lock(employee);
   var start=input.Start.ToUniversalTime();var end=input.End.ToUniversalTime();
+  if(input.Id is not null&&await db.Appointments.SingleOrDefaultAsync(x=>x.Id==input.Id) is {} prior)
+  {if(prior.EmployeeId!=employee||prior.Kind!=input.Kind||prior.Title!=input.Title.Trim()||prior.Start!=start||prior.End!=end||prior.Notes!=input.Notes||prior.Status!="Confirmed")throw new ApiError(409,"Esta confirmação já foi usada para outro bloqueio.");return prior;}
   var conflicts=await db.Appointments.Where(x=>x.EmployeeId==employee&&x.Status=="Confirmed"&&x.Start<end&&x.End>start).Select(x=>new{x.Id,x.Title,x.Start,x.End}).ToArrayAsync();
   if(conflicts.Length>0)throw new ApiError(409,"Este período já está ocupado. Resolva os agendamentos ou bloqueios existentes primeiro.",conflicts);
-  var item=new ScheduleItem{EmployeeId=employee,Title=input.Title.Trim(),Kind=input.Kind,Start=start,End=end,Notes=input.Notes};db.Appointments.Add(item);await db.SaveChangesAsync();await tx.CommitAsync();return item;
+  var item=new ScheduleItem{EmployeeId=employee,Title=input.Title.Trim(),Kind=input.Kind,Start=start,End=end,Notes=input.Notes};if(input.Id is not null)item.Id=input.Id;db.Appointments.Add(item);await db.SaveChangesAsync();await tx.CommitAsync();return item;
  }
  public async Task<ScheduleItem> EditBlock(string id,BlockInput input)
  {

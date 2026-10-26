@@ -88,7 +88,7 @@ public sealed class CloudAgendaRepository(CloudApi api,string? employeeId):IAgen
   }
   else
   {
-   var body=new{employeeId=EmployeeId,item.Title,kind=item.Kind.ToString(),start=api.Instant(item.Start),end=api.Instant(item.End),item.Notes,version=original is null?(Guid?)null:Version(original)};
+   var body=new{id=item.Id,employeeId=EmployeeId,item.Title,kind=item.Kind.ToString(),start=api.Instant(item.Start),end=api.Instant(item.End),item.Notes,version=original is null?(Guid?)null:Version(original)};
    if(original is null)await api.Post<JsonElement>("team/blocks",body);else await api.Put<JsonElement>("team/blocks/"+Uri.EscapeDataString(item.Id),body);
   }
  }

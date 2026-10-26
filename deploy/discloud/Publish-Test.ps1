@@ -1,4 +1,4 @@
-param([string]$SiteName='orbe-willianbn',[string]$OwnerEmail='', [switch]$SkipBuild)
+param([string]$SiteName='orbe-willianbn',[string]$OwnerEmail='', [switch]$SkipBuild,[string[]]$TrustedProxyAddresses=@(),[switch]$ProbeProxy)
 $ErrorActionPreference='Stop'
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $output=Join-Path $workspace 'artifacts/discloud-test'
@@ -19,6 +19,7 @@ else{
 if($OwnerEmail){$vault.OwnerEmail=$OwnerEmail;SaveVault}
 $state=if(Test-Path -LiteralPath $stateFile){Get-Content -LiteralPath $stateFile -Raw|ConvertFrom-Json -AsHashtable}else{@{SiteName=$SiteName;SiteId='';DatabaseId='';DatabaseHost='';DatabaseReady=$false;PublicUrl=''}}
 if($state.SiteName -ne $SiteName){throw 'O estado existente usa outro nome de site. Não será sobrescrito.'}
+if($TrustedProxyAddresses.Count -gt 0){foreach($address in $TrustedProxyAddresses){$parsed=$null;if(![Net.IPAddress]::TryParse($address,[ref]$parsed) -or $address -in '0.0.0.0','::'){throw 'Informe somente IPs explícitos de proxies verificados.'}};$state.TrustedProxyAddresses=$TrustedProxyAddresses;SaveState}
 $authFile=Join-Path $env:USERPROFILE '.discloud/.cli'
 try{$encoded=[IO.File]::ReadAllText($authFile).Trim();$auth=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($encoded))|ConvertFrom-Json;$apiToken=$auth.token;if(!$apiToken){throw 'missing'}}catch{throw 'Autentique a CLI Discloud local antes de publicar. Não envie tokens pelo chat.'}
 $headers=@{'api-token'=$apiToken}
@@ -54,6 +55,8 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'package.json') -Destination (Jo
 $revision=(& git -C $workspace rev-parse --short HEAD).Trim()
 function Package([bool]$DatabaseReady){
  $secret=@{PublicUrl=$state.PublicUrl;Deployment=@{Revision=$revision};DataProtection=@{Certificate=$vault.Certificate;Password=$vault.CertificatePassword};Database=@{SkipInitialize=(!$DatabaseReady)};Bootstrap=@{AllowUnconfiguredOwner=([string]::IsNullOrWhiteSpace($vault.OwnerEmail))};Owner=@{Email=$vault.OwnerEmail;Password=$vault.OwnerPassword}}
+ if($state.TrustedProxyAddresses){$secret.Proxy=@{Addresses=@($state.TrustedProxyAddresses)}}
+ if($ProbeProxy){$secret.Logging=@{LogLevel=@{'Microsoft.AspNetCore.HttpOverrides.ForwardedHeadersMiddleware'='Debug'}}}
  if($DatabaseReady){$secret.ConnectionStrings=@{Orbe="Host=$($state.DatabaseHost);Port=5432;Database=orbe_test;Username=orbe;Password=$($vault.DbPassword);Maximum Pool Size=10;Timeout=15;Command Timeout=15"}}
  $secret|ConvertTo-Json -Depth 12|Set-Content -LiteralPath (Join-Path $server 'orbe.secrets.json') -Encoding utf8
  $zip=Join-Path $output 'orbe-test-private.zip'

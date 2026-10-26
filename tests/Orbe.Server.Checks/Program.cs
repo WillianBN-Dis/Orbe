@@ -30,6 +30,9 @@ internal static class ChecksMain
  static DateTimeOffset At(int h,int m=0)=>new(2026,11,2,h,m,0,TimeSpan.FromHours(-3));
  public static async Task Main()
  {
+  Check(await ProxyChecks.Verify(true),"Proxy explícito fornece IP real e HTTPS ao limitador");
+  Check(await ProxyChecks.Verify(false),"Remetente não confiável não forja IP nem protocolo");
+  Check(await ProxyChecks.Verify(true,true),"Somente último salto confiável é aceito no cabeçalho encaminhado");
   var connection=Environment.GetEnvironmentVariable("ORBE_TEST_DATABASE")??throw new Exception("Configure ORBE_TEST_DATABASE para o PostgreSQL isolado.");
   var cs=new NpgsqlConnectionStringBuilder(connection);
   if(cs.Host!="127.0.0.1"||cs.Port!=55439||cs.Database!="orbe_cloud_test")throw new Exception("Os testes exigem o banco local exclusivo orbe_cloud_test na porta 55439.");
@@ -146,7 +149,7 @@ internal static class ChecksMain
    await repo.Save(item);var stored=(await repo.Appointments()).Single(x=>x.Value.Title==item.Title);await repo.Save(item with{Id=stored.Value.Id,Title="Nativo atualizado"},stored.Snapshot);
    stored=(await repo.Appointments()).Single(x=>x.Value.Id==stored.Value.Id);Check(stored.Value.Title=="Nativo atualizado"&&stored.Value.Start==item.Start,"Cliente MAUI cria/edita evento com snapshot e horário local sem deslocamento");
    var nativeMoney=new Agenda.Core.MoneyEntry(Guid.NewGuid().ToString("N"),"Vinculado pelo app",Agenda.Core.EntryKind.Receita,new(2026,11,23),2000,stored.Value.Id);await Task.WhenAll(repo.Save(nativeMoney),repo.Save(nativeMoney));await repo.Save(nativeMoney);Check((await repo.Entries()).Count(x=>x.Value.Id==nativeMoney.Id)==1,"Confirmações financeiras simultâneas e repetidas pelo app não duplicam lançamento");await repo.Delete(stored);Check((await repo.Entries()).All(x=>x.Value.AppointmentId!=stored.Value.Id),"Cliente MAUI usa exclusão financeira transacional da nuvem");
-   var block=new Agenda.Core.Appointment("native-block","Folga via app",Agenda.Core.EventKind.Folga,new(2026,11,30,0,0,0),new(2026,12,1,0,0,0),null,null,0);await repo.Save(block);var blocked=(await repo.Appointments()).Single(x=>x.Value.Title==block.Title);await repo.Save(block with{Id=blocked.Value.Id,Title="Folga ajustada"},blocked.Snapshot);blocked=(await repo.Appointments()).Single(x=>x.Value.Id==blocked.Value.Id);Check(blocked.Value.Title=="Folga ajustada","Cliente MAUI cria e edita bloqueio integral com controle de versão");await repo.Delete(blocked);
+   var block=new Agenda.Core.Appointment(Guid.NewGuid().ToString("N"),"Folga via app",Agenda.Core.EventKind.Folga,new(2026,11,30,0,0,0),new(2026,12,1,0,0,0),null,null,0);await Task.WhenAll(repo.Save(block),repo.Save(block));Check((await repo.Appointments()).Count(x=>x.Value.Id==block.Id)==1,"Repetir bloqueio simultaneamente no app não duplica evento");var blocked=(await repo.Appointments()).Single(x=>x.Value.Title==block.Title);await repo.Save(block with{Id=blocked.Value.Id,Title="Folga ajustada"},blocked.Snapshot);blocked=(await repo.Appointments()).Single(x=>x.Value.Id==blocked.Value.Id);Check(blocked.Value.Title=="Folga ajustada","Cliente MAUI cria e edita bloqueio integral com controle de versão");await repo.Delete(blocked);
   }
   using(var limited=new OrbeFactory(connection,2)){var c=limited.CreateClient();await Send(c,HttpMethod.Post,"/api/v1/auth/recover",new{email="absent@example.test"});await Send(c,HttpMethod.Post,"/api/v1/auth/recover",new{email="absent@example.test"});await Send(c,HttpMethod.Post,"/api/v1/auth/recover",new{email="absent@example.test"},429);Check(true,"Limite de tentativas é aplicado pelo servidor");}
   Console.WriteLine($"{checks} verificações HTTP/PostgreSQL passaram com dados exclusivamente sintéticos.");

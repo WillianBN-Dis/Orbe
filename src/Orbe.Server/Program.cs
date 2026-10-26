@@ -12,6 +12,7 @@ using Orbe.Server;
 var builder=WebApplication.CreateBuilder(args);
 // Uploaded private configuration is outside wwwroot and never tracked in Git.
 builder.Configuration.AddJsonFile("orbe.secrets.json",optional:true,reloadOnChange:false).AddEnvironmentVariables();
+builder.Services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>(options=>ProxyTrust.Configure(options,builder.Configuration));
 builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics",LogLevel.Warning);
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command",LogLevel.Warning);
 builder.Services.AddDbContext<OrbeDb>(o=>o.UseNpgsql(builder.Configuration.GetConnectionString("Orbe"),n=>n.CommandTimeout(15)));
@@ -34,6 +35,7 @@ builder.Services.AddRateLimiter(o=>
  });
 builder.WebHost.ConfigureKestrel(o=>o.Limits.MaxRequestBodySize=2*1024*1024);
 var app=builder.Build();
+app.UseForwardedHeaders();
 app.Use(async(c,next)=>
  {
   c.Response.Headers.XContentTypeOptions="nosniff";c.Response.Headers["Referrer-Policy"]="no-referrer";
