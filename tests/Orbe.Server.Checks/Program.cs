@@ -152,13 +152,18 @@ internal static class ChecksMain
    var block=new Agenda.Core.Appointment(Guid.NewGuid().ToString("N"),"Folga via app",Agenda.Core.EventKind.Folga,new(2026,11,30,0,0,0),new(2026,12,1,0,0,0),null,null,0);await Task.WhenAll(repo.Save(block),repo.Save(block));Check((await repo.Appointments()).Count(x=>x.Value.Id==block.Id)==1,"Repetir bloqueio simultaneamente no app não duplica evento");var blocked=(await repo.Appointments()).Single(x=>x.Value.Title==block.Title);await repo.Save(block with{Id=blocked.Value.Id,Title="Folga ajustada"},blocked.Snapshot);blocked=(await repo.Appointments()).Single(x=>x.Value.Id==blocked.Value.Id);Check(blocked.Value.Title=="Folga ajustada","Cliente MAUI cria e edita bloqueio integral com controle de versão");await repo.Delete(blocked);
   }
   using(var limited=new OrbeFactory(connection,2)){var c=limited.CreateClient();await Send(c,HttpMethod.Post,"/api/v1/auth/recover",new{email="absent@example.test"});await Send(c,HttpMethod.Post,"/api/v1/auth/recover",new{email="absent@example.test"});await Send(c,HttpMethod.Post,"/api/v1/auth/recover",new{email="absent@example.test"},429);Check(true,"Limite de tentativas é aplicado pelo servidor");}
+  factory.Mail.Ready=false;
+  var knownRecovery=await Send(anonymous,HttpMethod.Post,"/api/v1/auth/recover",new{email="owner@example.test"},503);
+  var absentRecovery=await Send(anonymous,HttpMethod.Post,"/api/v1/auth/recover",new{email="unregistered@example.test"},503);
+  Check(knownRecovery.GetProperty("message").GetString()==absentRecovery.GetProperty("message").GetString(),"Sem SMTP a recuperação fica fechada sem revelar se a conta existe");
+  await Send(anonymous,HttpMethod.Post,"/api/v1/auth/register",new{fullName="Cadastro Fechado",email="closed@example.test",phone="11999999999",birthDate="2000-01-01",password=Password},503);Check(true,"Cadastro de cliente é recusado enquanto envio de e-mail não está pronto");
   Console.WriteLine($"{checks} verificações HTTP/PostgreSQL passaram com dados exclusivamente sintéticos.");
  }
 }
 internal sealed class TestClock : TimeProvider {public DateTimeOffset Now=new(2026,11,2,6,0,0,TimeSpan.FromHours(-3));public override DateTimeOffset GetUtcNow()=>Now.ToUniversalTime();}
 internal sealed class MailCapture : IEmailDelivery
 {
- public ConcurrentQueue<(string To,string Subject,string Body)> Items {get;}=new();public bool Ready=>true;
+ public ConcurrentQueue<(string To,string Subject,string Body)> Items {get;}=new();public bool Ready {get;set;}=true;
  public Task Send(string to,string subject,string body){Items.Enqueue((to,subject,body));return Task.CompletedTask;}
 }
 internal sealed class OrbeFactory(string connection,int authLimit=1000):WebApplicationFactory<global::Program>

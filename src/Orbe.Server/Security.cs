@@ -95,6 +95,7 @@ public sealed class AuthService(OrbeDb db,UserManager<AppUser> users,IEmailDeliv
  }
  public async Task Recover(string address)
  {
+  if(!email.Ready)throw new ApiError(503,"O envio de e-mails ainda não foi configurado. Entre em contato com a equipe.");
   var user=await users.FindByEmailAsync(address);
   if(user is not null&&user.Active&&user.EmailConfirmed)
    await email.Send(user.Email!,"Recuperar acesso ao Orbe","Defina uma nova senha: "+Link("redefinir-senha",user.Id,await users.GeneratePasswordResetTokenAsync(user)));

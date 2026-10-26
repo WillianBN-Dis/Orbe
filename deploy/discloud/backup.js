@@ -20,6 +20,16 @@ async function decrypt(input,output,privateKey){
   await pipeline(fs.createReadStream(input,{start:header.length,end:total-17}),cipher,fs.createWriteStream(partial,{flags:'wx',mode:0o600}));fs.renameSync(partial,output);
  }catch(error){fs.rmSync(partial,{force:true});throw error;}finally{fs.closeSync(fd);key?.fill(0);}
 }
+function prune(directory,days=7,now=new Date()){
+ const cutoff=Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate())-(days-1)*86400000;let removed=0;
+ for(const entry of fs.readdirSync(directory,{withFileTypes:true})){
+  if(!entry.isFile())continue;
+  const match=/^orbe-(\d{4}-\d{2}-\d{2})-[a-f0-9-]+\.orbebak$/.exec(entry.name),file=path.join(directory,entry.name);
+  const stale=/^orbe-[\d-]+-[a-f0-9-]+\.orbebak(?:\.candidate)?(?:\.partial-[a-f0-9-]+)?$/.test(entry.name)&&!match&&fs.statSync(file).mtimeMs<now.getTime()-86400000;
+  if(match&&Date.parse(match[1]+'T00:00:00Z')<cutoff||stale){fs.unlinkSync(file);removed++;}
+ }
+ return removed;
+}
 function start(config,root=__dirname){
  if(!config?.Enabled)return()=>{};
  const directory=path.resolve(root,config.Directory||'.orbe-backups'),tools=path.join(root,'pg-tools'),binary=path.join(tools,'pg_dump');
@@ -32,7 +42,7 @@ function start(config,root=__dirname){
   try{child=spawn(binary,['--format=custom','--no-owner','--no-acl','--no-password'],{cwd:root,env:{...process.env,...config.Environment,LD_LIBRARY_PATH:tools+(process.env.LD_LIBRARY_PATH?':'+process.env.LD_LIBRARY_PATH:''),PGAPPNAME:'orbe-daily-backup',PGCONNECT_TIMEOUT:'15'},stdio:['ignore','pipe','ignore'],signal:controller.signal});
    const exit=new Promise((resolve,reject)=>{child.once('error',reject);child.once('close',code=>code===0?resolve():reject(new Error('Database backup process failed')));});exit.catch(()=>{});
    await encrypt(child.stdout,output+'.candidate',config.PublicKeyPem,config.MaxBytes);await exit;fs.renameSync(output+'.candidate',output);
-   const cutoff=Date.now()-(config.RetentionDays??7)*86400000;for(const name of ready()){const file=path.join(directory,name);if(fs.statSync(file).mtimeMs<cutoff)fs.unlinkSync(file);}
+   prune(directory,config.RetentionDays??7);
    console.log('Orbe daily backup completed (encrypted).');
   }catch{if(child&&!child.killed)child.kill('SIGTERM');fs.rmSync(output,{force:true});fs.rmSync(output+'.candidate',{force:true});nextAttempt=Date.now()+3600000;console.error('Orbe daily backup failed; retry in one hour.');}
   finally{clearTimeout(timer);running=false;}
@@ -40,5 +50,5 @@ function start(config,root=__dirname){
  const interval=setInterval(()=>{tick().catch(()=>console.error('Orbe backup scheduler failed.'));},60000);interval.unref();tick().catch(()=>console.error('Orbe backup scheduler failed.'));
  return()=>{clearInterval(interval);controller?.abort();};
 }
-module.exports={encrypt,decrypt,start};
+module.exports={encrypt,decrypt,start,prune};
 if(require.main===module){let data='';process.stdin.setEncoding('utf8');process.stdin.on('data',chunk=>{data+=chunk;if(data.length>65536)process.exit(1);});process.stdin.on('end',async()=>{try{const job=JSON.parse(data);await decrypt(job.input,job.output,job.privateKey);console.log('Backup authenticated and decrypted.');}catch{console.error('Backup decryption failed. No restored output was retained.');process.exitCode=1;}});}

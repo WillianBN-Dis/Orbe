@@ -9,7 +9,8 @@ $node=Join-Path $env:USERPROFILE '.cache/codex-runtimes/codex-primary-runtime/de
 try{
  $secure=ConvertTo-SecureString ([IO.File]::ReadAllText($vaultFile).Trim())
  $vault=[Net.NetworkCredential]::new('',$secure).Password|ConvertFrom-Json
- $cert=[Security.Cryptography.X509Certificates.X509CertificateLoader]::LoadPkcs12([Convert]::FromBase64String($vault.Certificate),$vault.CertificatePassword,[Security.Cryptography.X509Certificates.X509KeyStorageFlags]::EphemeralKeySet)
+ $flags=[Security.Cryptography.X509Certificates.X509KeyStorageFlags]::EphemeralKeySet -bor [Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable
+ $cert=[Security.Cryptography.X509Certificates.X509CertificateLoader]::LoadPkcs12([Convert]::FromBase64String($vault.Certificate),$vault.CertificatePassword,$flags)
  $rsa=[Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($cert)
  $payload=@{input=$source;output=$target;privateKey=$rsa.ExportPkcs8PrivateKeyPem()}|ConvertTo-Json -Compress
  $payload|& $node (Join-Path $PSScriptRoot 'backup.js')

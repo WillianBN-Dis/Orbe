@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),{Readable}=require('node:stream');
-const {encrypt,decrypt}=require('../deploy/discloud/backup');
+const {encrypt,decrypt,prune}=require('../deploy/discloud/backup');
 (async()=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'orbe-backup-check-')),keys=crypto.generateKeyPairSync('rsa',{modulusLength:2048,publicKeyEncoding:{type:'spki',format:'pem'},privateKeyEncoding:{type:'pkcs8',format:'pem'}});
  const input=crypto.randomBytes(1024*1024+71),file=path.join(root,'snapshot.orbebak'),plain=path.join(root,'restored.dump');let checks=0;
@@ -11,6 +11,8 @@ const {encrypt,decrypt}=require('../deploy/discloud/backup');
   const truncated=path.join(root,'truncated');fs.writeFileSync(truncated,fs.readFileSync(file).subarray(0,25));await assert.rejects(decrypt(truncated,truncated+'.dump',keys.privateKey));checks++;
   const limited=path.join(root,'oversize');await assert.rejects(encrypt(Readable.from([input]),limited,keys.publicKey,1024));assert.equal(fs.existsSync(limited),false);checks++;
   await assert.rejects(decrypt(file,plain,keys.privateKey));assert.deepEqual(fs.readFileSync(plain),input);checks++;
+  for(const day of ['2026-10-19','2026-10-20','2026-10-26'])fs.writeFileSync(path.join(root,'orbe-'+day+'-abcdef.orbebak'),'synthetic');
+  fs.writeFileSync(path.join(root,'unrelated-note.txt'),'keep');assert.equal(prune(root,7,new Date('2026-10-26T06:00:00Z')),1);assert.equal(fs.existsSync(path.join(root,'orbe-2026-10-20-abcdef.orbebak')),true);assert.equal(fs.existsSync(path.join(root,'unrelated-note.txt')),true);checks++;
   console.log(checks+' backup checks passed with synthetic data only.');
  }finally{fs.rmSync(root,{recursive:true});}
 })().catch(error=>{console.error(error.message);process.exitCode=1;});
