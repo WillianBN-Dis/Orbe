@@ -53,7 +53,16 @@ app.Use(async(c,next)=>
  });
 app.UseDefaultFiles();app.UseStaticFiles();app.UseRateLimiter();app.UseAuthentication();app.UseAuthorization();
 app.Use(async(c,next)=>{if(c.Request.Path.StartsWithSegments("/api")&&c.Request.Method is not ("GET" or "HEAD" or "OPTIONS")&&c.Request.Cookies.ContainsKey(Secrets.Cookie)&&!c.Request.Headers.Authorization.ToString().StartsWith("Bearer ",StringComparison.OrdinalIgnoreCase))await c.RequestServices.GetRequiredService<IAntiforgery>().ValidateRequestAsync(c);await next();});
-app.MapGet("/health",()=>Results.Ok(new{service="Orbe",status=app.Configuration.GetValue<bool>("Database:SkipInitialize")?"initializing":"ready",revision=app.Configuration["Deployment:Revision"]??"development"}));
+app.MapGet("/health",async(OrbeDb db,HttpContext context)=>
+{
+ var ready=false;
+ if(!app.Configuration.GetValue<bool>("Database:SkipInitialize"))
+ {
+  using var timeout=CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);timeout.CancelAfter(TimeSpan.FromSeconds(2));
+  try{ready=await db.Database.CanConnectAsync(timeout.Token);}catch(OperationCanceledException){ }
+ }
+ return Results.Json(new{service="Orbe",status=ready?"ready":"unavailable",revision=app.Configuration["Deployment:Revision"]??"development"},statusCode:ready?200:503);
+});
 app.MapAuth();app.MapOrbe();app.MapImports();
 app.MapFallback(async c=>{if(c.Request.Path.StartsWithSegments("/api")){c.Response.StatusCode=404;await c.Response.WriteAsJsonAsync(new{message="Recurso não encontrado."});}else{c.Response.ContentType="text/html; charset=utf-8";await c.Response.SendFileAsync(Path.Combine(app.Environment.WebRootPath,"index.html"));}});
 if(!builder.Configuration.GetValue<bool>("Database:SkipInitialize"))await Bootstrap.Initialize(app.Services,app.Configuration);

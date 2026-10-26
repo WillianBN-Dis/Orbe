@@ -36,6 +36,7 @@ internal static class ChecksMain
   await using(var reset=new NpgsqlConnection(connection)){await reset.OpenAsync();await using var cmd=new NpgsqlCommand("DROP SCHEMA public CASCADE; CREATE SCHEMA public",reset);await cmd.ExecuteNonQueryAsync();}
   using var factory=new OrbeFactory(connection);
   var anonymous=factory.CreateClient();
+  Check((await Get(anonymous,"/health")).GetProperty("status").GetString()=="ready","Health verifica conexão real ao PostgreSQL");
   var closed=await Get(anonymous,"/api/v1/public/info");Check(!closed.GetProperty("publicBookingOpen").GetBoolean(),"Reservas públicas fechadas por padrão");
   async Task<HttpClient> Login(string name)
   {
