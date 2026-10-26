@@ -42,21 +42,17 @@ try {
  foreach($round in 1..2){
   Adb shell am force-stop $package | Out-Null
   Adb shell am start -W -n $activity | Out-Null
-  $tree=CheckScreen "abertura-$round" 'Sua agenda'
+  $tree=CheckScreen "abertura-$round" 'Tudo no seu tempo.'
  }
- # Exercise native UI reconstruction and finance drawing without a Nexus connection.
- $finance=$tree.SelectNodes('//node') | Where-Object {$_.text -eq 'Financeiro' -and $_.clickable -eq 'true'} | Select-Object -First 1
- if(!$finance -or $finance.bounds -notmatch '\[(\d+),(\d+)\]\[(\d+),(\d+)\]'){throw 'Navegação Financeiro não encontrada.'}
- $tapX=[int]( ([int]$Matches[1]+[int]$Matches[3])/2 );$tapY=[int]( ([int]$Matches[2]+[int]$Matches[4])/2 )
- Adb shell input tap $tapX $tapY | Out-Null
- $null=CheckScreen 'financeiro' 'Visão financeira'
+ # Fresh QA emulator must present authentication, without demo data or saved tokens.
+ if($tree.SelectNodes('//node') | Where-Object {$_.text -eq 'Financeiro'}){throw 'A agenda não deve abrir sem autenticação.'}
  Adb shell input keyevent KEYCODE_HOME | Out-Null
  Start-Sleep -Seconds 2
  Adb shell am start -W -n $activity | Out-Null
- $null=CheckScreen 'retorno' 'Visão financeira'
+ $null=CheckScreen 'retorno' 'Tudo no seu tempo.'
  $crash=(Adb logcat -d -b crash) -join "`n"
  if($crash -match [regex]::Escape($package)){throw 'Logcat contém falha do Orbe.'}
- "PASS: APK $Version, $installMode, duas aberturas, Financeiro e retorno do segundo plano; Android $(Adb shell getprop ro.build.version.release), ABI $(Adb shell getprop ro.product.cpu.abi)." | Tee-Object -FilePath (Join-Path $output 'resultado.txt')
+ "PASS: APK $Version, $installMode, duas aberturas com login obrigatório e retorno do segundo plano; Android $(Adb shell getprop ro.build.version.release), ABI $(Adb shell getprop ro.product.cpu.abi)." | Tee-Object -FilePath (Join-Path $output 'resultado.txt')
 }finally{
  Adb logcat -d -b crash | Set-Content -LiteralPath (Join-Path $output 'crash.txt')
 }

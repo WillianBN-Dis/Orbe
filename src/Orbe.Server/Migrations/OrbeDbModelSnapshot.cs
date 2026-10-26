@@ -396,6 +396,9 @@ namespace Orbe.Server.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("LegacyAppointmentId")
+                        .HasColumnType("text");
+
                     b.Property<Guid>("Version")
                         .IsConcurrencyToken()
                         .HasColumnType("uuid");

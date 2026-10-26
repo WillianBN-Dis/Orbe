@@ -1,0 +1,1 @@
+{"name":"orbe-test-loader","version":"0.0.0","private":true,"description":"Starts the self-contained C# Orbe server on Discloud","scripts":{"start":"node index.js"},"engines":{"node":">=22"}}

@@ -8,9 +8,9 @@ public sealed record HoursInput(Guid Version,WeeklyWindow[] Weekly,DateSchedule[
 public sealed record ReservationInput(string EmployeeId,string ServiceId,DateTimeOffset Start);
 public sealed record MoveInput(DateTimeOffset Start,Guid Version);
 public sealed record VersionInput(Guid Version);
-public sealed record BlockInput(string? EmployeeId,string Title,string Kind,DateTimeOffset Start,DateTimeOffset End,string? Notes);
-public sealed record TeamAppointmentInput(string? EmployeeId,string Title,DateTimeOffset Start,DateTimeOffset End,string? ClientId,string? LegacyClient,string? Notes,long ExpectedCents,Guid? Version);
-public sealed record MoneyInput(string? EmployeeId,string? AppointmentId,string Description,string Kind,DateOnly Date,long Cents);
+public sealed record BlockInput(string? EmployeeId,string Title,string Kind,DateTimeOffset Start,DateTimeOffset End,string? Notes,Guid? Version=null);
+public sealed record TeamAppointmentInput(string? EmployeeId,string Title,DateTimeOffset Start,DateTimeOffset End,string? ClientId,string? LegacyClient,string? Notes,long ExpectedCents,Guid? Version,string? Id=null);
+public sealed record MoneyInput(string? EmployeeId,string? AppointmentId,string Description,string Kind,DateOnly Date,long Cents,string? Id=null);
 
 public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
 {
@@ -38,9 +38,9 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
  private static void ValidateHours(HoursInput input)
  {
   if(input.Weekly is null||input.Exceptions is null||input.Weekly.Length>70||input.Exceptions.Length>366)throw new ApiError(400,"Jornada inválida ou extensa demais.");
+  if(input.Exceptions.Any(x=>x is null||x.Windows is null||x.Windows.Any(w=>w is null)))throw new ApiError(400,"Jornada especial inválida.");
   if(input.Exceptions.Select(x=>x.Date).Distinct().Count()!=input.Exceptions.Length)throw new ApiError(400,"Há datas especiais repetidas.");
   foreach(var row in input.Weekly)if(row is null||row.Window is null||!Enum.IsDefined(row.Day))throw new ApiError(400,"Dia da semana ou período inválido.");
-  if(input.Exceptions.Any(x=>x is null||x.Windows is null||x.Windows.Any(w=>w is null)))throw new ApiError(400,"Jornada especial inválida.");
   foreach(var group in input.Weekly.GroupBy(x=>x.Day).Select(x=>x.Select(y=>y.Window)).Concat(input.Exceptions.Select(x=>(IEnumerable<WorkingWindow>)x.Windows)))
   {
    var rows=group.OrderBy(x=>x.StartMinute).ToArray();if(rows.Length>10)throw new ApiError(400,"Use até 10 períodos por dia.");
@@ -69,6 +69,16 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
   var start=from.ToDateTime(TimeOnly.MinValue,DateTimeKind.Utc).AddDays(-1);var end=start.AddDays(days+2);
   var busy=await db.Appointments.Where(x=>x.EmployeeId==employee&&x.Status=="Confirmed"&&x.Start<end&&x.End>start).Select(x=>new OccupiedInterval(x.Start,x.End)).ToArrayAsync();
   return new{open=true,days=Enumerable.Range(0,days).Select(i=>new{date=from.AddDays(i),slots=Availability.Calculate(from.AddDays(i),offered.DurationMinutes,settings.Policy(),hours.Week,hours.Days,busy,clock.GetUtcNow())}).ToArray()};
+ }
+ public async Task<object> AvailabilityForBooking(string id,DateOnly from,int days)
+ {
+  if(days is <1 or >31)throw new ApiError(400,"Consulte até 31 dias por vez.");
+  var item=await Accessible(id);if(item.Status!="Confirmed"||item.EmployeeId is null||item.ServiceId is null)throw new ApiError(409,"Este agendamento precisa ser ajustado pela equipe.");
+  var settings=await Settings();if(!settings.PublicBookingOpen)return new{open=false,days=Array.Empty<object>()};
+  await Offer(item.EmployeeId,item.ServiceId);var hours=await Hours(item.EmployeeId);
+  var start=from.ToDateTime(TimeOnly.MinValue,DateTimeKind.Utc).AddDays(-1);var end=start.AddDays(days+2);
+  var busy=await db.Appointments.Where(x=>x.Id!=id&&x.EmployeeId==item.EmployeeId&&x.Status=="Confirmed"&&x.Start<end&&x.End>start).Select(x=>new OccupiedInterval(x.Start,x.End)).ToArrayAsync();
+  return new{open=true,days=Enumerable.Range(0,days).Select(i=>new{date=from.AddDays(i),slots=Availability.Calculate(from.AddDays(i),item.DurationMinutes,settings.Policy(),hours.Week,hours.Days,busy,clock.GetUtcNow())}).ToArray()};
  }
  private async Task<Service> Offer(string employee,string service)
  {
@@ -145,5 +155,12 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
   var conflicts=await db.Appointments.Where(x=>x.EmployeeId==employee&&x.Status=="Confirmed"&&x.Start<end&&x.End>start).Select(x=>new{x.Id,x.Title,x.Start,x.End}).ToArrayAsync();
   if(conflicts.Length>0)throw new ApiError(409,"Este período já está ocupado. Resolva os agendamentos ou bloqueios existentes primeiro.",conflicts);
   var item=new ScheduleItem{EmployeeId=employee,Title=input.Title.Trim(),Kind=input.Kind,Start=start,End=end,Notes=input.Notes};db.Appointments.Add(item);await db.SaveChangesAsync();await tx.CommitAsync();return item;
+ }
+ public async Task<ScheduleItem> EditBlock(string id,BlockInput input)
+ {
+  var employee=await actor.Employee(input.EmployeeId);var item=await Accessible(id,true);
+  if(item.EmployeeId!=employee||item.Kind=="Atendimento"||input.Kind!=item.Kind||input.Version is null||string.IsNullOrWhiteSpace(input.Title)||input.Title.Length>200||input.End<=input.Start||input.End-input.Start>TimeSpan.FromDays(366)||input.Notes?.Length>2000)throw new ApiError(400,"Confira o bloqueio. Profissional e tipo são preservados na edição.");
+  await using var tx=await db.Database.BeginTransactionAsync();await Lock(employee);await db.Entry(item).ReloadAsync();Version(input.Version.Value,item.Version);
+  item.Title=input.Title.Trim();item.Start=input.Start.ToUniversalTime();item.End=input.End.ToUniversalTime();item.Notes=input.Notes;item.Version=Guid.NewGuid();await db.SaveChangesAsync();await tx.CommitAsync();return item;
  }
 }

@@ -109,6 +109,45 @@ internal static class ChecksMain
   var browser=factory.CreateClient();var csrf=await Get(browser,"/api/v1/auth/csrf");browser.DefaultRequestHeaders.Add("X-CSRF-TOKEN",csrf.GetProperty("token").GetString());await Send(browser,HttpMethod.Post,"/api/v1/auth/login",new{login="staff1",password=Password});browser.DefaultRequestHeaders.Remove("X-CSRF-TOKEN");await Send(browser,HttpMethod.Put,"/api/v1/auth/me",new{fullName="Forjado",phone="11999990000"},400);Check(true,"Sessão do navegador exige proteção CSRF para alterar dados");
   var employees=await Get(owner,"/api/v1/owner/employees");var latest=employees.EnumerateArray().Single(x=>Id(x)==e2);await SetEmployee(e2,latest,false);await Send(staff2,HttpMethod.Get,"/api/v1/auth/me",expected:401);Check(true,"Desativar funcionário invalida acesso já emitido");
   await Send(client1,HttpMethod.Post,"/api/v1/auth/password",new{currentPassword=Password,newPassword="AnotherSyntheticPassword123"});await Send(client1,HttpMethod.Get,"/api/v1/auth/me",expected:401);Check(true,"Troca de senha revoga sessão anterior");
+  await Send(anonymous,HttpMethod.Post,"/api/v1/auth/recover",new{email="cliente2@example.test"});
+  var recovery=factory.Mail.Items.Last(x=>x.To=="cliente2@example.test"&&x.Subject.Contains("Recuperar"));var recoveryUrl=new Uri(recovery.Body[recovery.Body.IndexOf("http",StringComparison.Ordinal)..]);var recoveryQuery=Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(recoveryUrl.Query);
+  await Send(anonymous,HttpMethod.Post,"/api/v1/auth/reset",new{userId=recoveryQuery["userId"].ToString(),token=recoveryQuery["token"].ToString(),password="RecoveredSyntheticPassword123"});await Send(client2,HttpMethod.Get,"/api/v1/auth/me",expected:401);Check(true,"Recuperação por e-mail revoga sessões anteriores");
+  var closedSettings=await Get(owner,"/api/v1/owner/settings");
+  object Policy(JsonElement s,bool open)=>new{version=s.GetProperty("version").GetString(),name="Orbe QA",importCompleted=true,publicBookingOpen=open,slotMinutes=15,leadMinutes=120,horizonDays=60,cancellationHours=24,timeZoneId="America/Sao_Paulo"};
+  await Send(owner,HttpMethod.Put,"/api/v1/owner/settings",Policy(closedSettings,false));
+  var bundle=new{appointments=new[]{new{id="legacy-a",title="Histórico importado",kind="Atendimento",start="2026-10-01T09:00:00",end="2026-10-01T10:00:00",client="Nome legado",notes="Nota preservada",expectedCents=9000}},entries=new object[]{new{id="legacy-linked",description="Recebido legado",kind="Receita",date="2026-10-01",cents=9000,appointmentId="legacy-a"},new{id="legacy-loose",description="Avulso legado",kind="Despesa",date="2026-10-01",cents=1000,appointmentId=(string?)null},new{id="legacy-orphan",description="Vínculo antigo removido",kind="Receita",date="2026-10-01",cents=2000,appointmentId="old-deleted"}}};
+  var preview=await Send(owner,HttpMethod.Post,"/api/v1/owner/import/preview",bundle);Check(preview.GetProperty("income").GetInt64()==11000&&preview.GetProperty("expense").GetInt64()==1000&&preview.GetProperty("orphanLinks").GetInt32()==1,"Prévia de importação confere valores e vínculo órfão");
+  await Send(owner,HttpMethod.Post,"/api/v1/owner/import/commit",bundle);var again=await Send(owner,HttpMethod.Post,"/api/v1/owner/import/commit",bundle);Check(again.GetProperty("alreadyImported").GetBoolean(),"Importação idempotente não duplica registros");
+  var pending=await Get(owner,"/api/v1/owner/import/unassigned");var legacy=pending.GetProperty("appointments").EnumerateArray().Single(x=>Id(x)=="legacy-a");Check(legacy.GetProperty("legacyClient").GetString()=="Nome legado"&&legacy.GetProperty("notes").GetString()=="Nota preservada"&&legacy.GetProperty("start").GetDateTimeOffset().Hour==12,"Importação preserva IDs, texto e horário convertido pelo fuso");
+  Check(!(await Get(staff1,"/api/v1/team/appointments")).EnumerateArray().Any(x=>Id(x)=="legacy-a"),"Registros não atribuídos ficam invisíveis ao funcionário");
+  await Send(owner,HttpMethod.Put,"/api/v1/owner/settings",Policy(await Get(owner,"/api/v1/owner/settings"),true),409);Check(true,"Reservas não abrem antes da atribuição dos eventos antigos");
+  await Send(owner,HttpMethod.Post,"/api/v1/owner/import/appointments/legacy-a/assign",new{employeeId=e1,version=legacy.GetProperty("version").GetString()},204);
+  var assigned=(await Get(staff1,"/api/v1/team/entries")).EnumerateArray().Single(x=>Id(x)=="legacy-linked");Check(assigned.GetProperty("employeeId").GetString()==e1,"Atribuir evento também atribui seu financeiro vinculado");
+  using(var scope=factory.Services.CreateScope())
+  {
+   var db=scope.ServiceProvider.GetRequiredService<OrbeDb>();var orphan=await db.Entries.SingleAsync(x=>x.Id=="legacy-orphan");Check(orphan.AppointmentId is null&&orphan.LegacyAppointmentId=="old-deleted"&&!await db.Users.AnyAsync(x=>x.FullName=="Nome legado"),"Vínculo órfão preservado sem inventar evento ou conta de cliente");
+  }
+  var rollback=await Send(owner,HttpMethod.Post,"/api/v1/team/appointments",new{employeeId=e1,title="AtomicRollbackTest",start=At(15).AddDays(14),end=At(16).AddDays(14),expectedCents=1000});var rollbackMoney=await Send(owner,HttpMethod.Post,"/api/v1/team/entries",new{employeeId=e1,appointmentId=Id(rollback),description="Valor que precisa permanecer",kind="Receita",date="2026-11-02",cents=1000});
+  using(var scope=factory.Services.CreateScope())
+  {
+   var db=scope.ServiceProvider.GetRequiredService<OrbeDb>();await db.Database.ExecuteSqlRawAsync("CREATE FUNCTION orbe_test_delete_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.\"Title\"='AtomicRollbackTest' THEN RAISE EXCEPTION 'synthetic failure'; END IF; RETURN OLD; END $$; CREATE TRIGGER orbe_test_delete_failure BEFORE DELETE ON \"Appointments\" FOR EACH ROW EXECUTE FUNCTION orbe_test_delete_failure()");
+  }
+  await Send(owner,HttpMethod.Delete,$"/api/v1/team/appointments/{Id(rollback)}",Version(rollback),500);
+  using(var scope=factory.Services.CreateScope())
+  {
+   var db=scope.ServiceProvider.GetRequiredService<OrbeDb>();Check(await db.Appointments.AnyAsync(x=>x.Id==Id(rollback))&&await db.Entries.AnyAsync(x=>x.Id==Id(rollbackMoney)),"Erro de exclusão reverte evento e financeiro na mesma transação");await db.Database.ExecuteSqlRawAsync("DROP TRIGGER orbe_test_delete_failure ON \"Appointments\"; DROP FUNCTION orbe_test_delete_failure()");
+  }
+  using(var native=new Agenda.Core.CloudApi("http://localhost",factory.Server.CreateHandler()))
+  {
+   var session=await native.Login("staff1",Password);native.AccessToken=session.AccessToken;await native.ConfigureZone();var repo=new Agenda.Core.CloudAgendaRepository(native,e1);
+   Check(session.Profile.Team&&!session.Profile.Owner&&(await repo.Appointments()).Any(x=>x.Value.Id=="legacy-a"),"Cliente compartilhado MAUI autentica e lê agenda convertida para o fuso do negócio");
+   var item=new Agenda.Core.Appointment(Guid.NewGuid().ToString("N"),"Atendimento pelo cliente nativo",Agenda.Core.EventKind.Atendimento,new(2026,11,23,14,0,0),new(2026,11,23,15,0,0),"Cliente sem conta",null,2000);
+   await repo.Save(item);var stored=(await repo.Appointments()).Single(x=>x.Value.Title==item.Title);await repo.Save(item with{Id=stored.Value.Id,Title="Nativo atualizado"},stored.Snapshot);
+   stored=(await repo.Appointments()).Single(x=>x.Value.Id==stored.Value.Id);Check(stored.Value.Title=="Nativo atualizado"&&stored.Value.Start==item.Start,"Cliente MAUI cria/edita evento com snapshot e horário local sem deslocamento");
+   var nativeMoney=new Agenda.Core.MoneyEntry(Guid.NewGuid().ToString("N"),"Vinculado pelo app",Agenda.Core.EntryKind.Receita,new(2026,11,23),2000,stored.Value.Id);await Task.WhenAll(repo.Save(nativeMoney),repo.Save(nativeMoney));await repo.Save(nativeMoney);Check((await repo.Entries()).Count(x=>x.Value.Id==nativeMoney.Id)==1,"Confirmações financeiras simultâneas e repetidas pelo app não duplicam lançamento");await repo.Delete(stored);Check((await repo.Entries()).All(x=>x.Value.AppointmentId!=stored.Value.Id),"Cliente MAUI usa exclusão financeira transacional da nuvem");
+   var block=new Agenda.Core.Appointment("native-block","Folga via app",Agenda.Core.EventKind.Folga,new(2026,11,30,0,0,0),new(2026,12,1,0,0,0),null,null,0);await repo.Save(block);var blocked=(await repo.Appointments()).Single(x=>x.Value.Title==block.Title);await repo.Save(block with{Id=blocked.Value.Id,Title="Folga ajustada"},blocked.Snapshot);blocked=(await repo.Appointments()).Single(x=>x.Value.Id==blocked.Value.Id);Check(blocked.Value.Title=="Folga ajustada","Cliente MAUI cria e edita bloqueio integral com controle de versão");await repo.Delete(blocked);
+  }
+  using(var limited=new OrbeFactory(connection,2)){var c=limited.CreateClient();await Send(c,HttpMethod.Post,"/api/v1/auth/recover",new{email="absent@example.test"});await Send(c,HttpMethod.Post,"/api/v1/auth/recover",new{email="absent@example.test"});await Send(c,HttpMethod.Post,"/api/v1/auth/recover",new{email="absent@example.test"},429);Check(true,"Limite de tentativas é aplicado pelo servidor");}
   Console.WriteLine($"{checks} verificações HTTP/PostgreSQL passaram com dados exclusivamente sintéticos.");
  }
 }
@@ -118,14 +157,14 @@ internal sealed class MailCapture : IEmailDelivery
  public ConcurrentQueue<(string To,string Subject,string Body)> Items {get;}=new();public bool Ready=>true;
  public Task Send(string to,string subject,string body){Items.Enqueue((to,subject,body));return Task.CompletedTask;}
 }
-internal sealed class OrbeFactory(string connection):WebApplicationFactory<global::Program>
+internal sealed class OrbeFactory(string connection,int authLimit=1000):WebApplicationFactory<global::Program>
 {
  public TestClock Clock {get;}=new();public MailCapture Mail {get;}=new();
  protected override void ConfigureWebHost(IWebHostBuilder builder)
  {
   builder.UseEnvironment("Testing");
   builder.UseContentRoot(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../../src/Orbe.Server")));
-  builder.ConfigureAppConfiguration((_,c)=>c.AddInMemoryCollection(new Dictionary<string,string?>{{"ConnectionStrings:Orbe",connection},{"Owner:Email","owner@example.test"},{"Owner:Password","SyntheticPassword123"},{"PublicUrl","http://localhost"},{"Limits:AuthPerMinute","1000"}}));
+  builder.ConfigureAppConfiguration((_,c)=>c.AddInMemoryCollection(new Dictionary<string,string?>{{"ConnectionStrings:Orbe",connection},{"Owner:Email","owner@example.test"},{"Owner:Password","SyntheticPassword123"},{"PublicUrl","http://localhost"},{"Limits:AuthPerMinute",authLimit.ToString()}}));
   builder.ConfigureServices(s=>{s.RemoveAll<TimeProvider>();s.AddSingleton<TimeProvider>(Clock);s.RemoveAll<IEmailDelivery>();s.AddSingleton<IEmailDelivery>(Mail);});
  }
 }

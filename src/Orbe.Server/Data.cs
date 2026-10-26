@@ -68,6 +68,7 @@ public sealed class FinancialEntry
  public string Id {get;set;}=Guid.NewGuid().ToString("N");
  public string? EmployeeId {get;set;}
  public string? AppointmentId {get;set;}
+ public string? LegacyAppointmentId {get;set;}
  public ScheduleItem? Appointment {get;set;}
  public string Description {get;set;}="";
  public string Kind {get;set;}="Receita";

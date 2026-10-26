@@ -82,7 +82,7 @@ public sealed partial class DashboardPage
         var filtered=today.Where(a=>kindFilter is null||a.Value.Kind==kindFilter).ToArray();
         if(filtered.Length==0)
         {
-            var empty=Stack(12,Icon("calendar",Violet,40),Text(!HasData?"Seu dia começa aqui":"Um espaço na sua rotina",17,Ink,true),Text(!HasData?"Conecte seu Nexus para visualizar a agenda do dia.":"Nenhum evento para este dia ou filtro. Que tal planejar seu próximo compromisso?",12,Muted),Button("+  Agendar neste dia",()=>OpenAppointment(),quiet:true));
+            var empty=Stack(12,Icon("calendar",Violet,40),Text(!HasData?"Seu dia começa aqui":"Um espaço na sua rotina",17,Ink,true),Text(!HasData?"Atualize os dados para visualizar sua agenda.":"Nenhum evento para este dia ou filtro. Que tal planejar seu próximo compromisso?",12,Muted),Button("+  Agendar neste dia",()=>OpenAppointment(),quiet:true));
             empty.Padding=new Thickness(4,24);s.Add(empty);
         }
         foreach(var stored in filtered)
@@ -106,7 +106,7 @@ public sealed partial class DashboardPage
         else if(action=="Lançar recebimento")await OpenEntry(stored.Value);
         else if(action=="Excluir agendamento")
         {
-            if(demo||repository is null){await NeedConnection();return;}
+            if(repository is null){await NeedConnection();return;}
             if(await DisplayAlertAsync("Excluir agendamento e lançamentos?",$"“{stored.Value.Title}” e todos os lançamentos financeiros vinculados a ele serão excluídos. O resultado financeiro será recalculado. Lançamentos sem vínculo com este agendamento serão mantidos.","Excluir tudo vinculado","Manter"))
                 await Guard(async()=>{await repository.Delete(stored);await Reload();await Render();});
         }
@@ -153,7 +153,7 @@ public sealed partial class DashboardPage
     private async Task EntryActions(Stored<MoneyEntry> stored)
     {
         if(await DisplayActionSheetAsync(stored.Value.Description,"Voltar",null,"Excluir lançamento")!="Excluir lançamento")return;
-        if(demo||repository is null){await NeedConnection();return;}
+        if(repository is null){await NeedConnection();return;}
         if(await DisplayAlertAsync("Excluir lançamento?","O lançamento será removido e o resultado financeiro será recalculado.","Excluir","Manter"))
             await Guard(async()=>{await repository.Delete(stored);await Reload();await Render();});
     }
@@ -178,7 +178,7 @@ internal sealed class FinancialDrawing(IReadOnlyList<FinancialBucket> buckets,bo
         {
             if(n<13||i%5==0||i==n-1){c.FontColor=Dim;var labelX=Math.Clamp(left+slot*(i+.5f)-18,0,r.Width-36);c.DrawString(buckets[i].Label,labelX,bottom+13,36,20,HorizontalAlignment.Center,VerticalAlignment.Center);}
         }
-        if(!connected){c.FontColor=Muted;c.FontSize=13;c.DrawString("Conecte seu Nexus para acompanhar a evolução.",left,top+height/2-20,width,40,HorizontalAlignment.Center,VerticalAlignment.Center);return;}
+        if(!connected){c.FontColor=Muted;c.FontSize=13;c.DrawString("Atualize os dados para acompanhar a evolução.",left,top+height/2-20,width,40,HorizontalAlignment.Center,VerticalAlignment.Center);return;}
         foreach(var series in new[]{0,1,2})
         {
             var line=new PathF();var area=new PathF();

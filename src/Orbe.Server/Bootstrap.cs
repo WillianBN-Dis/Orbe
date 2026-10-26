@@ -19,7 +19,10 @@ public static class Bootstrap
   {
    var password=configuration["Owner:Password"];var address=configuration["Owner:Email"];
    if(string.IsNullOrWhiteSpace(password)||string.IsNullOrWhiteSpace(address))
+   {
+    if(configuration.GetValue<bool>("Bootstrap:AllowUnconfiguredOwner"))return; // Closed preview; grants no access and exposes no bootstrap route.
     throw new InvalidOperationException("Configure os segredos Owner:Email e Owner:Password para o primeiro acesso. Nenhuma senha padrão é criada.");
+   }
    if(await users.FindByNameAsync("WillianBN") is not null)throw new InvalidOperationException("O nome administrativo já existe sem papel Owner. Corrija o bootstrap em ambiente controlado.");
    await using var tx=await db.Database.BeginTransactionAsync();
    var user=new AppUser{UserName="WillianBN",Email=address,EmailConfirmed=true,FullName="WillianBN",LockoutEnabled=true};

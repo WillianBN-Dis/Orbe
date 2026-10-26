@@ -25,6 +25,7 @@ public static class Routes
   team.MapGet("/hours",async(string? employeeId,Scheduling s)=>Results.Ok(await s.ReadHours(employeeId)));
   team.MapPut("/hours",async(string? employeeId,HoursInput input,Scheduling s)=>{await s.SaveHours(employeeId,input);return Results.Ok(await s.ReadHours(employeeId));});
   team.MapPost("/blocks",async(BlockInput input,Scheduling s)=>Results.Ok(await s.Block(input)));
+  team.MapPut("/blocks/{id}",async(string id,BlockInput input,Scheduling s)=>Results.Ok(await s.EditBlock(id,input)));
   team.MapGet("/appointments",async(string? employeeId,DateTimeOffset? from,DateTimeOffset? until,int? offset,Actor actor,OrbeDb db)=>
   {
    var id=actor.Owner?employeeId:await actor.Employee(employeeId);var skip=Math.Max(0,offset??0);
@@ -36,9 +37,13 @@ public static class Routes
   {
    var id=await actor.Employee(input.EmployeeId);Text(input.Title,200,"o título");
    if(input.End<=input.Start||input.End-input.Start>TimeSpan.FromDays(1)||input.ExpectedCents<0||input.Notes?.Length>2000||input.LegacyClient?.Length>150)throw new ApiError(400,"Confira o período e os valores do agendamento.");
+   if(input.Id is not null&&!Guid.TryParse(input.Id,out _))throw new ApiError(400,"Identificador de confirmação inválido.");
    if(input.ClientId is not null&&!await db.UserRoles.Join(db.Roles,x=>x.RoleId,x=>x.Id,(u,r)=>new{u.UserId,r.Name}).AnyAsync(x=>x.UserId==input.ClientId&&x.Name==Roles.Client))throw new ApiError(400,"Cliente inválido.");
    await using var tx=await db.Database.BeginTransactionAsync();await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Employees\" WHERE \"Id\"={id} FOR UPDATE");
+   if(input.Id is not null&&await db.Appointments.SingleOrDefaultAsync(x=>x.Id==input.Id) is {} prior)
+   {if(prior.EmployeeId!=id||prior.Title!=input.Title.Trim()||prior.Start!=input.Start||prior.End!=input.End||prior.ClientId!=input.ClientId||prior.LegacyClient!=input.LegacyClient||prior.Notes!=input.Notes||prior.ExpectedCents!=input.ExpectedCents||prior.Kind!="Atendimento"||prior.Status!="Confirmed")throw new ApiError(409,"Esta confirmação já foi usada para outro agendamento.");return Results.Ok(prior);}
    var item=new ScheduleItem{EmployeeId=id,Title=input.Title.Trim(),Start=input.Start.ToUniversalTime(),End=input.End.ToUniversalTime(),ClientId=input.ClientId,LegacyClient=input.LegacyClient,Notes=input.Notes,ExpectedCents=input.ExpectedCents,DurationMinutes=(int)(input.End-input.Start).TotalMinutes};
+   if(input.Id is not null)item.Id=input.Id;
    db.Appointments.Add(item);await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(item);
   });
   team.MapPut("/appointments/{id}",async(string id,TeamAppointmentInput input,Actor actor,OrbeDb db,Scheduling s)=>
@@ -52,13 +57,16 @@ public static class Routes
   api.MapPost("/bookings",async(ReservationInput input,HttpContext c,Scheduling s)=>Results.Ok(await s.Reserve(input,c.Request.Headers["Idempotency-Key"].ToString()))).RequireAuthorization();
   api.MapPost("/bookings/{id}/cancel",async(string id,[FromBody] VersionInput input,Scheduling s)=>{await s.Cancel(id,input);return Results.NoContent();}).RequireAuthorization();
   api.MapPost("/bookings/{id}/move",async(string id,MoveInput input,Scheduling s)=>Results.Ok(await s.Move(id,input))).RequireAuthorization();
+  api.MapGet("/bookings/{id}/availability",async(string id,DateOnly from,int? days,Scheduling s)=>Results.Ok(await s.AvailabilityForBooking(id,from,days??1))).RequireAuthorization();
   team.MapDelete("/appointments/{id}",async(string id,[FromBody] VersionInput input,Scheduling s)=>{await s.Delete(id,input);return Results.NoContent();});
   team.MapGet("/entries",async(string? employeeId,int? offset,Actor actor,OrbeDb db)=>{var id=actor.Owner?employeeId:await actor.Employee(employeeId);return Results.Ok(await db.Entries.AsNoTracking().Where(x=>id==null||x.EmployeeId==id).OrderBy(x=>x.Date).ThenBy(x=>x.Id).Skip(Math.Max(0,offset??0)).Take(200).ToArrayAsync());});
   team.MapPost("/entries",async(MoneyInput input,Actor actor,OrbeDb db,Scheduling s)=>
   {
    Text(input.Description,200,"a descrição");if(input.Kind is not ("Receita" or "Despesa")||input.Cents<=0)throw new ApiError(400,"Informe um valor positivo e o tipo do lançamento.");
+   if(input.Id is not null&&!Guid.TryParse(input.Id,out _))throw new ApiError(400,"Identificador de confirmação inválido.");
    var employee=actor.Owner&&input.EmployeeId is null?null:await actor.Employee(input.EmployeeId);
    await using var tx=await db.Database.BeginTransactionAsync();
+   if(input.Id is not null)await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({'M'+input.Id},0))");
    if(input.AppointmentId is not null)
    {
     // Lock the event so a linked entry cannot race with cascade deletion.
@@ -66,7 +74,9 @@ public static class Routes
     var appointment=await s.Accessible(input.AppointmentId,true);
     if(employee is not null&&employee!=appointment.EmployeeId)throw new ApiError(400,"O vínculo pertence a outro funcionário.");employee=appointment.EmployeeId;
    }
-   var row=new FinancialEntry{EmployeeId=employee,AppointmentId=input.AppointmentId,Description=input.Description.Trim(),Kind=input.Kind,Date=input.Date,Cents=input.Cents};db.Entries.Add(row);await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(row);
+   if(input.Id is not null&&await db.Entries.SingleOrDefaultAsync(x=>x.Id==input.Id) is {} prior)
+   {if(prior.EmployeeId!=employee||prior.AppointmentId!=input.AppointmentId||prior.Description!=input.Description.Trim()||prior.Kind!=input.Kind||prior.Date!=input.Date||prior.Cents!=input.Cents)throw new ApiError(409,"Esta confirmação já foi usada para outro lançamento.");return Results.Ok(prior);}
+   var row=new FinancialEntry{EmployeeId=employee,AppointmentId=input.AppointmentId,Description=input.Description.Trim(),Kind=input.Kind,Date=input.Date,Cents=input.Cents};if(input.Id is not null)row.Id=input.Id;db.Entries.Add(row);await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(row);
   });
   team.MapDelete("/entries/{id}",async(string id,[FromBody] VersionInput input,Actor actor,OrbeDb db)=>{var row=await db.Entries.SingleOrDefaultAsync(x=>x.Id==id)??throw new ApiError(404,"Lançamento não encontrado.");if(!actor.Owner)await actor.Employee(row.EmployeeId??"unassigned");if(row.Version!=input.Version)throw new ApiError(409,"Lançamento alterado. Atualize antes de excluir.");db.Entries.Remove(row);await db.SaveChangesAsync();return Results.NoContent();});
   var owner=api.MapGroup("/owner").RequireAuthorization(p=>p.RequireRole(Roles.Owner));

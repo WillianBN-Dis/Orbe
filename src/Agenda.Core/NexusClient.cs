@@ -133,7 +133,7 @@ public sealed class NexusClient : IDisposable
     public void Dispose() => http.Dispose();
 }
 
-public sealed class AgendaRepository(NexusClient client, string database)
+public sealed class AgendaRepository(NexusClient client, string database) : IAgendaRepository
 {
     public Task Verify() => client.VerifyDatabase(database);
     public Task<IReadOnlyList<Stored<Appointment>>> Appointments() => client.Read(database, "agendamentos", r => new Appointment(

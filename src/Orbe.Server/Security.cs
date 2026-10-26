@@ -119,7 +119,7 @@ public static class AuthRoutes
  public static void MapAuth(this WebApplication app)
  {
   var group=app.MapGroup("/api/v1/auth").RequireRateLimiting("auth");
-  group.MapGet("/csrf",(HttpContext c,IAntiforgery anti)=>Results.Ok(new{token=anti.GetAndStoreTokens(c).RequestToken}));
+  group.MapGet("/csrf",(HttpContext c,IAntiforgery anti)=>Results.Ok(new{token=anti.GetAndStoreTokens(c).RequestToken})).RequireRateLimiting("account");
   group.MapPost("/register",async(RegisterInput input,UserManager<AppUser> users,AuthService auth,IEmailDelivery email)=>
   {
    if(!email.Ready)throw new ApiError(503,"Cadastro disponível após configurar o envio de e-mails.");
@@ -144,7 +144,7 @@ public static class AuthRoutes
    else{AuthService.Check(await users.ChangeEmailAsync(user,email,token));if(await users.IsInRoleAsync(user,Roles.Client))AuthService.Check(await users.SetUserNameAsync(user,email));await users.UpdateSecurityStampAsync(user);}
    return Results.Ok(new{message="E-mail confirmado. Você já pode entrar."});
   });
-  group.MapGet("/me",async(Actor actor,UserManager<AppUser> users,AuthService auth)=>Results.Ok(await auth.Profile((await users.FindByIdAsync(actor.Id))!))).RequireAuthorization();
+  group.MapGet("/me",async(Actor actor,UserManager<AppUser> users,AuthService auth)=>Results.Ok(await auth.Profile((await users.FindByIdAsync(actor.Id))!))).RequireAuthorization().RequireRateLimiting("account");
   group.MapPut("/me",async(ProfileInput input,Actor actor,UserManager<AppUser> users,AuthService auth)=>
   {if(string.IsNullOrWhiteSpace(input.FullName)||input.FullName.Length>150||input.Phone is null||input.Phone.Length>30||input.BirthDate>DateOnly.FromDateTime(DateTime.UtcNow)||actor.Client&&(input.BirthDate is null||input.BirthDate.Value.Year<1900||new string(input.Phone.Where(char.IsDigit).ToArray()).Length<8))throw new ApiError(400,"Confira seus dados.");var user=(await users.FindByIdAsync(actor.Id))!;user.FullName=input.FullName.Trim();user.PhoneNumber=input.Phone;user.BirthDate=input.BirthDate;AuthService.Check(await users.UpdateAsync(user));return Results.Ok(await auth.Profile(user));}).RequireAuthorization();
   group.MapPost("/password",async(PasswordInput input,Actor actor,UserManager<AppUser> users)=>{var user=(await users.FindByIdAsync(actor.Id))!;AuthService.Check(await users.ChangePasswordAsync(user,input.CurrentPassword,input.NewPassword));return Results.Ok(new{message="Senha alterada. Entre novamente."});}).RequireAuthorization();

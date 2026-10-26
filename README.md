@@ -1,5 +1,8 @@
 # Orbe
 
+> **Branch de desenvolvimento `codex/orbe-cloud`: migração para a nuvem em andamento.**
+> O código desta branch usa login e API ASP.NET Core/PostgreSQL, sem demonstração nem conexão direta ao Nexus no app. O site de testes está em https://orbe-willianbn.discloud.dev, com reservas fechadas até a configuração inicial. Os downloads abaixo continuam sendo da versão estável anterior 1.0.2, que permanece preservada. Consulte [o checkpoint atual](docs/PLANO-NUVEM.md) antes de executar ou implantar esta branch.
+
 **Tempo e finanças em sintonia.** Agenda e calendário financeiro em C#/.NET MAUI para Windows e Android.
 
 <p align="center"><img src="assets/orbe-icon.png" width="128" alt="Ícone Orbe" /></p>
