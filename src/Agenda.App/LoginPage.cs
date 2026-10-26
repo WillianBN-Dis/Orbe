@@ -29,6 +29,9 @@ public sealed class LoginPage:ContentPage
    Button("Configurar servidor",()=>{advanced.IsVisible=!advanced.IsVisible;return Task.CompletedTask;},quiet:true),advanced,
    Text("Seu acesso é pessoal. A disponibilidade de cada profissional é compartilhada com o site em tempo real.",11,Dim));
   var card=Card(panel,24);card.MaximumWidthRequest=510;card.HorizontalOptions=LayoutOptions.Center;card.VerticalOptions=LayoutOptions.Center;
+#if ANDROID
+  panel.Children.Insert(panel.Children.Count-1,Button("Atualizar aplicativo",async()=>await Navigation.PushAsync(new UpdatePage()),quiet:true));
+#endif
   Content=new ScrollView{Content=new VerticalStackLayout{Padding=new Thickness(18,28),Children={card}}};
   password.Completed+=async(_,_)=>await Attempt(false);
  }

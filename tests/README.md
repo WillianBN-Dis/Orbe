@@ -1,6 +1,7 @@
 # Verificações da versão 2
 
 - `dotnet run --project tests/Orbe.Cloud.Checks`: política de disponibilidade, janelas divididas, bloqueios e limites.
+- `dotnet run --project tests/Orbe.Update.Checks`: atualização com a mesma versão exibida, origem/HTTPS/build/hash inválidos, download íntegro, cache verificado, descarte de pacote corrompido, redirecionamentos e cancelamento; somente dados sintéticos e diretório temporário.
 - `dotnet run --project tests/Orbe.Import.Checks`: SQLite temporário, snapshot/WAL, IDs, centavos, vínculos e proteção de catálogos.
 - `dotnet run --project tests/Orbe.Server.Checks`: autenticação, isolamento, concorrência e transações com PostgreSQL real. Exige `ORBE_TEST_DATABASE`, host127.0.0.1/porta55439/databaseorbe_cloud_test. **Recria o schema desse banco exclusivo de testes.** Não aceita outros endereços/nomes.
 - `node tests/backup-checks.cjs`: cifragem streaming, autenticação, adulterações, truncamento, tamanho e retenção, só arquivos temporários sintéticos.

@@ -1,6 +1,8 @@
-param([string]$Version='2.0.0', [int]$VersionCode=20000)
+param([string]$Version='2.0.0', [int]$VersionCode=20001, [string]$OutputName='')
 $ErrorActionPreference='Stop'
 if($Version -notmatch '^\d+\.\d+\.\d+$' -or $VersionCode -lt 1){throw 'Informe versão semântica e código Android positivo.'}
+if(!$OutputName){$OutputName="Orbe-$Version-build$VersionCode.apk"}
+if($OutputName -notmatch '^Orbe-[a-zA-Z0-9._-]+\.apk$'){throw 'Informe somente um nome de APK Orbe, sem diretórios.'}
 $dotnet=Join-Path $env:LOCALAPPDATA 'NexusDev\dotnet\dotnet.exe'
 if(!(Test-Path -LiteralPath $dotnet)){$dotnet=(Get-Command dotnet -ErrorAction Stop).Source}
 $java=Join-Path $env:LOCALAPPDATA 'AgendaDev\jdk'
@@ -31,6 +33,6 @@ try {
   New-Item -ItemType Directory -Force dist | Out-Null
   $apk=Get-ChildItem src/Agenda.App/bin/Release/net10.0-android/publish -Filter '*-Signed.apk' | Select-Object -First 1
   if(!$apk){throw 'APK assinado não encontrado.'}
-  Copy-Item -LiteralPath $apk.FullName -Destination "dist/Orbe-$Version.apk"
+  Copy-Item -LiteralPath $apk.FullName -Destination (Join-Path 'dist' $OutputName)
  }finally{Pop-Location}
 }finally{Remove-Item Env:ORBE_ANDROID_SIGNING_PASSWORD -ErrorAction SilentlyContinue}

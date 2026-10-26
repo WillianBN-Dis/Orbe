@@ -18,6 +18,9 @@ public sealed partial class DashboardPage
   var management=Stack(16,scope);
   if(profile.Owner){management.Add(Rule());management.Add(Text("Seu negócio",20,Ink,true));management.Add(Button("Equipe e acessos",async()=>await Navigation.PushAsync(AccountPages.Employees(client))));management.Add(Button("Serviços",async()=>await Navigation.PushAsync(AccountPages.Services(client))));management.Add(Button("Regras e reservas online",async()=>await Navigation.PushAsync(AccountPages.Settings(client))));management.Add(Button("Importar e atribuir histórico",async()=>await Navigation.PushAsync(AccountPages.Import(client))));}
   management.Add(Rule());management.Add(Button("Sair da conta",async()=>{if(await DisplayAlertAsync("Sair da sua conta?","Você precisará entrar novamente para acessar sua agenda.","Sair","Manter")){appointments=[];entries=[];await CloudSessionStore.End(this,client);}},danger:true));
+#if ANDROID
+  management.Add(Rule());management.Add(Button("Atualizar aplicativo",async()=>await Navigation.PushAsync(new UpdatePage())));
+#endif
   body.Add(Columns(Wide,Card(personal),Card(management)));
  }
 }

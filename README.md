@@ -13,6 +13,7 @@ A versão 2 centraliza contas, agenda e financeiro na Discloud e funciona com o 
 - [Site de testes](https://orbe-willianbn.discloud.dev) · [Administração](https://orbe-willianbn.discloud.dev/equipe)
 - [Versões e downloads](https://github.com/WillianBN-Dis/Orbe/releases)
 - [Primeiros passos](docs/PRIMEIROS-PASSOS.md) · [Operação e backups](deploy/discloud/README.md)
+- Android: **Atualizar aplicativo** no login e em Conta, a partir do **2.0.0 ajuste 1**. A versão exibida continua 2.0.0. [Como atualizar e publicar ajustes](docs/ATUALIZACOES-ANDROID.md).
 
 ## Agenda, equipe e financeiro
 

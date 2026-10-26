@@ -18,7 +18,7 @@
   <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
     <!-- Avoid missing JNI callbacks (MauiApplication.n_onCreate) in standalone Release APKs. -->
     <AndroidEnableMarshalMethods>false</AndroidEnableMarshalMethods>
-    <ApplicationDisplayVersion>2.0.0</ApplicationDisplayVersion><ApplicationVersion>20000</ApplicationVersion>
+    <ApplicationDisplayVersion>2.0.0</ApplicationDisplayVersion><ApplicationVersion>20001</ApplicationVersion>
   </PropertyGroup>
   <ItemGroup>
     <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#0D101B" />

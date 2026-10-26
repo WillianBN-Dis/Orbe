@@ -35,3 +35,7 @@ O servidor gera backups diários cifrados a partir de 03:00 em São Paulo e mant
 ## Atualizações
 
 Versões anteriores permanecem no GitHub. Atualize executando o novo instalador ou instalando o APK assinado por cima da versão 1.0.2. O instalador não altera bancos, credenciais ou Firewall do Nexus. O instalador Windows não possui assinatura Authenticode; o APK é distribuído diretamente, sem Play Store.
+
+No Android, o **ajuste 1 da versão 2.0.0** inclui **Atualizar aplicativo**, disponível na tela de entrada e em **Conta**. Instale esse primeiro ajuste manualmente pelo GitHub, por cima do app existente. A partir dele, toque em **Verificar atualizações → Baixar e instalar**. Se solicitado, permita instalações desta fonte para o Orbe, volte ao aplicativo e toque em **Continuar instalação**. Confirme a atualização no instalador do Android; não é necessário desinstalar o app.
+
+A versão exibida continua **2.0.0**; o código interno do ajuste é **20001**. O aplicativo busca os ajustes no repositório oficial, verifica SHA-256 e abre o instalador com acesso temporário somente ao APK. Sua conta e os dados são preservados pela atualização com a mesma assinatura. Para futuras publicações, consulte [Atualizações Android](ATUALIZACOES-ANDROID.md).
