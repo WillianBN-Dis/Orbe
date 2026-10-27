@@ -4,12 +4,14 @@ O botão **Atualizar aplicativo** fica no login e no menu Conta. Não exige sess
 
 O ajuste 1 mantém `versionName=2.0.0` e incrementa `versionCode` para `20001`. Quem possui o APK anterior precisa instalar este primeiro ajuste manualmente uma vez. O instalador do Android exige confirmação e, desde Android 8, autorização por fonte. O app orienta a habilitar somente o Orbe e retomar a instalação.
 
+O **ajuste 2**, código **20002**, inclui os ajustes responsivos e a retirada de Configurar servidor do login. O acesso à conexão fica restrito ao administrador após autenticar. A versão exibida permanece 2.0.0. Os downloads principais da release 2.0.0 acompanham o ajuste recomendado; pacotes anteriores ficam identificados como histórico.
+
 ## Publicar o próximo ajuste
 
 1. Mantenha a chave de assinatura privada original. Incremente o código interno Android; nunca reutilize códigos de APKs entregues. A versão exibida pode permanecer igual para ajustes da mesma versão.
-2. Atualize o código padrão em `Agenda.App.csproj` e `release-android.ps1`. Compile com `./release-android.ps1 -Version 2.0.0 -VersionCode 20002 -OutputName Orbe-2.0.0-ajuste.2.apk`, usando números e nomes do novo ajuste.
+2. Atualize o código padrão em `Agenda.App.csproj` e `release-android.ps1`. Compile com `./release-android.ps1 -Version 2.0.0 -VersionCode 20003 -OutputName Orbe-2.0.0-ajuste.3.apk`, usando números e nomes do novo ajuste.
 3. Teste instalação sobre o APK anterior e o fluxo do botão. Gere SHA-256 do APK final assinado.
-4. Publique o APK em uma nova release do repositório `WillianBN-Dis/Orbe`. Preserve os assets e releases antigos. Use um nome próprio para o ajuste; não substitua o APK original 2.0.0.
+4. Publique o APK com um nome próprio do ajuste no repositório `WillianBN-Dis/Orbe`. Se atualizar os downloads principais da release 2.0.0, preserve o arquivo anterior com nome de histórico antes de substituí-lo. Releases anteriores devem permanecer disponíveis.
 5. Atualize `updates/android.json` na branch `codex/orbe-cloud`: `version`, `build`, URL pública do asset, `sha256` e notas curtas em português. Publique o feed depois que o asset estiver disponível. Ele indica o ajuste Android recomendado, incluindo a linha de testes 2.0.
 6. Verifique o feed público e reteste o download, integridade e instalação. Registre resultado, hash e links no Obsidian.
 

@@ -166,6 +166,16 @@ internal static class ChecksMain
   var absentRecovery=await Send(anonymous,HttpMethod.Post,"/api/v1/auth/recover",new{email="unregistered@example.test"},503);
   Check(knownRecovery.GetProperty("message").GetString()==absentRecovery.GetProperty("message").GetString(),"Sem SMTP a recuperação fica fechada sem revelar se a conta existe");
   await Send(anonymous,HttpMethod.Post,"/api/v1/auth/register",new{fullName="Cadastro Fechado",email="closed@example.test",phone="11999999999",birthDate="2000-01-01",password=Password},503);Check(true,"Cadastro de cliente é recusado enquanto envio de e-mail não está pronto");
+  var config=factory.Services.GetRequiredService<IConfiguration>();config["Preview:AllowUnverifiedClients"]="true";
+  Check((await Get(anonymous,"/api/v1/public/info")).GetProperty("testMode").GetBoolean(),"Modo de testes sem e-mail é explicitamente identificado no site");
+  var previewRegistration=await Send(anonymous,HttpMethod.Post,"/api/v1/auth/register",new{fullName="Cliente Teste",email="preview@example.test",phone="11999999999",birthDate="2000-01-01",password=Password},202);
+  Check(!previewRegistration.GetProperty("emailConfirmationRequired").GetBoolean(),"Cadastro de testes funciona sem envio de e-mail");
+  var previewClient=await Login("preview@example.test");var previewMe=await Get(previewClient,"/api/v1/auth/me");
+  Check(!previewMe.GetProperty("emailConfirmed").GetBoolean()&&previewMe.GetProperty("roles").EnumerateArray().Single().GetString()=="Client","Teste não marca e-mail como verificado nem promove o cliente");
+  await Send(previewClient,HttpMethod.Get,"/api/v1/owner/employees",expected:403);
+  config["Preview:AllowUnverifiedClients"]="false";
+  await Send(anonymous,HttpMethod.Post,"/api/v1/auth/token",new{login="preview@example.test",password=Password},403);
+  await Send(previewClient,HttpMethod.Get,"/api/v1/auth/me",expected:401);Check(true,"Desativar testes fecha login e sessões de clientes ainda não verificados");
   Console.WriteLine($"{checks} verificações HTTP/PostgreSQL passaram com dados exclusivamente sintéticos.");
  }
 }

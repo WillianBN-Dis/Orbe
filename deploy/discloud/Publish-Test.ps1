@@ -1,4 +1,4 @@
-param([string]$SiteName='orbe-willianbn',[string]$OwnerEmail='', [switch]$SkipBuild,[string[]]$TrustedProxyAddresses=@(),[switch]$ProbeProxy)
+param([string]$SiteName='orbe-willianbn',[string]$OwnerEmail='', [switch]$SkipBuild,[string[]]$TrustedProxyAddresses=@(),[switch]$ProbeProxy,[switch]$EnableUnverifiedClientTests)
 $ErrorActionPreference='Stop'
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $output=Join-Path $workspace 'artifacts/discloud-test'
@@ -57,6 +57,7 @@ $python=Join-Path $env:USERPROFILE '.cache/codex-runtimes/codex-primary-runtime/
 if($LASTEXITCODE -ne 0){throw 'Falha ao preparar pg_dump oficial verificado. Publicação interrompida.'}
 @("NAME=Orbe Testes","TYPE=site","ID=$SiteName","MAIN=index.js","RAM=512","VERSION=latest","AUTORESTART=true","VLAN=true")|Set-Content (Join-Path $output 'package/discloud.config') -Encoding ascii
 $revision=(& git -C $workspace rev-parse --short HEAD).Trim()
+if((& git -C $workspace status --porcelain)){ $revision+='-local' }
 function Package([bool]$DatabaseReady){
  $secret=@{PublicUrl=$state.PublicUrl;Deployment=@{Revision=$revision};DataProtection=@{Certificate=$vault.Certificate;Password=$vault.CertificatePassword};Database=@{SkipInitialize=(!$DatabaseReady)};Bootstrap=@{AllowUnconfiguredOwner=([string]::IsNullOrWhiteSpace($vault.OwnerEmail))};Owner=@{Email=$vault.OwnerEmail;Password=$vault.OwnerPassword}}
  if($state.TrustedProxyAddresses){$secret.Proxy=@{Addresses=@($state.TrustedProxyAddresses)}}
@@ -67,6 +68,7 @@ function Package([bool]$DatabaseReady){
   $rsaPublic=[Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPublicKey($certificate)
   try{$secret.Backups=@{Enabled=$true;Directory='.orbe-backups';HourUtc=6;RetentionDays=7;MaxBytes=1073741824;PublicKeyPem=$rsaPublic.ExportSubjectPublicKeyInfoPem();Environment=@{PGHOST=$state.DatabaseHost;PGPORT='5432';PGDATABASE='orbe_test';PGUSER='orbe';PGPASSWORD=$vault.DbPassword}}}finally{$rsaPublic.Dispose();$certificate.Dispose()}
  }
+ $secret.Preview=@{AllowUnverifiedClients=[bool]$EnableUnverifiedClientTests}
  $secret|ConvertTo-Json -Depth 12|Set-Content -LiteralPath (Join-Path $server 'orbe.secrets.json') -Encoding utf8
  $zip=Join-Path $output 'orbe-test-private.zip'
  if(Test-Path -LiteralPath $zip){Remove-Item -LiteralPath $zip}

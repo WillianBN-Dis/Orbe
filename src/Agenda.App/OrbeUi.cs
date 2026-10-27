@@ -23,7 +23,8 @@ internal static class OrbeUi
         var b = new Button { Text = text, BackgroundColor = primary ? Violet : danger ? Color.FromArgb("#36262D") : quiet ? Colors.Transparent : Raised,
             TextColor = primary ? CanvasColor : danger ? Coral : Ink, FontFamily = "OpenSansSemibold", FontSize = 12,
             BorderColor = primary || quiet || danger ? Colors.Transparent : Line, BorderWidth = quiet ? 0 : 1,
-            Padding = new Thickness(16, 11), MinimumHeightRequest = 44, CornerRadius = 10 };
+            Padding = new Thickness(16, 11), MinimumHeightRequest = 44, CornerRadius = 10,
+            MaximumWidthRequest = 320, HorizontalOptions = LayoutOptions.Start, VerticalOptions = LayoutOptions.Center };
         b.Clicked += async (_, _) => { if (!b.IsEnabled) return; b.IsEnabled = false; try { await action(); } finally { b.IsEnabled = true; } };
         SemanticProperties.SetDescription(b, text);
         return b;

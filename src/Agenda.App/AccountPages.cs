@@ -25,6 +25,12 @@ internal sealed class CloudFormPage:ContentPage
 }
 internal static partial class AccountPages
 {
+ internal static Page Connection(CloudApi api)
+ {
+  var page=new CloudFormPage(api,"Conexão administrativa");var address=Input("Endereço HTTPS",api.BaseUrl);address.MaxLength=512;
+  page.Fields.Add(Stack(18,Text("Conexão deste dispositivo",23,Ink,true),Text("Acesso exclusivo do administrador. Ao alterar, será necessário entrar novamente.",13,Muted),Field("Servidor Orbe",address),Button("Salvar conexão",()=>page.Run(async()=>{if(!(await api.Me()).Owner)throw new ArgumentException("Somente WillianBN pode alterar a conexão.");using var check=new CloudApi(Required(address,"o endereço"));if(!await page.DisplayAlertAsync("Alterar conexão?","Você será desconectado deste dispositivo.","Salvar e sair","Cancelar"))return;Preferences.Default.Set(CloudSessionStore.UrlKey,check.BaseUrl);await CloudSessionStore.End(page,api);}),primary:true)));
+  return page;
+ }
  private static string S(JsonElement j,string key)=>j.TryGetProperty(key,out var p)&&p.ValueKind==JsonValueKind.String?p.GetString()??"":"";
  private static bool B(JsonElement j,string key)=>j.TryGetProperty(key,out var p)&&p.ValueKind==JsonValueKind.True;
  private static int I(JsonElement j,string key)=>j.GetProperty(key).GetInt32();

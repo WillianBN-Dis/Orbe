@@ -6,7 +6,7 @@ namespace Agenda.App;
 public sealed partial class DashboardPage : ContentPage
 {
     private readonly Grid shell=new();
-    private readonly Grid main=new(){RowDefinitions=new(){new(GridLength.Auto),new(GridLength.Star)},RowSpacing=22};
+    private readonly Grid main=new(){RowDefinitions=new(){new(GridLength.Auto),new(GridLength.Star)},RowSpacing=22,MaximumWidthRequest=1440};
     private readonly ContentView sidebarHost=new(),headerHost=new(),mobileHost=new();
     private readonly ScrollView mainScroll=new(){VerticalScrollBarVisibility=ScrollBarVisibility.Never};
     private readonly VerticalStackLayout body=new(){Spacing=22};
@@ -40,6 +40,9 @@ public sealed partial class DashboardPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();compact=Width<860;lastWidth=Width;
+#if DEBUG
+        if(Environment.GetCommandLineArgs().Contains("--layout-check")){loaded=dataLoaded=true;tab=Environment.GetEnvironmentVariable("ORBE_QA_TAB")??"Agenda";BuildShell();return;}
+#endif
         await Guard(async()=>
         {
             profile=await client.Me();await client.ConfigureZone();people=(await client.Get<CloudEmployee[]>("team/employees")).Where(x=>profile.Owner||x.Enabled).ToArray();
@@ -80,7 +83,7 @@ public sealed partial class DashboardPage : ContentPage
     private View BuildMobileNav()
     {
         var nav=new Grid{BackgroundColor=Sidebar,Padding=new Thickness(10,8),ColumnDefinitions=new(){new(GridLength.Star),new(GridLength.Star),new(GridLength.Star)},ColumnSpacing=6};
-        var names=new[]{"Agenda","Financeiro","Conta"};for(int i=0;i<names.Length;i++){var name=names[i];var b=Button(name,async()=>{tab=name;BuildShell();await AnimateBody();},quiet:true);b.TextColor=name==tab?Violet:Muted;b.BackgroundColor=name==tab?Color.FromArgb("#27233E"):Colors.Transparent;nav.Add(b,i);}return nav;
+        var names=new[]{"Agenda","Financeiro","Conta"};for(int i=0;i<names.Length;i++){var name=names[i];var b=Button(name,async()=>{tab=name;BuildShell();await AnimateBody();},quiet:true);b.HorizontalOptions=LayoutOptions.Fill;b.TextColor=name==tab?Violet:Muted;b.BackgroundColor=name==tab?Color.FromArgb("#27233E"):Colors.Transparent;nav.Add(b,i);}return nav;
     }
     private void RenderNow()
     {

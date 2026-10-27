@@ -16,7 +16,7 @@ public static class Routes
  public static void MapOrbe(this WebApplication app)
  {
   var api=app.MapGroup("/api/v1");
-  api.MapGet("/public/info",async(OrbeDb db,IEmailDelivery email)=>{var s=await db.Settings.SingleAsync();return Results.Ok(new{s.Name,s.PublicBookingOpen,s.TimeZoneId,s.CancellationHours,emailReady=email.Ready});});
+  api.MapGet("/public/info",async(OrbeDb db,IEmailDelivery email,IConfiguration config)=>{var s=await db.Settings.SingleAsync();return Results.Ok(new{s.Name,s.PublicBookingOpen,s.TimeZoneId,s.CancellationHours,emailReady=email.Ready,testMode=config.GetValue<bool>("Preview:AllowUnverifiedClients")});});
   api.MapGet("/public/services",async(OrbeDb db)=>Results.Ok(await db.Services.Where(x=>x.Enabled).OrderBy(x=>x.Name).Select(x=>new{x.Id,x.Name,x.DurationMinutes,x.PriceCents}).ToArrayAsync()));
   api.MapGet("/public/employees",async(string? serviceId,OrbeDb db)=>Results.Ok(await db.Employees.Where(x=>x.Enabled&&x.User.Active&&(serviceId==null||db.EmployeeServices.Any(e=>e.EmployeeId==x.Id&&e.ServiceId==serviceId))).OrderBy(x=>x.DisplayName).Select(x=>new{x.Id,x.DisplayName}).ToArrayAsync()));
   api.MapGet("/public/availability",async(string employeeId,string serviceId,DateOnly from,int? days,Scheduling scheduling)=>Results.Ok(await scheduling.AvailabilityFor(employeeId,serviceId,from,days??1)));
@@ -106,13 +106,13 @@ public static class Routes
   owner.MapPost("/services",async(ServiceInput input,OrbeDb db)=>{ValidateService(input);var row=new Service{Name=input.Name.Trim(),DurationMinutes=input.DurationMinutes,PriceCents=input.PriceCents,Enabled=input.Enabled};db.Services.Add(row);await db.SaveChangesAsync();return Results.Ok(row);});
   owner.MapPut("/services/{id}",async(string id,ServiceInput input,OrbeDb db)=>{ValidateService(input);var row=await db.Services.SingleOrDefaultAsync(x=>x.Id==id)??throw new ApiError(404,"Serviço não encontrado.");if(row.Version!=input.Version)throw new ApiError(409,"Serviço alterado. Atualize a lista.");row.Name=input.Name.Trim();row.DurationMinutes=input.DurationMinutes;row.PriceCents=input.PriceCents;row.Enabled=input.Enabled;row.Version=Guid.NewGuid();await db.SaveChangesAsync();return Results.Ok(row);});
   owner.MapGet("/settings",async(OrbeDb db)=>Results.Ok(await db.Settings.SingleAsync()));
-  owner.MapPut("/settings",async(PolicyInput input,OrbeDb db,IEmailDelivery email)=>
+  owner.MapPut("/settings",async(PolicyInput input,OrbeDb db,IEmailDelivery email,IConfiguration config)=>
   {
    Text(input.Name,100,"o nome do estabelecimento");var row=await db.Settings.SingleAsync();if(row.Version!=input.Version)throw new ApiError(409,"Configurações alteradas. Atualize.");
    new Orbe.Cloud.Core.BookingPolicy(input.SlotMinutes,input.LeadMinutes,input.HorizonDays,input.CancellationHours,input.TimeZoneId).Validate();
    if(input.PublicBookingOpen)
    {
-    if(!email.Ready)throw new ApiError(409,"Configure o envio de e-mails antes de abrir as reservas públicas.");
+    if(!email.Ready&&!config.GetValue<bool>("Preview:AllowUnverifiedClients"))throw new ApiError(409,"Configure o envio de e-mails antes de abrir as reservas públicas.");
     if(!input.ImportCompleted||await db.Appointments.AnyAsync(x=>x.EmployeeId==null))throw new ApiError(409,"Conclua a importação e atribua os agendamentos antigos antes de abrir reservas.");
     if(!await db.EmployeeServices.AnyAsync(x=>db.Employees.Any(e=>e.Id==x.EmployeeId&&e.Enabled&&e.User.Active)&&db.Services.Any(s=>s.Id==x.ServiceId&&s.Enabled)&&db.WeekWindows.Any(w=>w.EmployeeId==x.EmployeeId)))throw new ApiError(409,"Configure ao menos um profissional ativo, serviço e jornada antes de abrir reservas.");
    }

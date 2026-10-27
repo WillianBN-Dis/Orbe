@@ -8,10 +8,11 @@
 
 A versão 2 centraliza contas, agenda e financeiro na Discloud e funciona com o computador principal desligado. O aplicativo usa login; a demonstração foi removida. O Nexus permanece independente e o histórico antigo é importado uma única vez, com backup e conferência.
 
-**Cadastro de clientes, recuperação por e-mail e reservas públicas estão fechados por decisão do proprietário até configurar SMTP e concluir a preparação inicial.** A administração já está disponível. Esta versão é entregue para testes; a linha estável anterior 1.0.2 permanece preservada.
+**Ambiente de testes:** cadastro de clientes e reservas estão liberados, por decisão do proprietário, sem confirmação de e-mail. O site identifica esse modo; recuperação por e-mail continua indisponível. A administração está disponível e a linha anterior 1.0.2 permanece preservada.
 
 - [Site de testes](https://orbe-willianbn.discloud.dev) · [Administração](https://orbe-willianbn.discloud.dev/equipe)
 - [Versões e downloads](https://github.com/WillianBN-Dis/Orbe/releases)
+- Downloads atuais 2.0.0: [Windows](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.0/Orbe-Setup.exe) · [Android](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.0/Orbe-2.0.0.apk). Android atual: build 20002/ajuste 2, sem configurar servidor no login. A conexão fica somente em Conta para o administrador.
 - [Primeiros passos](docs/PRIMEIROS-PASSOS.md) · [Operação e backups](deploy/discloud/README.md)
 - Android: **Atualizar aplicativo** no login e em Conta, a partir do **2.0.0 ajuste 1**. A versão exibida continua 2.0.0. [Como atualizar e publicar ajustes](docs/ATUALIZACOES-ANDROID.md).
 

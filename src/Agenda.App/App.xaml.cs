@@ -13,6 +13,16 @@ public partial class App : Application
         var compactPreview=args.Contains("--compact");
         var window=new Window(Navigation(new LoginPage()))
         {Title="Orbe · Agenda e finanças",Width=compactPreview?430:1440,Height=compactPreview?900:960};
+#if DEBUG
+        // Synthetic layout fixture, compiled out of distributed Release packages.
+        if(args.Contains("--layout-check"))
+        {
+            var qa=new DashboardPage(new Agenda.Core.CloudApi(Agenda.Core.CloudApi.DefaultUrl),new Agenda.Core.CloudProfile("qa","Equipe QA","qa@example.test",null,null,true,["Owner"],null));
+            window.Page=Navigation(qa);
+            if(double.TryParse(Environment.GetEnvironmentVariable("ORBE_QA_WIDTH"),out var qaWidth))window.Width=qaWidth;
+            if(double.TryParse(Environment.GetEnvironmentVariable("ORBE_QA_HEIGHT"),out var qaHeight))window.Height=qaHeight;
+        }
+#endif
         if(args.Contains("--startup-check"))
         {
             window.Created+=(_,_)=>window.Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(4),async()=>

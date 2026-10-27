@@ -22,7 +22,7 @@ public static class Secrets
  public static CookieOptions CookieOptions(HttpContext c,DateTimeOffset? expiry=null)=>new(){HttpOnly=true,Secure=!c.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment()&&!c.RequestServices.GetRequiredService<IHostEnvironment>().IsEnvironment("Testing"),SameSite=SameSiteMode.Strict,Path="/",Expires=expiry};
 }
 public sealed class SessionAuth(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder,
- OrbeDb db, UserManager<AppUser> users,TimeProvider clock) : AuthenticationHandler<AuthenticationSchemeOptions>(options,logger,encoder)
+ OrbeDb db, UserManager<AppUser> users,TimeProvider clock,IConfiguration config) : AuthenticationHandler<AuthenticationSchemeOptions>(options,logger,encoder)
 {
  protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
  {
@@ -34,6 +34,7 @@ public sealed class SessionAuth(IOptionsMonitor<AuthenticationSchemeOptions> opt
   if(session is null)return AuthenticateResult.Fail("Sessão inválida.");
   var user=await users.FindByIdAsync(session.UserId);
   if(user is null||!user.Active||user.SecurityStamp!=session.SecurityStamp)return AuthenticateResult.Fail("Sessão encerrada.");
+  if(!user.EmailConfirmed&&!(config.GetValue<bool>("Preview:AllowUnverifiedClients")&&(await users.GetRolesAsync(user)).SequenceEqual(new[]{Roles.Client})))return AuthenticateResult.Fail("Confirme seu e-mail.");
   var claims=new List<Claim>{new(ClaimTypes.NameIdentifier,user.Id),new(ClaimTypes.Name,user.UserName??user.FullName)};
   claims.AddRange((await users.GetRolesAsync(user)).Select(role=>new Claim(ClaimTypes.Role,role)));
   return AuthenticateResult.Success(new(new ClaimsPrincipal(new ClaimsIdentity(claims,Scheme.Name)),Scheme.Name));
@@ -87,7 +88,7 @@ public sealed class AuthService(OrbeDb db,UserManager<AppUser> users,IEmailDeliv
   var user=await users.FindByNameAsync(login)??await users.FindByEmailAsync(login);
   if(user is null||!user.Active||await users.IsLockedOutAsync(user))throw new ApiError(401,"Usuário ou senha inválidos. Se necessário, aguarde e tente novamente.");
   if(!await users.CheckPasswordAsync(user,password)){await users.AccessFailedAsync(user);throw new ApiError(401,"Usuário ou senha inválidos. Se necessário, aguarde e tente novamente.");}
-  if(!user.EmailConfirmed)throw new ApiError(403,"Confirme seu e-mail antes de entrar.");
+  if(!user.EmailConfirmed&&!(config.GetValue<bool>("Preview:AllowUnverifiedClients")&&(await users.GetRolesAsync(user)).SequenceEqual(new[]{Roles.Client})))throw new ApiError(403,"Confirme seu e-mail antes de entrar.");
   await users.ResetAccessFailedCountAsync(user);
   var token=Secrets.Random();var expiry=clock.GetUtcNow().AddDays(14);
   db.Sessions.Add(new(){TokenHash=Secrets.Hash(token),UserId=user.Id,SecurityStamp=user.SecurityStamp!,ExpiresAt=expiry});
@@ -121,16 +122,17 @@ public static class AuthRoutes
  {
   var group=app.MapGroup("/api/v1/auth").RequireRateLimiting("auth");
   group.MapGet("/csrf",(HttpContext c,IAntiforgery anti)=>Results.Ok(new{token=anti.GetAndStoreTokens(c).RequestToken})).RequireRateLimiting("account");
-  group.MapPost("/register",async(RegisterInput input,UserManager<AppUser> users,AuthService auth,IEmailDelivery email)=>
+  group.MapPost("/register",async(RegisterInput input,UserManager<AppUser> users,AuthService auth,IEmailDelivery email,IConfiguration config)=>
   {
-   if(!email.Ready)throw new ApiError(503,"Cadastro disponível após configurar o envio de e-mails.");
+   var preview=config.GetValue<bool>("Preview:AllowUnverifiedClients");
+   if(!email.Ready&&!preview)throw new ApiError(503,"Cadastro disponível após configurar o envio de e-mails.");
    if(string.IsNullOrWhiteSpace(input.FullName)||input.FullName.Length>150||string.IsNullOrWhiteSpace(input.Phone)||input.Phone.Length>30||new string(input.Phone.Where(char.IsDigit).ToArray()).Length<8||string.IsNullOrWhiteSpace(input.Email)||input.Email.Length>256||input.Password is null||input.Password.Length>256||input.BirthDate>DateOnly.FromDateTime(DateTime.UtcNow)||input.BirthDate.Year<1900)throw new ApiError(400,"Confira nome, telefone, e-mail e nascimento. Use senha de 10 a 256 caracteres.");
    if(await users.FindByEmailAsync(input.Email) is null)
    {
     var user=new AppUser{UserName=input.Email,Email=input.Email,FullName=input.FullName.Trim(),PhoneNumber=input.Phone,BirthDate=input.BirthDate,LockoutEnabled=true};
-    AuthService.Check(await users.CreateAsync(user,input.Password));AuthService.Check(await users.AddToRoleAsync(user,Roles.Client));await auth.ConfirmEmail(user);
+    AuthService.Check(await users.CreateAsync(user,input.Password));AuthService.Check(await users.AddToRoleAsync(user,Roles.Client));if(!preview)await auth.ConfirmEmail(user);
    }
-   return Results.Accepted(value:new{message="Confira seu e-mail para confirmar o cadastro."});
+   return Results.Accepted(value:new{emailConfirmationRequired=!preview,message=preview?"Ambiente de testes: se o cadastro foi concluído, você já pode entrar. O e-mail ainda não foi verificado.":"Confira seu e-mail para confirmar o cadastro."});
   });
   group.MapPost("/resend",async(EmailInput input,UserManager<AppUser> users,AuthService auth)=>{var user=await users.FindByEmailAsync(input.Email);if(user is not null&&!user.EmailConfirmed&&user.Active)await auth.ConfirmEmail(user);return Results.Ok(new{message="Se houver uma confirmação pendente, enviaremos as instruções."});});
   group.MapPost("/login",async(LoginInput input,AuthService auth,HttpContext c,IAntiforgery anti)=>

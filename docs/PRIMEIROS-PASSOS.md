@@ -14,7 +14,7 @@ Para criar atendimentos manualmente como proprietário, escolha antes o profissi
 
 ## Clientes e reservas online
 
-**Ambiente atual de testes: cadastro de clientes e recuperação por e-mail permanecem fechados por decisão do proprietário até configurar SMTP. As reservas públicas também continuam fechadas.** O botão **Entrar como cliente** abre o site, sem acesso à agenda administrativa.
+**Ambiente atual de testes: cadastro de clientes e reservas liberados sem confirmação de e-mail, por autorização do proprietário. A recuperação por e-mail continua indisponível.** O botão **Entrar como cliente** abre o site, sem acesso à agenda administrativa. Clientes usam **e-mail e senha** após criar a própria conta; o usuário WillianBN é exclusivo da administração. A configuração de servidor foi retirada do login e fica em **Conta → Configurar conexão**, somente para WillianBN.
 
 Quando e-mail e configuração inicial estiverem prontos, o cliente poderá criar conta, confirmar e-mail e escolher serviço → profissional → dia → horário. A confirmação é automática, sem sobreposição. O cliente vê somente o próprio cadastro e agendamentos. Cancelamento/remarcação permite até 24 horas antes, prazo ajustável pelo proprietário.
 
@@ -24,7 +24,9 @@ O Orbe 2 não se conecta diretamente ao Nexus. O Nexus continua independente, co
 
 No Windows, use **Conta → Importar e atribuir histórico**, selecione somente o SQLite dedicado ao Orbe e confira a prévia. O app gera uma cópia consistente de segurança sem alterar o original. Preserva IDs, datas, centavos e vínculos; repetir o mesmo arquivo não duplica os dados. Depois, atribua os registros aos profissionais. Registros sem atribuição ficam visíveis somente para WillianBN. Bancos de credenciais/catálogo Nexus são recusados. O Android aceita o JSON exportado pelo Orbe no Windows.
 
-Antes de abrir reservas, confira importação/atribuição, equipe, serviços, jornadas e **Regras e reservas online**. Não abra para clientes enquanto o cadastro por e-mail estiver desativado.
+Antes do uso definitivo, confira importação/atribuição, equipe, serviços, jornadas e **Regras e reservas online**. Configure e teste a confirmação de e-mail antes de encerrar o modo de testes.
+
+O modo atual permite experimentar o fluxo sem envio de e-mails. Para encerrar os testes, feche as reservas e desative `Preview:AllowUnverifiedClients`; configure SMTP e valide as contas antes do uso definitivo. O modo de testes não marca e-mails como confirmados.
 
 ## Financeiro e backups
 

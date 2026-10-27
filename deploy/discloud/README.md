@@ -35,3 +35,9 @@ Depois use `pg_restore --no-owner --no-acl --exit-on-error` **somente em banco n
 O usuário administrativo é `WillianBN`. Após configurar o e-mail real, execute localmente `./deploy/discloud/Show-OwnerAccess.ps1`: a senha inicial é exibida em janela mascarada e pode ser copiada por ação explícita. Não é impressa no terminal, enviada ao GitHub nem adicionada às notas. Troque a senha em Minha conta após entrar. O assistente não redefine uma senha já trocada.
 
 **Pendências:** SMTP (adiado pelo usuário; cadastro e recuperação de clientes fechados), QA final dos aplicativos e release. A versão estável 1.0.2 e as anteriores permanecem intactas no GitHub.
+
+## Prévia sem SMTP, autorizada para testes
+
+O parâmetro explícito `-EnableUnverifiedClientTests` do Publish-Test.ps1 define `Preview:AllowUnverifiedClients=true` no arquivo privado do servidor. O padrão permanece false. Nesse modo, o site exibe aviso, permite cadastro/login de Client sem envio de e-mail e mantém EmailConfirmed=false. Equipe e Owner continuam sujeitos à regra normal de confirmação. Desativar a configuração invalida também o acesso das sessões não verificadas.
+
+Recuperação de senha por e-mail continua indisponível. Antes do uso definitivo, feche as reservas, desative a prévia, configure/teste SMTP e verifique as contas. A abertura de reservas continua exigindo serviço, profissional ativo, jornada e ausência de histórico sem atribuição.
