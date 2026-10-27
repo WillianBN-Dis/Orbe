@@ -29,3 +29,5 @@ Android ARM64/x86_64 assinado com o mesmo certificado: SHA-256 `bbb5effe20b368e4
 - Artefatos privados de QA em artifacts/cloud-dev e artifacts/qa. Nenhuma credencial ou dado pessoal acompanha a publicação.
 
 Downloads: [Windows](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.0/Orbe-Setup.exe) · [Android](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.0/Orbe-2.0.0.apk). Instale por cima do app existente. O site continua explicitamente em modo de testes.
+
+Publicação concluída: release 2.0.0 definida como download mais recente. Downloads públicos sem autenticação dos dois instaladores conferidos por SHA-256 contra os pacotes testados; digests GitHub correspondem. APK original e setup original preservados com prefixo Historico; ajuste 1 identificado como anterior. Código dos ajustes em f272f9b e feed Android em 6dbb6b3. A tag original 2.0.0 não foi movida.
