@@ -1,7 +1,7 @@
 {
   "version": "2.0.0",
-  "build": 20002,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.0/Orbe-2.0.0-ajuste.2.apk",
-  "sha256": "850c9c82770ec9188f0166903e9ac8b7dace8c3ecbfc3942b40371fe6e9d43c5",
-  "notes": "Ajuste 2: configuração de servidor removida do login e restrita à conta administrativa. Interface e botões proporcionais. A versão continua 2.0.0."
+  "build": 20003,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.0/Orbe-2.0.0-ajuste.3.apk",
+  "sha256": "460e823062fd76bc1809d28535095e7dd1268c6c4732ceb54730c391fdb94c9b",
+  "notes": "Ajuste 3: layout desktop e menu móvel corrigidos, logo menor, novo fundo do ícone e agenda atualizada automaticamente. Conexão central somente pelo administrador. A versão continua 2.0.0."
 }
