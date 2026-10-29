@@ -4,7 +4,7 @@ $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $stateFile=Join-Path $workspace 'artifacts/discloud-test/state.json'
 if(!(Test-Path -LiteralPath $stateFile)){throw 'Publique o ambiente de testes antes de criar o backup.'}
 $state=Get-Content -LiteralPath $stateFile -Raw|ConvertFrom-Json
-if($state.SiteName -ne 'orbe-willianbn' -or $state.DatabaseId -notmatch '^\d+db$'){throw 'Estado não corresponde ao ambiente de testes Orbe esperado.'}
+if($state.SiteName -notin @('orbe','orbe-willianbn') -or $state.DatabaseId -notmatch '^\d+db$'){throw 'Estado não corresponde ao ambiente de testes Orbe esperado.'}
 $directory=Join-Path $workspace 'artifacts/discloud-test/backups'
 New-Item -ItemType Directory -Force $directory|Out-Null
 try{

@@ -1,4 +1,4 @@
-param([string]$SiteName='orbe-willianbn',[string]$OwnerEmail='', [switch]$SkipBuild,[string[]]$TrustedProxyAddresses=@(),[switch]$ProbeProxy,[switch]$EnableUnverifiedClientTests)
+param([string]$SiteName='orbe',[string]$OwnerEmail='', [switch]$SkipBuild,[string[]]$TrustedProxyAddresses=@(),[switch]$ProbeProxy,[switch]$EnableUnverifiedClientTests)
 $ErrorActionPreference='Stop'
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $output=Join-Path $workspace 'artifacts/discloud-test'
