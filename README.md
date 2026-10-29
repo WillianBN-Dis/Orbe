@@ -10,7 +10,7 @@ A versão 2 centraliza contas, agenda e financeiro na Discloud e funciona com o 
 
 **Ambiente de testes:** cadastro de clientes e reservas estão liberados, por decisão do proprietário, sem confirmação de e-mail. O site identifica esse modo; recuperação por e-mail continua indisponível. A administração está disponível e a linha anterior 1.0.2 permanece preservada.
 
-- [Site de testes](https://orbe.discloud.dev) · [Administração](https://orbe.discloud.dev/equipe)
+- [Site de testes](https://orbe-willianbn.discloud.dev) · [Administração](https://orbe-willianbn.discloud.dev/equipe)
 - [Versões e downloads](https://github.com/WillianBN-Dis/Orbe/releases)
 - Downloads atuais 2.0.0: [Windows](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.0/Orbe-Setup.exe) · [Android](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.0/Orbe-2.0.0.apk). Android atual: build 20003/ajuste 3, sem configurar servidor no login. A conexão fica somente em Conta para o administrador e é compartilhada por todos os dispositivos. O endereço inicial de descoberta precisa continuar acessível; a troca de endereço não migra o banco.
 - [Primeiros passos](docs/PRIMEIROS-PASSOS.md) · [Operação e backups](deploy/discloud/README.md)

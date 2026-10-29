@@ -45,3 +45,11 @@ Recuperação de senha por e-mail continua indisponível. Antes do uso definitiv
 ## Endereço curto — 29/10/2026
 Servidor principal: https://orbe.discloud.dev (512 MB), mesmo PostgreSQL de 512 MB. O app orbe-willianbn agora executa somente deploy/discloud/legacy/index.js (512 MB) para compatibilidade: descoberta e API são encaminhadas ao destino HTTPS fixo; navegação web redireciona. Não possui worker de banco ou backup. Não remova esse acesso enquanto existirem aplicativos instalados com bootstrap antigo. A RAM total do plano não foi alterada; compatibilidade usa 512 MB adicionais do saldo existente.
 O bootstrap estável do código nativo continua no endereço antigo deliberadamente, mas retorna apiUrl novo; aplicativos ajuste3 descobrem a mudança e solicitam novo login. Não precisam reinstalar. Publicações normais usam SiteName=orbe; o estado privado registra LegacySiteId separadamente. Backup diário permanece somente no servidor principal. Uma migração futura de bootstrap exige novo APK/código interno, preservando a origem antiga durante transição.
+
+## Recuperação de acesso — 29/10/2026
+
+A promoção do endereço curto foi suspensa: o DNS do provedor usado pelo Wi-Fi do proprietário(138.117.233.254) retorna NXDOMAIN para A de orbe.discloud.dev, apesar de responder AAAA e de1.1.1.1/8.8.8.8 já responderem A válido. Servidor novo e HTTPS funcionam com resolução explícita. Não tratar como troca concluída para esse usuário.
+
+O gateway foi corrigido para servir site/API pelo endereço antigo sem redirecionamento e anunciar o endereço antigo na descoberta enquanto o DNS novo estiver pendente. A transformação da descoberta pedeAccept-Encodingidentity ao upstream para evitar tentar interpretar JSON comprimido. O backend e banco continuam os mesmos, backup diário somente no principalorbe. HTTP200 da raiz/descoberta e navegador móvel real carregando reserva sem redirecionar aprovados. Dados/contas preservados. Links principais voltaram ao endereço estável.
+
+Antes de promover novamente: resolver A usando DNS padrão da rede do usuário e testar navegador/app normalmente, sem override de resolução. Não trocar DNS do PC/roteador, hosts ou Firewall. Se persistir no provedor, manter acesso antigo e explicar o bloqueio; não forçar promoção. Evidências privadas emartifacts/domain-move, recovered-browser.cjs/recovered-mobile.png.

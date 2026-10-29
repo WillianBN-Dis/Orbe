@@ -1,7 +1,7 @@
 # Primeiros passos — Orbe 2.0
 
 1. No Windows, execute **Orbe-Setup.exe**. O instalador inclui .NET e Windows App SDK; o atalho na área de trabalho é opcional. No Android, instale **Orbe-2.0.0.apk**, assinado com a mesma chave da versão 1.0.2.
-2. Abra o Orbe e entre com usuário e senha. Servidor padrão: https://orbe.discloud.dev. O computador principal não precisa permanecer ligado; uma conexão com a internet é necessária.
+2. Abra o Orbe e entre com usuário e senha. Servidor padrão: https://orbe-willianbn.discloud.dev. O computador principal não precisa permanecer ligado; uma conexão com a internet é necessária.
 3. O proprietário entra como **WillianBN**. A senha inicial foi gerada e protegida no PC; consulte o assistente local deploy/discloud/Show-OwnerAccess.ps1 no projeto. Depois de entrar, use **Conta → Editar meu cadastro → Trocar senha**. Não compartilhe a senha administrativa.
 4. Em **Conta → Equipe e acessos**, crie os funcionários. Se o proprietário também atende, use **Eu também atendo**. Somente WillianBN cria/desativa acessos e define os serviços de cada profissional.
 5. Cadastre os serviços e atribua-os aos profissionais. Cada funcionário configura a própria jornada, folgas e compromissos, sem aprovação. Você também pode ajustar essas configurações.
