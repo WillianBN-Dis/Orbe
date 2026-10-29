@@ -4,6 +4,14 @@ namespace Agenda.App;
 
 internal static class OrbeUi
 {
+    public static Image BrandImage(double size)
+    {
+        var file="orbe.png";
+#if WINDOWS
+        file=System.IO.Path.Combine(AppContext.BaseDirectory,"orbe.scale-100.png");
+#endif
+        return new Image{Source=ImageSource.FromFile(file),WidthRequest=size,HeightRequest=size};
+    }
     public static readonly Color CanvasColor = Color.FromArgb("#0D101B"), Sidebar = Color.FromArgb("#111521"), Surface = Color.FromArgb("#171C2B"), Raised = Color.FromArgb("#1D2435"), Line = Color.FromArgb("#2A3144"), Ink = Color.FromArgb("#F4F5FA"), Muted = Color.FromArgb("#9BA5BE"), Dim = Color.FromArgb("#68738D"), Violet = Color.FromArgb("#A795F9"), Mint = Color.FromArgb("#74DBB5"), Coral = Color.FromArgb("#F4A49D"), Blue = Color.FromArgb("#84B8F6");
     public static Label Text(string text, double size = 14, Color? color = null, bool bold = false) => new()
     { Text = text, FontSize = size, TextColor = color ?? Ink, FontFamily = bold ? "OpenSansSemibold" : "OpenSansRegular", LineBreakMode = LineBreakMode.WordWrap };
@@ -71,5 +79,3 @@ internal sealed class LineIcon(string name, Color color) : IDrawable
         c.RestoreState();
     }
 }
-
-

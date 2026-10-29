@@ -19,9 +19,9 @@ public partial class App : Application
         {
             var qa=new DashboardPage(new Agenda.Core.CloudApi(Agenda.Core.CloudApi.DefaultUrl),new Agenda.Core.CloudProfile("qa","Equipe QA","qa@example.test",null,null,true,["Owner"],null));
             window.Page=Navigation(qa);
-            if(double.TryParse(Environment.GetEnvironmentVariable("ORBE_QA_WIDTH"),out var qaWidth))window.Width=qaWidth;
-            if(double.TryParse(Environment.GetEnvironmentVariable("ORBE_QA_HEIGHT"),out var qaHeight))window.Height=qaHeight;
         }
+        if(args.Contains("--startup-check")||args.Contains("--layout-check"))
+        {if(double.TryParse(Environment.GetEnvironmentVariable("ORBE_QA_WIDTH"),out var qaWidth))window.Width=qaWidth;if(double.TryParse(Environment.GetEnvironmentVariable("ORBE_QA_HEIGHT"),out var qaHeight))window.Height=qaHeight;}
 #endif
         if(args.Contains("--startup-check"))
         {
@@ -41,6 +41,9 @@ public partial class App : Application
                 Environment.Exit(visible&&captureError is null?0:1);
             });
         }
+#if DEBUG && WINDOWS
+        if(args.Contains("--live-check"))window.Created+=(_,_)=>window.Dispatcher.Dispatch(async()=>await RunLiveCheck(window));
+#endif
         return window;
     }
 }

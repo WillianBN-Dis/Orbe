@@ -12,13 +12,15 @@ A versão 2 centraliza contas, agenda e financeiro na Discloud e funciona com o 
 
 - [Site de testes](https://orbe-willianbn.discloud.dev) · [Administração](https://orbe-willianbn.discloud.dev/equipe)
 - [Versões e downloads](https://github.com/WillianBN-Dis/Orbe/releases)
-- Downloads atuais 2.0.0: [Windows](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.0/Orbe-Setup.exe) · [Android](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.0/Orbe-2.0.0.apk). Android atual: build 20002/ajuste 2, sem configurar servidor no login. A conexão fica somente em Conta para o administrador.
+- Downloads atuais 2.0.0: [Windows](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.0/Orbe-Setup.exe) · [Android](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.0/Orbe-2.0.0.apk). Android atual: build 20003/ajuste 3, sem configurar servidor no login. A conexão fica somente em Conta para o administrador e é compartilhada por todos os dispositivos. O endereço inicial de descoberta precisa continuar acessível; a troca de endereço não migra o banco.
 - [Primeiros passos](docs/PRIMEIROS-PASSOS.md) · [Operação e backups](deploy/discloud/README.md)
 - Android: **Atualizar aplicativo** no login e em Conta, a partir do **2.0.0 ajuste 1**. A versão exibida continua 2.0.0. [Como atualizar e publicar ajustes](docs/ATUALIZACOES-ANDROID.md).
 
 ## Agenda, equipe e financeiro
 
 WillianBN cria/desativa funcionários, cadastra serviços e define as habilitações. Cada profissional configura a própria jornada, com períodos separados por dia, exceções, folgas e compromissos parciais ou integrais. O proprietário consulta todos, inclusive o histórico dos profissionais desativados. A autorização é verificada no servidor.
+
+Desktop usa a área disponível ao lado da navegação, com login em duas colunas; no celular o site usa menu recolhível. Agenda e financeiro atualizam a cada 15 segundos enquanto a tela está ativa, sem interromper formulários.
 
 No aplicativo: calendário mensal e agenda do dia, criar/editar/excluir eventos, cancelar atendimentos, conta pessoal e gráficos financeiros animados por dia/mês/ano. Funcionários veem apenas a própria agenda e financeiro; o proprietário tem visão geral.
 

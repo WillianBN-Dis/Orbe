@@ -276,6 +276,9 @@ namespace Orbe.Server.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("ApiBaseUrl")
+                        .HasColumnType("text");
+
                     b.Property<int>("CancellationHours")
                         .HasColumnType("integer");
 
@@ -284,6 +287,11 @@ namespace Orbe.Server.Migrations
 
                     b.Property<bool>("ImportCompleted")
                         .HasColumnType("boolean");
+
+                    b.Property<Guid>("InstanceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<int>("LeadMinutes")
                         .HasColumnType("integer");

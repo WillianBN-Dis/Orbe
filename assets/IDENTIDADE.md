@@ -8,4 +8,6 @@ Assets: `assets/orbe-icon.svg` (completo); os SVGs separados em `Resources/AppIc
 
 Paleta: fundo #0D101B, lateral #111521, superfícies #171C2B, bordas #2A3144, texto #F4F5FA, secundário #9BA5BE, lavanda #A795F9, menta #74DBB5, coral #F4A49D, azul #84B8F6. Open Sans regular/semibold já embutida no aplicativo.
 
-Desktop: navegação lateral fixa e conteúdo em duas colunas quando há espaço. Mobile: navegação inferior, cartões empilhados, calendário compacto. Estados reais desconectado/vazio/erro, demonstração claramente identificada e somente leitura. Sem previsões ou comparações financeiras fictícias em dados reais.
+Desktop: navegação lateral fixa e conteúdo em duas colunas quando há espaço. Mobile: navegação inferior, cartões empilhados, calendário compacto. Estados reais desconectado/vazio/erro, sem demonstração. Sem previsões ou comparações financeiras fictícias em dados reais.
+
+Ajuste 3: fundo do ícone em gradiente navy #111A34 → #0D142B, margem externa transparente e símbolo a 90%, inspirado no tratamento de fundo do Nexus. Logo móvel menor. Demonstração removida da versão 2; estados vazios refletem os dados da conta.

@@ -48,7 +48,7 @@ public sealed partial class DashboardPage
                 var day=start.AddDays(row*7+col); var isSelected=day==Selected; var current=day.Month==calendarMonth.Month;
                 var events=appointments.Where(a=>a.Value.Intersects(day)).ToArray();
                 var cell=Button(day.Day.ToString("D2"),async()=>{selected=day;if(!current)calendarMonth=new(day.Year,day.Month,1);await Render();},quiet:true);
-                cell.HorizontalOptions=LayoutOptions.Fill;cell.VerticalOptions=LayoutOptions.Fill;cell.FontSize=13;cell.Padding=0;cell.FontFamily=isSelected?"OpenSansSemibold":"OpenSansRegular";
+                cell.HorizontalOptions=LayoutOptions.Center;cell.VerticalOptions=LayoutOptions.Center;cell.WidthRequest=44;cell.HeightRequest=44;cell.FontSize=13;cell.Padding=0;cell.FontFamily=isSelected?"OpenSansSemibold":"OpenSansRegular";
                 cell.BackgroundColor=isSelected?Violet:day==DateOnly.FromDateTime(DateTime.Today)?Raised:Colors.Transparent;
                 cell.TextColor=isSelected?CanvasColor:current?Ink:Dim;
                 cell.BorderWidth=day==DateOnly.FromDateTime(DateTime.Today)&&!isSelected?1:0;cell.BorderColor=Violet.WithAlpha(.5f);

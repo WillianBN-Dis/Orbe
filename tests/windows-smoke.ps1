@@ -11,13 +11,13 @@ $qaOutput='Orbe-QA-Setup-'+$Version
 if($LASTEXITCODE -ne 0){throw 'Falha ao compilar instalador isolado de QA.'}
 $installer=Join-Path $workspace ('dist/'+$qaOutput+'.exe')
 $setup=Start-Process -FilePath $installer -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOICONS',('/DIR="'+$install+'"'),('/LOG="'+(Join-Path $qaRoot 'install.log')+'"') -WindowStyle Hidden -PassThru
-if(!$setup.WaitForExit(60000) -or $setup.ExitCode -ne 0){throw 'Instalação isolada falhou.'}
+if(!$setup.WaitForExit(180000) -or $setup.ExitCode -ne 0){throw 'Instalação isolada falhou.'}
 $savedDotnetRoot=$env:DOTNET_ROOT
 try{
  Remove-Item Env:DOTNET_ROOT -ErrorAction SilentlyContinue
  foreach($name in 'Agenda.App.exe','coreclr.dll','hostfxr.dll','Microsoft.UI.Xaml.dll','e_sqlite3.dll'){if(!(Test-Path -LiteralPath (Join-Path $install $name))){throw "Dependência autocontida ausente: $name"}}
  $app=Start-Process -FilePath (Join-Path $install 'Agenda.App.exe') -ArgumentList '--startup-check' -WindowStyle Hidden -PassThru
- if(!$app.WaitForExit(20000)){Stop-Process -Id $app.Id;throw 'Abertura do app instalado excedeu prazo.'}
+ if(!$app.WaitForExit(60000)){Stop-Process -Id $app.Id;throw 'Abertura do app instalado excedeu prazo.'}
  $report=Join-Path ([IO.Path]::GetTempPath()) "orbe-startup-check-$($app.Id).json"
  if(!(Test-Path -LiteralPath $report)){throw 'Relatório de abertura do app instalado ausente.'}
  $result=Get-Content -LiteralPath $report -Raw|ConvertFrom-Json

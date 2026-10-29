@@ -9,7 +9,7 @@
     <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
     <ApplicationTitle>Orbe</ApplicationTitle>
     <ApplicationId>br.com.agendafinanceira.app</ApplicationId>
-    <ApplicationDisplayVersion>2.0.0</ApplicationDisplayVersion><ApplicationVersion>20000</ApplicationVersion>
+    <ApplicationDisplayVersion>2.0.0</ApplicationDisplayVersion><ApplicationVersion>20003</ApplicationVersion>
     <WindowsPackageType>None</WindowsPackageType>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
@@ -18,11 +18,11 @@
   <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
     <!-- Avoid missing JNI callbacks (MauiApplication.n_onCreate) in standalone Release APKs. -->
     <AndroidEnableMarshalMethods>false</AndroidEnableMarshalMethods>
-    <ApplicationDisplayVersion>2.0.0</ApplicationDisplayVersion><ApplicationVersion>20002</ApplicationVersion>
+    <ApplicationDisplayVersion>2.0.0</ApplicationDisplayVersion><ApplicationVersion>20003</ApplicationVersion>
   </PropertyGroup>
   <ItemGroup>
-    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#0D101B" />
-    <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#0D101B" BaseSize="128,128" />
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#10172E" />
+    <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#0D101B" BaseSize="112,112" />
     <MauiImage Include="Resources\Images\*.svg" />
 <MauiFont Include="Resources\Fonts\*" />
     <MauiAsset Include="..\..\licenses\*" LogicalName="licenses/%(Filename)%(Extension)" />

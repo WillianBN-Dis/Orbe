@@ -6,7 +6,7 @@ namespace Agenda.App;
 public sealed partial class DashboardPage : ContentPage
 {
     private readonly Grid shell=new();
-    private readonly Grid main=new(){RowDefinitions=new(){new(GridLength.Auto),new(GridLength.Star)},RowSpacing=22,MaximumWidthRequest=1440};
+    private readonly Grid main=new(){RowDefinitions=new(){new(GridLength.Auto),new(GridLength.Star)},RowSpacing=22};
     private readonly ContentView sidebarHost=new(),headerHost=new(),mobileHost=new();
     private readonly ScrollView mainScroll=new(){VerticalScrollBarVisibility=ScrollBarVisibility.Never};
     private readonly VerticalStackLayout body=new(){Spacing=22};
@@ -25,8 +25,16 @@ public sealed partial class DashboardPage : ContentPage
     private bool busy,loaded,dataLoaded,connectionProblem,compact;
     private double lastWidth;
     private int resizeVersion;
+    private IDispatcherTimer? liveTimer;
+    private Window? observedWindow;
+    private bool activePage;
     private bool Wide=>Width>=1180;
     private bool HasData=>dataLoaded;
+#if DEBUG
+    internal bool QaDataReady=>loaded&&dataLoaded;
+    internal int QaAppointmentCount=>appointments.Count;
+    internal void QaSelectFirst(){if(appointments.Count>0){selected=DateOnly.FromDateTime(appointments[0].Value.Start);calendarMonth=new(selected.Year,selected.Month,1);BuildShell();}}
+#endif
     private DateOnly Selected=>selected;
     public DashboardPage(CloudApi api,CloudProfile account)
     {
@@ -49,13 +57,47 @@ public sealed partial class DashboardPage : ContentPage
             if(!loaded)
             {
                 var employee=profile.Owner?Preferences.Default.Get("orbe-employee-id",""):profile.EmployeeId;
+#if DEBUG
+                if(Environment.GetCommandLineArgs().Contains("--live-check"))employee=profile.EmployeeId;
+#endif
                 if(!string.IsNullOrEmpty(employee)&&people.All(x=>x.Id!=employee))employee=null;
                 repository=new(client,string.IsNullOrEmpty(employee)?null:employee);
                 selected=DateOnly.FromDateTime(client.Local(DateTimeOffset.UtcNow));calendarMonth=new(selected.Year,selected.Month,1);loaded=true;
             }
-            await Reload();BuildShell();
+            await Reload();BuildShell();StartLiveUpdates();
         });
-        if(loaded)BuildShell();
+        if(loaded){BuildShell();StartLiveUpdates();}
+    }
+    protected override void OnDisappearing(){activePage=false;liveTimer?.Stop();if(observedWindow is not null){observedWindow.Resumed-=ResumeUpdates;observedWindow.Stopped-=PauseUpdates;observedWindow=null;}base.OnDisappearing();}
+    private void StartLiveUpdates()
+    {
+        activePage=true;liveTimer??=Dispatcher.CreateTimer();liveTimer.IsRepeating=true;liveTimer.Interval=TimeSpan.FromSeconds(15);
+        liveTimer.Tick-=LiveTick;liveTimer.Tick+=LiveTick;liveTimer.Start();
+        if(observedWindow!=Window){if(observedWindow is not null){observedWindow.Resumed-=ResumeUpdates;observedWindow.Stopped-=PauseUpdates;}observedWindow=Window;if(observedWindow is not null){observedWindow.Resumed+=ResumeUpdates;observedWindow.Stopped+=PauseUpdates;}}
+    }
+    private void PauseUpdates(object? sender,EventArgs e)=>liveTimer?.Stop();
+    private async void ResumeUpdates(object? sender,EventArgs e){if(!activePage)return;liveTimer?.Start();await LiveReload();}
+    private async void LiveTick(object? sender,EventArgs e)=>await LiveReload();
+    private async Task LiveReload()
+    {
+        if(!activePage||busy||repository is null||!ReferenceEquals(Navigation.NavigationStack.LastOrDefault(),this))return;
+        busy=true;
+        try
+        {
+            var connection=await CloudRouting.Discover(bootstrap:
+#if DEBUG
+                Environment.GetCommandLineArgs().Contains("--live-check")?client.BaseUrl:
+#endif
+                CloudApi.DefaultUrl);
+            if(connection.ApiUrl!=client.BaseUrl){await CloudSessionStore.End(this,client);return;}
+            var oldAppointments=appointments.Select(x=>x.Value).ToArray();var oldEntries=entries.Select(x=>x.Value).ToArray();var wasOffline=connectionProblem;
+            await Reload();
+            if(wasOffline||!oldAppointments.SequenceEqual(appointments.Select(x=>x.Value))||!oldEntries.SequenceEqual(entries.Select(x=>x.Value)))
+            {var scroll=mainScroll.ScrollY;RenderNow();if(!compact)sidebarHost.Content=BuildSidebar();await mainScroll.ScrollToAsync(0,scroll,false);}
+        }
+        catch(CloudException e)when(e.Status==HttpStatusCode.Unauthorized){appointments=[];entries=[];await CloudSessionStore.End(this,client);}
+        catch(Exception){connectionProblem=true;status.Text="Sem conexão no momento. Tentaremos atualizar novamente automaticamente.";}
+        finally{busy=false;}
     }
     private void BuildShell()
     {
@@ -67,7 +109,7 @@ public sealed partial class DashboardPage : ContentPage
         headerHost.Content=compact?Between(Brand(),Pill(scope??profile.FullName,Violet)):Between(eyebrow,Row(10,Icon("people",Dim,16),Text(scope??profile.FullName,12,Muted)));
         mobileHost.Content=compact?BuildMobileNav():null;mobileHost.IsVisible=compact;RenderNow();Dispatcher.Dispatch(async()=>await mainScroll.ScrollToAsync(0,0,false));
     }
-    private View Brand()=>Row(12,new Image{Source="orbe.png",WidthRequest=compact?36:42,HeightRequest=compact?36:42},Text("orbe",28,Ink,true));
+    private View Brand()=>Row(12,BrandImage(compact?30:42),Text("orbe",compact?24:28,Ink,true));
     private View BuildSidebar()
     {
         var panel=new Grid{BackgroundColor=Sidebar,Padding=new Thickness(20,26,20,20),RowDefinitions=new(){new(GridLength.Auto),new(GridLength.Star),new(GridLength.Auto)}};

@@ -47,9 +47,21 @@ internal static class ChecksMain
    var client=factory.CreateClient(new(){HandleCookies=false});var result=await Send(client,HttpMethod.Post,"/api/v1/auth/token",new{login=name,password=Password});client.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",result.GetProperty("accessToken").GetString());return client;
   }
   var owner=await Login("WillianBN");
+  var shared=await Get(anonymous,"/api/v1/public/connection");var instance=shared.GetProperty("instanceId").GetGuid();
+  Check(instance!=Guid.Empty&&shared.GetProperty("apiUrl").GetString()=="http://localhost","Conexão central tem identidade persistida do banco");
+  await Send(anonymous,HttpMethod.Put,"/api/v1/owner/connection",new{version=shared.GetProperty("version").GetGuid(),apiUrl="http://localhost"},401);
+  var sharedSaved=await Send(owner,HttpMethod.Put,"/api/v1/owner/connection",new{version=shared.GetProperty("version").GetGuid(),apiUrl="http://localhost"});
+  await Send(owner,HttpMethod.Put,"/api/v1/owner/connection",new{version=shared.GetProperty("version").GetGuid(),apiUrl="http://localhost"},409);Check(true,"Conexão global exige autenticação e recusa gravação concorrente desatualizada");
+  await Send(owner,HttpMethod.Put,"/api/v1/owner/connection",new{version=sharedSaved.GetProperty("version").GetGuid(),apiUrl="http://169.254.169.254"},400);
+  await Send(owner,HttpMethod.Put,"/api/v1/owner/connection",new{version=sharedSaved.GetProperty("version").GetGuid(),apiUrl="https://different.discloud.dev"},409);Check(true,"Conexão recusa endereço privado e destino com banco diferente");
+  factory.Probe.Result=instance;
+  var moved=await Send(owner,HttpMethod.Put,"/api/v1/owner/connection",new{version=sharedSaved.GetProperty("version").GetGuid(),apiUrl="https://same.discloud.dev"});
+  Check((await Get(anonymous,"/api/v1/public/connection")).GetProperty("apiUrl").GetString()=="https://same.discloud.dev","Alteração Owner é central e aparece a todos, sem preferências locais");
+  await Send(owner,HttpMethod.Put,"/api/v1/owner/connection",new{version=moved.GetProperty("version").GetGuid(),apiUrl="http://localhost"});
   var person1=await Send(owner,HttpMethod.Post,"/api/v1/owner/employees",new{userName="staff1",email="staff1@example.test",fullName="Profissional Um",password=Password});
   var person2=await Send(owner,HttpMethod.Post,"/api/v1/owner/employees",new{userName="staff2",email="staff2@example.test",fullName="Profissional Dois",password=Password});
   var e1=Id(person1);var e2=Id(person2);var staff1=await Login("staff1");var staff2=await Login("staff2");
+  await Send(staff1,HttpMethod.Put,"/api/v1/owner/connection",new{version=Guid.NewGuid(),apiUrl="http://localhost"},403);Check(true,"Funcionário não altera conexão central mesmo chamando a API diretamente");
   await Send(staff1,HttpMethod.Post,"/api/v1/owner/employees",new{userName="intruder",email="x@example.test",fullName="X",password=Password},403);Check(true,"Funcionário não cria outras contas da equipe");
   var service=await Send(owner,HttpMethod.Post,"/api/v1/owner/services",new{name="Atendimento",durationMinutes=60,priceCents=10000,enabled=true});var serviceId=Id(service);
   async Task<JsonElement> SetEmployee(string id,JsonElement row,bool enabled=true)=>await Send(owner,HttpMethod.Put,$"/api/v1/owner/employees/{id}",new{version=row.GetProperty("version").GetString(),displayName=id==e1?"Profissional Um":"Profissional Dois",enabled,services=new[]{serviceId}});
@@ -71,6 +83,7 @@ internal static class ChecksMain
    var client=await Login(address);var me=await Get(client,"/api/v1/auth/me");Check(me.GetProperty("roles").EnumerateArray().Single().GetString()=="Client","Confirmação de e-mail e papel Client fixado no servidor: "+name);return client;
   }
   var client1=await Client("cliente1");var client2=await Client("cliente2");
+  await Send(client1,HttpMethod.Put,"/api/v1/owner/connection",new{version=Guid.NewGuid(),apiUrl="http://localhost"},403);Check(true,"Cliente não altera conexão central");
   await Send(client1,HttpMethod.Get,"/api/v1/team/entries",expected:403);await Send(client1,HttpMethod.Get,"/api/v1/owner/employees",expected:403);Check(true,"Cliente não acessa equipe ou financeiro");
   object Reservation(string employee,DateTimeOffset start)=>new{employeeId=employee,serviceId,start};
   await Send(client1,HttpMethod.Post,"/api/v1/bookings",Reservation(e1,At(9)),409,"closed-request");Check(true,"Reservas fechadas também são recusadas pela API");
@@ -187,12 +200,15 @@ internal sealed class MailCapture : IEmailDelivery
 }
 internal sealed class OrbeFactory(string connection,int authLimit=1000):WebApplicationFactory<global::Program>
 {
+ public ProbeCapture Probe {get;}=new();
  public TestClock Clock {get;}=new();public MailCapture Mail {get;}=new();
  protected override void ConfigureWebHost(IWebHostBuilder builder)
  {
   builder.UseEnvironment("Testing");
   builder.UseContentRoot(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../../src/Orbe.Server")));
   builder.ConfigureAppConfiguration((_,c)=>c.AddInMemoryCollection(new Dictionary<string,string?>{{"ConnectionStrings:Orbe",connection},{"Owner:Email","owner@example.test"},{"Owner:Password","SyntheticPassword123"},{"PublicUrl","http://localhost"},{"Limits:AuthPerMinute",authLimit.ToString()}}));
-  builder.ConfigureServices(s=>{s.RemoveAll<TimeProvider>();s.AddSingleton<TimeProvider>(Clock);s.RemoveAll<IEmailDelivery>();s.AddSingleton<IEmailDelivery>(Mail);});
+  builder.ConfigureServices(s=>{s.RemoveAll<TimeProvider>();s.AddSingleton<TimeProvider>(Clock);s.RemoveAll<IEmailDelivery>();s.AddSingleton<IEmailDelivery>(Mail);s.RemoveAll<IConnectionProbe>();s.AddSingleton<IConnectionProbe>(Probe);});
  }
 }
+internal sealed class ProbeCapture:IConnectionProbe
+{public Guid Result {get;set;}=Guid.NewGuid();public Task<Guid> Instance(string url,CancellationToken token)=>Task.FromResult(Result);}

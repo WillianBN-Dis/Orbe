@@ -18,3 +18,5 @@ O **ajuste 2**, código **20002**, inclui os ajustes responsivos e a retirada de
 O download exige HTTPS, origem oficial e redirecionamentos somente dentro do GitHub. O manifesto tem limite de 16 KiB e o APK de 150 MiB. Downloads incompletos são removidos; o pacote só fica disponível ao instalador depois da conferência SHA-256. O app também confere o identificador do pacote e o código interno anunciado. O próprio Android verifica a assinatura para aceitar a atualização e preservar dados.
 
 O cache é privado. O FileProvider compartilha temporariamente apenas arquivos da subpasta `updates/`; não expõe bancos, tokens ou outros arquivos. O cancelamento encerra a transferência quando a página é fechada. Não há instalação silenciosa ou alteração das configurações de segurança sem ação do usuário.
+
+Ajuste 3 (20003): conexão central exclusiva do proprietário, atualização automática da agenda, menu móvel organizado, logo menor e ícone com fundo navy. Continua versionName 2.0.0 e preserva a assinatura anterior.

@@ -78,6 +78,8 @@ public sealed class FinancialEntry
 }
 public sealed class BusinessSettings
 {
+ public Guid InstanceId {get;set;}=Guid.NewGuid();
+ public string? ApiBaseUrl {get;set;}
  public int Id {get;set;}=1;
  public string Name {get;set;}="Orbe";
  public bool ImportCompleted {get;set;}
@@ -128,6 +130,7 @@ public sealed class OrbeDb(DbContextOptions<OrbeDb> options) : IdentityDbContext
  protected override void OnModelCreating(ModelBuilder b)
  {
   base.OnModelCreating(b);
+  b.Entity<BusinessSettings>().Property(x=>x.InstanceId).HasDefaultValueSql("gen_random_uuid()");
   b.Entity<Employee>().HasIndex(x=>x.UserId).IsUnique();
   b.Entity<Employee>().HasOne(x=>x.User).WithMany().HasForeignKey(x=>x.UserId).OnDelete(DeleteBehavior.Restrict);
   b.Entity<EmployeeService>().HasKey(x=>new{x.EmployeeId,x.ServiceId});

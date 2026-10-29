@@ -12,3 +12,6 @@
 A validação de conta/jornada/equipe/importação Android usa fixtures do banco de testes e servidorloopback via `adb reverse tcp:5188 tcp:5188`. Não usa contas reais ou dadosNexus pessoais. Artefatos deQA ficam ignorados em `artifacts/cloud-dev` e `artifacts/qa`.
 
 A candidata anterior revelou que o botão Voltar doAndroid16 saía do app quando um formulário estava aberto. O projeto agora fixaMAUI10.0.110; o reteste confirmou o retorno correto. Referência do problema na base anterior: https://github.com/dotnet/maui/issues/33480. O teste deve incluir fechar primeiro qualquer seletor nativo antes de enviar Voltar para a página, para não confundir fechamento do seletor com navegação.
+
+- `dotnet run --project tests/Orbe.Connection.Checks`: 15 verificações de descoberta central, HTTPS/origem, tamanho, identidade, cancelamento e ausência de token na descoberta. HTTP/PostgreSQL também verifica autorização Owner, concorrência e rejeição de outro banco na troca global.
+- Ajuste 3: QA Debug nativo e Playwright com API/PostgreSQL locais confirmaram cancelamento externo refletido automaticamente (15s), sem reiniciar/recarregar. Capturas desktop 3440/1280 e mobile 430/390 ficam nos artifacts privados. Fixtures Debug não entram no Release.

@@ -25,6 +25,7 @@ else if(builder.Environment.IsProduction())throw new InvalidOperationException("
 builder.Services.AddAuthentication("Orbe").AddScheme<AuthenticationSchemeOptions,SessionAuth>("Orbe",null);
 builder.Services.AddAuthorization();builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);builder.Services.AddScoped<Actor>();builder.Services.AddScoped<AuthService>();builder.Services.AddScoped<Scheduling>();builder.Services.AddScoped<Importing>();builder.Services.AddScoped<IEmailDelivery,SmtpEmail>();
+builder.Services.AddHttpClient<IConnectionProbe,ConnectionProbe>().ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
 builder.Services.AddAntiforgery(o=>{o.HeaderName="X-CSRF-TOKEN";o.Cookie.SameSite=SameSiteMode.Strict;o.Cookie.HttpOnly=true;});
 builder.Services.AddRateLimiter(o=>
  {
@@ -66,7 +67,7 @@ app.MapGet("/health",async(OrbeDb db,HttpContext context)=>
  }
  return Results.Json(new{service="Orbe",status=ready?"ready":"unavailable",revision=app.Configuration["Deployment:Revision"]??"development"},statusCode:ready?200:503);
 });
-app.MapAuth();app.MapOrbe();app.MapImports();
+app.MapAuth();app.MapOrbe();app.MapImports();app.MapSharedConnection();
 app.MapFallback(async c=>{if(c.Request.Path.StartsWithSegments("/api")){c.Response.StatusCode=404;await c.Response.WriteAsJsonAsync(new{message="Recurso não encontrado."});}else{c.Response.ContentType="text/html; charset=utf-8";await c.Response.SendFileAsync(Path.Combine(app.Environment.WebRootPath,"index.html"));}});
 if(!builder.Configuration.GetValue<bool>("Database:SkipInitialize"))await Bootstrap.Initialize(app.Services,app.Configuration);
 app.Run();
