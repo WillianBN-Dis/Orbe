@@ -17,3 +17,5 @@ A candidata anterior revelou que o botão Voltar doAndroid16 saía do app quando
 - Ajuste 3: QA Debug nativo e Playwright com API/PostgreSQL locais confirmaram cancelamento externo refletido automaticamente (15s), sem reiniciar/recarregar. Capturas desktop 3440/1280 e mobile 430/390 ficam nos artifacts privados. Fixtures Debug não entram no Release.
 
 - `node tests/legacy-gateway-check.cjs`: encaminhamento da API para destino HTTPS fixo, descoberta200, redirect web307, preservação de POST/token sintético e descarte de cabeçalhos encaminhados não confiáveis.
+
+Ajuste 4: fixture Debug --layout-check --interaction-check --startup-check verifica reaproveitamento de42controles do calendário e dos botões de navegação, Hoje e troca de meses/abas. Medição de trabalho síncrono não representa latência ponta a ponta. Playwright com API sintética valida login responsivo360/390/768/1440/3440, senha visível, erro e envioCSRF; login real público apenas com ClienteTeste, sessãoQA encerrada.

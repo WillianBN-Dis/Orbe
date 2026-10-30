@@ -15,7 +15,7 @@ public sealed class LoginPage:ContentPage
  private readonly Entry user=Input("Seu usuário ou e-mail"),password=Input("Sua senha");
  private readonly Label message=Text("",12,Coral);
  private readonly ActivityIndicator spinner=new(){Color=Violet,IsVisible=false,HeightRequest=24};
- private readonly Grid presentation=new(){ColumnSpacing=72};
+ private readonly Grid presentation=new(){ColumnSpacing=40};
  private readonly Border loginCard;
  private readonly View introduction;
  private bool? widePresentation;
@@ -42,17 +42,20 @@ public sealed class LoginPage:ContentPage
    Row(18,Card(Icon("calendar",Violet,28),16,Raised),Stack(5,Text("Sua rotina em perspectiva",19,Ink,true),Text("Calendário, jornadas e horários de cada profissional.",14,Muted))),
    Row(18,Card(Icon("chart",Mint,28),16,Raised),Stack(5,Text("Clareza para decidir",19,Ink,true),Text("Recebimentos, despesas e resultados em um só lugar.",14,Muted))),
    Row(18,Card(Icon("people",Blue,28),16,Raised),Stack(5,Text("Todos conectados",19,Ink,true),Text("Aplicativo e reservas online compartilham a mesma agenda.",14,Muted))));
-  introduction.VerticalOptions=LayoutOptions.Center;
+  introduction.VerticalOptions=LayoutOptions.Center;introduction.MaximumWidthRequest=900;introduction.HorizontalOptions=LayoutOptions.Center;
   Content=new ScrollView{Content=presentation};SizeChanged+=(_,_)=>ArrangePresentation();ArrangePresentation();
   password.Completed+=async(_,_)=>await Attempt(false);
  }
  private void ArrangePresentation()
  {
   presentation.MinimumHeightRequest=Math.Max(0,Height-16);var wide=Width>=1000;
+  loginCard.MaximumWidthRequest=wide?double.PositiveInfinity:540;loginCard.VerticalOptions=wide?LayoutOptions.Fill:LayoutOptions.Center;
+  loginCard.Padding=wide?new Thickness(Math.Clamp(Width*.035,32,100),40):new Thickness(28);
+  if(loginCard.Content is View fields){fields.MaximumWidthRequest=wide?720:double.PositiveInfinity;fields.VerticalOptions=LayoutOptions.Center;}
   if(widePresentation==wide)return;widePresentation=wide;
   presentation.Children.Clear();presentation.ColumnDefinitions.Clear();presentation.RowDefinitions.Clear();
-  presentation.Padding=wide?new Thickness(64,48):new Thickness(18,24);
-  if(wide){presentation.ColumnDefinitions.Add(new(new GridLength(1.3,GridUnitType.Star)));presentation.ColumnDefinitions.Add(new(GridLength.Star));presentation.Add(introduction);presentation.Add(loginCard,1);}
+  presentation.Padding=wide?new Thickness(48,32):new Thickness(18,24);
+  if(wide){presentation.ColumnDefinitions.Add(new(new GridLength(1.25,GridUnitType.Star)));presentation.ColumnDefinitions.Add(new(GridLength.Star));presentation.Add(introduction);presentation.Add(loginCard,1);}
   else{presentation.ColumnDefinitions.Add(new(GridLength.Star));presentation.Add(loginCard);}
  }
  protected override async void OnAppearing()

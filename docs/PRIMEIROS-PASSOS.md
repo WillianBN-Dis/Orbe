@@ -40,6 +40,8 @@ Versões anteriores permanecem no GitHub. Atualize executando o novo instalador 
 
 No Android, o **ajuste 1 da versão 2.0.0** inclui **Atualizar aplicativo**, disponível na tela de entrada e em **Conta**. Instale esse primeiro ajuste manualmente pelo GitHub, por cima do app existente. A partir dele, toque em **Verificar atualizações → Baixar e instalar**. Se solicitado, permita instalações desta fonte para o Orbe, volte ao aplicativo e toque em **Continuar instalação**. Confirme a atualização no instalador do Android; não é necessário desinstalar o app.
 
-A versão exibida continua **2.0.0**; o código interno atual é **20003 (ajuste 3)**. O aplicativo busca os ajustes no repositório oficial, verifica SHA-256 e abre o instalador com acesso temporário somente ao APK. Sua conta e os dados são preservados pela atualização com a mesma assinatura. Para futuras publicações, consulte [Atualizações Android](ATUALIZACOES-ANDROID.md).
+A versão exibida continua **2.0.0**; o código interno atual é **20004 (ajuste 4)**. O aplicativo busca os ajustes no repositório oficial, verifica SHA-256 e abre o instalador com acesso temporário somente ao APK. Sua conta e os dados são preservados pela atualização com a mesma assinatura. Para futuras publicações, consulte [Atualizações Android](ATUALIZACOES-ANDROID.md).
 
 No ajuste 3, a agenda atualiza automaticamente a cada 15 segundos com a tela ativa. Somente WillianBN altera a conexão em Conta, com efeito global. O endereço inicial de descoberta precisa permanecer disponível e o novo destino deve usar o mesmo banco; mudar a URL não transfere dados.
+
+O ajuste 4 reaproveita os controles do calendário ao selecionar o dia e da navegação ao trocar abas, sem transição que bloqueie o clique. No PC, o painel de login ocupa cerca de 44% da largura. O site tem página de entrada em https://orbe.discloud.dev/entrar, adaptada ao celular e computador, com opção de mostrar a senha.

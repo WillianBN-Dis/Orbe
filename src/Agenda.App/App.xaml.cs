@@ -19,6 +19,7 @@ public partial class App : Application
         {
             var qa=new DashboardPage(new Agenda.Core.CloudApi(Agenda.Core.CloudApi.DefaultUrl),new Agenda.Core.CloudProfile("qa","Equipe QA","qa@example.test",null,null,true,["Owner"],null));
             window.Page=Navigation(qa);
+            if(args.Contains("--interaction-check"))window.Created+=(_,_)=>window.Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(1),async()=>{try{await qa.QaInteractions();}catch(Exception e){System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(),$"orbe-interaction-{Environment.ProcessId}.json"),e.ToString());Environment.Exit(1);}});
         }
         if(args.Contains("--startup-check")||args.Contains("--layout-check"))
         {if(double.TryParse(Environment.GetEnvironmentVariable("ORBE_QA_WIDTH"),out var qaWidth))window.Width=qaWidth;if(double.TryParse(Environment.GetEnvironmentVariable("ORBE_QA_HEIGHT"),out var qaHeight))window.Height=qaHeight;}

@@ -99,8 +99,18 @@ public sealed partial class DashboardPage : ContentPage
         catch(Exception){connectionProblem=true;status.Text="Sem conexão no momento. Tentaremos atualizar novamente automaticamente.";}
         finally{busy=false;}
     }
+    private readonly Dictionary<Button,string> navigationButtons=new();
+    private readonly List<(GraphicsView Glyph,string Tab)> navigationGlyphs=[];
+    private Task SwitchTab(string name)
+    {
+        if(tab==name)return Task.CompletedTask;tab=name;
+        foreach(var item in navigationButtons){item.Key.TextColor=item.Value==tab?Violet:Muted;item.Key.BackgroundColor=item.Value==tab?Color.FromArgb("#27233E"):Colors.Transparent;}
+        foreach(var item in navigationGlyphs){item.Glyph.Drawable=new LineIcon(item.Tab=="Agenda"?"calendar":item.Tab=="Financeiro"?"chart":"people",item.Tab==tab?Violet:Muted);item.Glyph.Invalidate();}
+        RenderNow();_ = mainScroll.ScrollToAsync(0,0,false);return Task.CompletedTask;
+    }
     private void BuildShell()
     {
+        navigationButtons.Clear();navigationGlyphs.Clear();
         if(status.Parent is Layout parent)parent.Children.Remove(status);if(spinner.Parent is Layout spinParent)spinParent.Children.Remove(spinner);
         shell.ColumnDefinitions[0].Width=compact?new GridLength(0):new GridLength(224);sidebarHost.Content=compact?null:BuildSidebar();sidebarHost.IsVisible=!compact;
         main.Padding=new Thickness(compact?18:32,22,compact?18:32,0);
@@ -119,13 +129,13 @@ public sealed partial class DashboardPage : ContentPage
     }
     private View NavButton(string name,string icon)
     {
-        var active=name==tab;var b=Button(name,async()=>{tab=name;BuildShell();await AnimateBody();},quiet:true);b.BackgroundColor=active?Color.FromArgb("#27233E"):Colors.Transparent;b.TextColor=active?Violet:Muted;b.HorizontalOptions=LayoutOptions.Fill;b.Padding=new Thickness(43,12,10,12);
-        var grid=new Grid();grid.Add(b);var glyph=Icon(icon,active?Violet:Muted,19);glyph.HorizontalOptions=LayoutOptions.Start;glyph.Margin=new Thickness(14,0,0,0);grid.Add(glyph);return grid;
+        var active=name==tab;var b=Button(name,()=>SwitchTab(name),quiet:true);b.BackgroundColor=active?Color.FromArgb("#27233E"):Colors.Transparent;b.TextColor=active?Violet:Muted;b.HorizontalOptions=LayoutOptions.Fill;b.Padding=new Thickness(43,12,10,12);
+        navigationButtons[b]=name;var grid=new Grid();grid.Add(b);var glyph=Icon(icon,active?Violet:Muted,19);navigationGlyphs.Add((glyph,name));glyph.HorizontalOptions=LayoutOptions.Start;glyph.Margin=new Thickness(14,0,0,0);grid.Add(glyph);return grid;
     }
     private View BuildMobileNav()
     {
         var nav=new Grid{BackgroundColor=Sidebar,Padding=new Thickness(10,8),ColumnDefinitions=new(){new(GridLength.Star),new(GridLength.Star),new(GridLength.Star)},ColumnSpacing=6};
-        var names=new[]{"Agenda","Financeiro","Conta"};for(int i=0;i<names.Length;i++){var name=names[i];var b=Button(name,async()=>{tab=name;BuildShell();await AnimateBody();},quiet:true);b.HorizontalOptions=LayoutOptions.Fill;b.TextColor=name==tab?Violet:Muted;b.BackgroundColor=name==tab?Color.FromArgb("#27233E"):Colors.Transparent;nav.Add(b,i);}return nav;
+        var names=new[]{"Agenda","Financeiro","Conta"};for(int i=0;i<names.Length;i++){var name=names[i];var b=Button(name,()=>SwitchTab(name),quiet:true);navigationButtons[b]=name;b.HorizontalOptions=LayoutOptions.Fill;b.TextColor=name==tab?Violet:Muted;b.BackgroundColor=name==tab?Color.FromArgb("#27233E"):Colors.Transparent;nav.Add(b,i);}return nav;
     }
     private void RenderNow()
     {
@@ -140,8 +150,7 @@ public sealed partial class DashboardPage : ContentPage
         body.Add(Row(8,spinner,status));body.Add(new BoxView{HeightRequest=18,Color=Colors.Transparent});
     }
     private View Welcome()=>Card(Stack(12,Text(profile.Owner?"Vamos preparar sua equipe?":"Seu espaço está sendo preparado.",18,Ink,true),Text(profile.Owner?"Cadastre os profissionais e serviços, importe seu histórico e configure as jornadas antes de abrir as reservas online.":"Sua agenda depende da liberação do seu acesso profissional. Entre em contato com WillianBN.",12,Muted),Button("Abrir minha conta",()=>{tab="Conta";BuildShell();return Task.CompletedTask;},primary:true)),20,Color.FromArgb("#1D1A30"),Color.FromArgb("#37304F"));
-    private async Task Render(){RenderNow();await AnimateBody();}
-    private Task AnimateBody(){body.AbortAnimation("FadeTo");body.Opacity=.65;return body.FadeToAsync(1,180,Easing.CubicOut);}
+    private Task Render(){RenderNow();return Task.CompletedTask;}
     private async Task Guard(Func<Task> action)
     {
         if(busy)return;busy=true;spinner.IsRunning=spinner.IsVisible=true;

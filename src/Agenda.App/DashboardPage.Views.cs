@@ -18,21 +18,43 @@ public sealed partial class DashboardPage
         else { for(int i=0;i<views.Length;i++){g.ColumnDefinitions.Add(new(GridLength.Star));g.Add(views[i],i);} }
         return g;
     }
+    private readonly ContentView agendaStats=new(),agendaCalendar=new(),agendaTimeline=new();
+    private readonly Dictionary<DateOnly,Button> calendarButtons=new();
+    private Task SelectDay(DateOnly day)
+    {
+        if(selected==day&&calendarMonth.Year==day.Year&&calendarMonth.Month==day.Month)return Task.CompletedTask;var previous=selected;selected=day;
+        if(day.Month!=calendarMonth.Month||day.Year!=calendarMonth.Year){calendarMonth=new(day.Year,day.Month,1);agendaCalendar.Content=BuildCalendar();}
+        else{if(calendarButtons.TryGetValue(previous,out var old))StyleDay(old,previous);if(calendarButtons.TryGetValue(day,out var current))StyleDay(current,day);}
+        UpdateAgendaDay();return Task.CompletedTask;
+    }
+    private void StyleDay(Button button,DateOnly day)
+    {
+        var active=day==Selected;var today=day==DateOnly.FromDateTime(DateTime.Today);
+        button.FontFamily=active?"OpenSansSemibold":"OpenSansRegular";button.BackgroundColor=active?Violet:today?Raised:Colors.Transparent;
+        button.TextColor=active?CanvasColor:day.Month==calendarMonth.Month?Ink:Dim;button.BorderWidth=today&&!active?1:0;button.BorderColor=Violet.WithAlpha(.5f);
+    }
     private void RenderAgenda()
+    {
+        foreach(var host in new[]{agendaStats,agendaCalendar,agendaTimeline})if(host.Parent is Layout owner)owner.Children.Remove(host);
+        UpdateAgendaDay();agendaCalendar.Content=BuildCalendar();
+        body.Add(agendaStats);body.Add(Columns(Wide,agendaCalendar,agendaTimeline,1.3,1));
+    }
+    private void UpdateAgendaDay()
     {
         var today=appointments.Where(a=>a.Value.Intersects(Selected)).OrderBy(a=>a.Value.Start).ToArray();
         var daily=Finance.Summarize(entries.Select(e=>e.Value),Selected,Period.Dia);
-        body.Add(StatRow(Stat("Agendamentos do dia",HasData?today.Length.ToString("D2"):"—","Atendimentos, compromissos e pausas","calendar",Violet),
+        agendaStats.Content=StatRow(Stat("Agendamentos do dia",HasData?today.Length.ToString("D2"):"—","Atendimentos, compromissos e pausas","calendar",Violet),
             Stat("Valor previsto",HasData?Finance.Currency(today.Sum(a=>a.Value.ExpectedCents)):"—","Vinculado à agenda selecionada","wallet",Blue),
-            Stat("Resultado do dia",HasData?Finance.Currency(daily.Profit):"—","Recebimentos menos despesas",daily.Profit<0?"down":"arrow",daily.Profit<0?Coral:Mint,true)));
-        body.Add(Columns(Wide, BuildCalendar(), BuildTimeline(today), 1.3,1));
+            Stat("Resultado do dia",HasData?Finance.Currency(daily.Profit):"—","Recebimentos menos despesas",daily.Profit<0?"down":"arrow",daily.Profit<0?Coral:Mint,true));
+        agendaTimeline.Content=BuildTimeline(today);
     }
     private View BuildCalendar()
     {
+        calendarButtons.Clear();
         var title=Text(TitleCase(calendarMonth.ToString("MMMM yyyy",Finance.Brazilian)),19,Ink,true);
         var previous=Button("‹",()=>MoveMonth(-1),quiet:true); previous.WidthRequest=40;
         var next=Button("›",()=>MoveMonth(1),quiet:true); next.WidthRequest=40;
-        var today=Button("Hoje",async()=>{selected=DateOnly.FromDateTime(DateTime.Today);calendarMonth=new(selected.Year,selected.Month,1);await Render();},quiet:true);
+        var today=Button("Hoje",()=>SelectDay(DateOnly.FromDateTime(DateTime.Today)),quiet:true);
         var s=Stack(20,Between(title,Row(0,previous,today,next)),Rule());
         var grid=new Grid { ColumnSpacing=4,RowSpacing=5 };
         for(int i=0;i<7;i++)grid.ColumnDefinitions.Add(new(GridLength.Star));
@@ -47,7 +69,8 @@ public sealed partial class DashboardPage
             {
                 var day=start.AddDays(row*7+col); var isSelected=day==Selected; var current=day.Month==calendarMonth.Month;
                 var events=appointments.Where(a=>a.Value.Intersects(day)).ToArray();
-                var cell=Button(day.Day.ToString("D2"),async()=>{selected=day;if(!current)calendarMonth=new(day.Year,day.Month,1);await Render();},quiet:true);
+                var cell=Button(day.Day.ToString("D2"),()=>SelectDay(day),quiet:true);
+                calendarButtons[day]=cell;
                 cell.HorizontalOptions=LayoutOptions.Center;cell.VerticalOptions=LayoutOptions.Center;cell.WidthRequest=44;cell.HeightRequest=44;cell.FontSize=13;cell.Padding=0;cell.FontFamily=isSelected?"OpenSansSemibold":"OpenSansRegular";
                 cell.BackgroundColor=isSelected?Violet:day==DateOnly.FromDateTime(DateTime.Today)?Raised:Colors.Transparent;
                 cell.TextColor=isSelected?CanvasColor:current?Ink:Dim;
@@ -71,13 +94,13 @@ public sealed partial class DashboardPage
         return Card(s,compact?14:22);
     }
     private Task MoveMonth(int amount)
-    { var next=calendarMonth.AddMonths(amount);if(next.Year is <1900 or >2100)return Task.CompletedTask;calendarMonth=next;return Render(); }
+    { var next=calendarMonth.AddMonths(amount);if(next.Year is <1900 or >2100)return Task.CompletedTask;calendarMonth=next;agendaCalendar.Content=BuildCalendar();return Task.CompletedTask; }
     private View BuildTimeline(Stored<Appointment>[] today)
     {
         var heading=Stack(4,Text(Selected==DateOnly.FromDateTime(DateTime.Today)?"Hoje":"Agenda do dia",18,Ink,true),Text(TitleCase(Selected.ToString("dddd, dd 'de' MMMM",Finance.Brazilian)),11,Muted));
         var s=Stack(18,Between(heading,Pill($"{today.Length:D2} {(today.Length==1?"evento":"eventos")}",Violet)),Rule());
         var filter=new Picker{Title="Filtrar eventos",ItemsSource=new[]{"Todos os eventos","Atendimento","Compromisso","Folga","Outro"},SelectedIndex=kindFilter is null?0:(int)kindFilter+1,FontSize=12};
-        filter.SelectedIndexChanged+=async(_,_)=>{kindFilter=filter.SelectedIndex==0?null:(EventKind)(filter.SelectedIndex-1);await Render();};
+        filter.SelectedIndexChanged+=(_,_)=>{kindFilter=filter.SelectedIndex==0?null:(EventKind)(filter.SelectedIndex-1);UpdateAgendaDay();};
         s.Add(filter);
         var filtered=today.Where(a=>kindFilter is null||a.Value.Kind==kindFilter).ToArray();
         if(filtered.Length==0)
