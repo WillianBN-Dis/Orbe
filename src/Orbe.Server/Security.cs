@@ -74,7 +74,25 @@ public sealed class AuthService(OrbeDb db,UserManager<AppUser> users,IEmailDeliv
 {
  public async Task<object> Profile(AppUser u)=>new{u.Id,u.FullName,u.Email,phone=u.PhoneNumber,u.BirthDate,u.EmailConfirmed,roles=await users.GetRolesAsync(u),employeeId=await db.Employees.Where(x=>x.UserId==u.Id&&x.Enabled).Select(x=>x.Id).SingleOrDefaultAsync()};
  public static void Check(IdentityResult result)
- {if(!result.Succeeded)throw new ApiError(400,string.Join(" ",result.Errors.Select(x=>x.Code switch{"DuplicateUserName" or "DuplicateEmail"=>"Já existe uma conta com esses dados.",_=>"Confira os dados. A senha deve ter pelo menos 10 caracteres, letras maiúsculas/minúsculas e números."})));}
+ {
+  if(result.Succeeded)return;
+  throw new ApiError(400,string.Join(" ",result.Errors.Select(x=>x.Code switch{
+   "DuplicateUserName"=>"Este usuário já está em uso. Escolha outro.",
+   "DuplicateEmail"=>"Este e-mail já está associado a uma conta.",
+   "InvalidUserName"=>"O usuário deve conter apenas letras sem acentos, números ou os símbolos . _ - @ +. Não use espaços; informe o nome completo no campo Nome.",
+   "InvalidEmail"=>"Informe um e-mail válido.",
+   "PasswordTooShort"=>"A senha deve ter pelo menos 10 caracteres.",
+   "PasswordRequiresUpper"=>"A senha deve conter uma letra maiúscula.",
+   "PasswordRequiresLower"=>"A senha deve conter uma letra minúscula.",
+   "PasswordRequiresDigit"=>"A senha deve conter um número.",
+   "PasswordRequiresNonAlphanumeric"=>"A senha deve conter um símbolo.",
+   "PasswordRequiresUniqueChars"=>"A senha precisa de mais caracteres diferentes.",
+   "PasswordMismatch"=>"A senha atual está incorreta.",
+   "InvalidToken"=>"O link ou código é inválido ou expirou. Solicite um novo.",
+   "ConcurrencyFailure"=>"O cadastro foi alterado em outra sessão. Atualize e tente novamente.",
+   _=>"Não foi possível salvar o acesso. Confira os dados e tente novamente."
+  }).Distinct()));
+ }
  private string Link(string path,string userId,string token,string? newEmail=null)
  {
   var root=config["PublicUrl"]?.TrimEnd('/');

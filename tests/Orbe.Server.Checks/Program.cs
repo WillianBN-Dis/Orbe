@@ -30,6 +30,7 @@ internal static class ChecksMain
  static DateTimeOffset At(int h,int m=0)=>new(2026,11,2,h,m,0,TimeSpan.FromHours(-3));
  public static async Task Main()
  {
+  if(Environment.GetCommandLineArgs().Contains("--identity-only")){await IdentityChecks.Verify();return;}
   Check(await ProxyChecks.Verify(true),"Proxy explícito fornece IP real e HTTPS ao limitador");
   Check(await ProxyChecks.Verify(false),"Remetente não confiável não forja IP nem protocolo");
   Check(await ProxyChecks.Verify(true,true),"Somente último salto confiável é aceito no cabeçalho encaminhado");
@@ -47,6 +48,16 @@ internal static class ChecksMain
    var client=factory.CreateClient(new(){HandleCookies=false});var result=await Send(client,HttpMethod.Post,"/api/v1/auth/token",new{login=name,password=Password});client.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",result.GetProperty("accessToken").GetString());return client;
   }
   var owner=await Login("WillianBN");
+  // Identity must report the actual rejected field rather than blaming every failure on the password.
+  var validStaffPassword=Environment.GetEnvironmentVariable("ORBE_QA_STAFF_PASSWORD")??"483927Senha.";
+  var createdStaff=await Send(owner,HttpMethod.Post,"/api/v1/owner/employees",new{userName="valid.staff",email="valid.staff@example.test",fullName="Profissional Validação",password=validStaffPassword});
+  Check(!string.IsNullOrWhiteSpace(Id(createdStaff)),"Senha válida com números, maiúscula, minúsculas e símbolo cria funcionário");
+  var staffSession=await Send(anonymous,HttpMethod.Post,"/api/v1/auth/token",new{login="valid.staff",password=validStaffPassword});
+  Check(staffSession.GetProperty("profile").GetProperty("roles").EnumerateArray().Any(x=>x.GetString()=="Staff"),"Funcionário criado consegue autenticar com a mesma senha");
+  var invalidUser=await Send(owner,HttpMethod.Post,"/api/v1/owner/employees",new{userName="Nome Com Espaço",email="invalid.user@example.test",fullName="Nome Com Espaço",password=validStaffPassword},400);
+  Check(invalidUser.GetProperty("message").GetString()!.Contains("usuário")&&!invalidUser.GetProperty("message").GetString()!.Contains("A senha"),"Usuário inválido recebe orientação de usuário, não de senha");
+  var invalidPassword=await Send(owner,HttpMethod.Post,"/api/v1/owner/employees",new{userName="short.password",email="short.password@example.test",fullName="Senha Curta",password="Abc1"},400);
+  Check(invalidPassword.GetProperty("message").GetString()!.Contains("10 caracteres"),"Senha curta recebe a regra correta");
   var shared=await Get(anonymous,"/api/v1/public/connection");var instance=shared.GetProperty("instanceId").GetGuid();
   Check(instance!=Guid.Empty&&shared.GetProperty("apiUrl").GetString()=="http://localhost","Conexão central tem identidade persistida do banco");
   await Send(anonymous,HttpMethod.Put,"/api/v1/owner/connection",new{version=shared.GetProperty("version").GetGuid(),apiUrl="http://localhost"},401);
