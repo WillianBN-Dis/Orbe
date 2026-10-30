@@ -10,21 +10,26 @@ internal static class CloudSessionStore
  public static async Task End(Page page,CloudApi api)
  {try{await api.Post<System.Text.Json.JsonElement>("auth/logout",new{});}catch(CloudException){}finally{SecureStorage.Default.Remove(TokenKey);api.Dispose();Show(page,new LoginPage());}}
 }
-public sealed class LoginPage:ContentPage
+public sealed partial class LoginPage:ContentPage
 {
  private readonly Entry user=Input("Seu usuário ou e-mail"),password=Input("Sua senha");
  private readonly Label message=Text("",12,Coral);
  private readonly ActivityIndicator spinner=new(){Color=Violet,IsVisible=false,HeightRequest=24};
+#if !WINDOWS
  private readonly Grid presentation=new(){ColumnSpacing=0};
  private readonly Border loginCard;
  private readonly View introduction;
  private bool? widePresentation;
+#endif
  private bool restored,busy;
  public LoginPage()
  {
   Title="Orbe";BackgroundColor=CanvasColor;SafeAreaEdges=SafeAreaEdges.All;NavigationPage.SetHasNavigationBar(this,false);
   password.IsPassword=true;password.MaxLength=user.MaxLength=256;
   SemanticProperties.SetDescription(user,"Usuário ou e-mail");SemanticProperties.SetDescription(password,"Senha");
+#if WINDOWS
+  BuildDesktopPresentation();
+#else
   var panel=Stack(14,Row(10,BrandImage(40),Text("orbe",30,Ink,true)),
    Pill("SEU ESPAÇO DE TRABALHO",Mint),Stack(8,Text("Tudo no seu tempo.",28,Ink,true),Text("Entre para cuidar da sua agenda, da sua disponibilidade e das suas finanças.",14,Muted)),
    Field("Usuário ou e-mail",user),Field("Senha",password),Button("Entrar",()=>Attempt(false),primary:true),Row(8,spinner,message),Rule(),
@@ -44,8 +49,10 @@ public sealed class LoginPage:ContentPage
    Row(18,Card(Icon("people",Blue,28),16,Raised),Stack(5,Text("Todos conectados",19,Ink,true),Text("Aplicativo e reservas online compartilham a mesma agenda.",14,Muted))));
   introduction.VerticalOptions=LayoutOptions.Center;introduction.MaximumWidthRequest=640;introduction.HorizontalOptions=LayoutOptions.Center;
   Content=new ScrollView{Content=presentation};SizeChanged+=(_,_)=>ArrangePresentation();ArrangePresentation();
+#endif
   password.Completed+=async(_,_)=>await Attempt(false);
  }
+#if !WINDOWS
  private void ArrangePresentation()
  {
   presentation.MinimumHeightRequest=Math.Max(0,Height);var wide=Width>=1000;
@@ -61,6 +68,7 @@ public sealed class LoginPage:ContentPage
   if(wide){presentation.ColumnDefinitions.Add(new(new GridLength(1.25,GridUnitType.Star)));presentation.ColumnDefinitions.Add(new(GridLength.Star));presentation.Add(introduction);presentation.Add(loginCard,1);}
   else{presentation.ColumnDefinitions.Add(new(GridLength.Star));presentation.Add(loginCard);}
  }
+#endif
  protected override async void OnAppearing()
  {base.OnAppearing();if(restored)return;restored=true;
 #if DEBUG

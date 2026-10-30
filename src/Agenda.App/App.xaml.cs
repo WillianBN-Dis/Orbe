@@ -14,6 +14,12 @@ public partial class App : Application
         var window=new Window(Navigation(new LoginPage()))
         {Title="Orbe · Agenda e finanças",Width=compactPreview?430:1440,Height=compactPreview?900:960};
 #if DEBUG
+        if(args.Contains("--login-check")&&window.Page is NavigationPage {CurrentPage:LoginPage login})
+            window.Created+=(_,_)=>window.Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(1),async()=>{try{
+#if WINDOWS
+                await login.QaDesktopLogin();
+#endif
+            }catch(Exception e){System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(),$"orbe-login-check-{Environment.ProcessId}.json"),e.ToString());Environment.Exit(1);}});
         // Synthetic layout fixture, compiled out of distributed Release packages.
         if(args.Contains("--layout-check"))
         {

@@ -9,3 +9,5 @@ Validação: Debug Windows compilado sem erros nem avisos; capturas do login e a
 Distribuição: produto 2.0.0, compilação Windows 20005; Android permanece 20004. Esta entrega prepara somente o instalador Windows local. Sem nova implantação de site, alteração de servidor ou publicação de release.
 
 Instalador local final gerado e validado: instalação isolada, abertura/renderização 2.0.0.20005 e desinstalação aprovadas. SHA-256: a759ef214df98ef1154e75c438ce6928b00f7016e3b2b0ec93beafd7f29c7b50. Arquivo: dist/Orbe-Setup.exe; aliases locais substituídos para evitar instalação do setup antigo.
+
+A composição de login 20005 foi rejeitada pelo proprietário e substituída pela revisão 20006. Consulte LOGIN-WINDOWS-REDESIGN.md; as mudanças da área de trabalho permanecem.
