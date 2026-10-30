@@ -19,3 +19,5 @@ A candidata anterior revelou que o botão Voltar doAndroid16 saía do app quando
 - `node tests/legacy-gateway-check.cjs`: encaminhamento da API para destino HTTPS fixo, descoberta200, redirect web307, preservação de POST/token sintético e descarte de cabeçalhos encaminhados não confiáveis.
 
 Ajuste 4: fixture Debug --layout-check --interaction-check --startup-check verifica reaproveitamento de42controles do calendário e dos botões de navegação, Hoje e troca de meses/abas. Medição de trabalho síncrono não representa latência ponta a ponta. Playwright com API sintética valida login responsivo360/390/768/1440/3440, senha visível, erro e envioCSRF; login real público apenas com ClienteTeste, sessãoQA encerrada.
+
+- Validação direcionada sem banco: dotnet run --project tests/Orbe.Server.Checks -- --identity-only. Exercita criação/autenticação e mensagens do Identity com usuários exclusivamente em memória. ORBE_QA_STAFF_PASSWORD opcional recebe a senha de teste sem gravá-la no código.
