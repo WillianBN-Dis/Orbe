@@ -22,3 +22,5 @@ O cache é privado. O FileProvider compartilha temporariamente apenas arquivos d
 Ajuste 3 (20003): conexão central exclusiva do proprietário, atualização automática da agenda, menu móvel organizado, logo menor e ícone com fundo navy. Continua versionName 2.0.0 e preserva a assinatura anterior.
 
 Ajuste 4 (20004): seleção do calendário e navegação com menos reconstruções, sem fade bloqueando cliques; login do PC com painel direito amplo e página de login web responsiva em /entrar. Versão de produto2.0.0 mantida.
+
+A partir do ajuste4, publicar cada ajuste em release própria (ex.: v2.0.0-ajuste.4) com somente Orbe-Setup.exe e Orbe-2.0.0.apk. O feed aponta esse APK em endereço permanente, sem precisar duplicá-lo com outro nome. Guias e hashes permanecem na documentação e nas notas da release.
