@@ -18,3 +18,5 @@ Publicação separada v2.0.0-ajuste.4 contém SOMENTE Orbe-Setup.exe e Orbe-2.0.
 | Orbe-2.0.0.apk | 3daf82b4892622698ae96a8f5c4426351d63cf34ae778c4a9b08df0eea9a4880 |
 
 Instalador Windows sem Authenticode. Preview semSMTP segue autorizado. Site/DB/compatibilidade mantêm os mesmos recursosDiscloud; nenhuma alteração emNexus/Firewall, contas ou dados pessoais. Evidênciasprivadas emartifacts/qa/ajuste4.
+
+Compatibilidade do atualizador: o primeiro endereço publicado do APK20004 em v2.0.0/Orbe-2.0.0-ajuste.4.apk foi mantido no histórico, pois o feed público pode permanecer em cache por300s e clientes podem ter consultado essaURL. A release nova tem exatamente dois arquivos; publicações futuras usam somente esses dois instaladores em tag própria. A fonte do feed foi validada pela API GitHub comURL nova; durante o cache, ambos os links20004 permanecem válidos com o mesmoSHA256. Não remover URLs já divulgadas pelo atualizador.
