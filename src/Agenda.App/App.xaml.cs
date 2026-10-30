@@ -14,6 +14,10 @@ public partial class App : Application
         var window=new Window(Navigation(new LoginPage()))
         {Title="Orbe · Agenda e finanças",Width=compactPreview?430:1440,Height=compactPreview?900:960};
 #if DEBUG
+        if(args.Contains("--forms-check")){
+            var form=DebugFormFixture.Create();window.Page=Navigation(form);
+            window.Created+=(_,_)=>window.Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(1),async()=>{try{await DebugFormFixture.Verify(form);}catch(Exception e){System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(),$"orbe-forms-{Environment.ProcessId}.json"),e.ToString());Environment.Exit(1);}});
+        }
         if(args.Contains("--login-check")&&window.Page is NavigationPage {CurrentPage:LoginPage login})
             window.Created+=(_,_)=>window.Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(1),async()=>{try{
 #if WINDOWS
