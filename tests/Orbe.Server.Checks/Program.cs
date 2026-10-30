@@ -200,6 +200,7 @@ internal static class ChecksMain
   config["Preview:AllowUnverifiedClients"]="false";
   await Send(anonymous,HttpMethod.Post,"/api/v1/auth/token",new{login="preview@example.test",password=Password},403);
   await Send(previewClient,HttpMethod.Get,"/api/v1/auth/me",expected:401);Check(true,"Desativar testes fecha login e sessões de clientes ainda não verificados");
+  await ProfessionalServiceChecks.Verify(owner,anonymous,factory);
   Console.WriteLine($"{checks} verificações HTTP/PostgreSQL passaram com dados exclusivamente sintéticos.");
  }
 }

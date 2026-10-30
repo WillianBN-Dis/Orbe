@@ -16,6 +16,7 @@ public sealed partial class DashboardPage
   else scope.Add(Text(people.FirstOrDefault(x=>x.Id==profile.EmployeeId)?.DisplayName??profile.FullName,14,Muted));
   var personal=Stack(16,Text(profile.FullName,22,Ink,true),Text(profile.Email,13,Muted),Pill(profile.Owner?"ADMINISTRADOR":"PROFISSIONAL",Violet),Rule(),Button("Editar meu cadastro",async()=>await Navigation.PushAsync(AccountPages.Profile(client,profile))),Button("Jornadas, folgas e compromissos",async()=>await Navigation.PushAsync(AccountPages.Hours(client,profile,current))),Button("Abrir meu espaço no site",()=>Guard(async()=>await Launcher.Default.OpenAsync(new Uri(client.BaseUrl+"/equipe"))),quiet:true));
   var management=Stack(16,scope);
+  if(!profile.Owner)management.Add(Button("Meus serviços",async()=>await Navigation.PushAsync(AccountPages.Services(client))));
   if(profile.Owner)management.Add(Button("Configurar conexão",async()=>await Navigation.PushAsync(AccountPages.Connection(client))));
   if(profile.Owner)
   {

@@ -17,10 +17,14 @@ public static class Routes
  {
   var api=app.MapGroup("/api/v1");
   api.MapGet("/public/info",async(OrbeDb db,IEmailDelivery email,IConfiguration config)=>{var s=await db.Settings.SingleAsync();return Results.Ok(new{s.Name,s.PublicBookingOpen,s.TimeZoneId,s.CancellationHours,emailReady=email.Ready,testMode=config.GetValue<bool>("Preview:AllowUnverifiedClients")});});
-  api.MapGet("/public/services",async(OrbeDb db)=>Results.Ok(await db.Services.Where(x=>x.Enabled).OrderBy(x=>x.Name).Select(x=>new{x.Id,x.Name,x.DurationMinutes,x.PriceCents}).ToArrayAsync()));
+  api.MapGet("/public/services",async(string? employeeId,OrbeDb db)=>{
+   if(employeeId is null)return Results.Ok(await db.Services.Where(x=>x.Enabled).OrderBy(x=>x.Name).Select(x=>new{x.Id,x.Name,x.DurationMinutes,x.PriceCents}).ToArrayAsync());
+   return Results.Ok(await (from link in db.EmployeeServices join service in db.Services on link.ServiceId equals service.Id join person in db.Employees on link.EmployeeId equals person.Id where person.Id==employeeId&&person.Enabled&&person.User.Active&&(link.Enabled??service.Enabled) orderby link.Name??service.Name select new{service.Id,Name=link.Name??service.Name,DurationMinutes=link.DurationMinutes??service.DurationMinutes,PriceCents=link.PriceCents??service.PriceCents}).ToArrayAsync());
+  });
   api.MapGet("/public/employees",async(string? serviceId,OrbeDb db)=>Results.Ok(await db.Employees.Where(x=>x.Enabled&&x.User.Active&&(serviceId==null||db.EmployeeServices.Any(e=>e.EmployeeId==x.Id&&e.ServiceId==serviceId))).OrderBy(x=>x.DisplayName).Select(x=>new{x.Id,x.DisplayName}).ToArrayAsync()));
   api.MapGet("/public/availability",async(string employeeId,string serviceId,DateOnly from,int? days,Scheduling scheduling)=>Results.Ok(await scheduling.AvailabilityFor(employeeId,serviceId,from,days??1)));
   var team=api.MapGroup("/team").RequireAuthorization(p=>p.RequireRole(Roles.Owner,Roles.Staff));
+  team.MapProfessionalServices();
   team.MapGet("/employees",async(Actor actor,OrbeDb db)=>Results.Ok(await db.Employees.Where(x=>actor.Owner||x.UserId==actor.Id).OrderBy(x=>x.DisplayName).Select(x=>new{x.Id,x.DisplayName,x.Enabled,x.Version}).ToArrayAsync()));
   team.MapGet("/hours",async(string? employeeId,Scheduling s)=>Results.Ok(await s.ReadHours(employeeId)));
   team.MapPut("/hours",async(string? employeeId,HoursInput input,Scheduling s)=>{await s.SaveHours(employeeId,input);return Results.Ok(await s.ReadHours(employeeId));});
@@ -99,7 +103,7 @@ public static class Routes
    if(await db.Services.CountAsync(x=>input.Services.Contains(x.Id))!=input.Services.Length)throw new ApiError(400,"Serviço inválido.");
    employee.DisplayName=input.DisplayName.Trim();employee.Enabled=input.Enabled;employee.Version=Guid.NewGuid();
    var user=(await users.FindByIdAsync(employee.UserId))!;if(!await users.IsInRoleAsync(user,Roles.Owner)){user.Active=input.Enabled;AuthService.Check(await users.UpdateAsync(user));if(!input.Enabled)await users.UpdateSecurityStampAsync(user);}
-   await db.EmployeeServices.Where(x=>x.EmployeeId==id).ExecuteDeleteAsync();db.EmployeeServices.AddRange(input.Services.Select(s=>new EmployeeService{EmployeeId=id,ServiceId=s}));await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(new{employee.Id,employee.Version});
+   var linked=await db.EmployeeServices.Where(x=>x.EmployeeId==id).ToArrayAsync();db.EmployeeServices.RemoveRange(linked.Where(x=>!input.Services.Contains(x.ServiceId)));db.EmployeeServices.AddRange(input.Services.Except(linked.Select(x=>x.ServiceId)).Select(s=>new EmployeeService{EmployeeId=id,ServiceId=s}));await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(new{employee.Id,employee.Version});
   });
   owner.MapPost("/employees/{id}/password",async(string id,ResetStaffInput input,OrbeDb db,UserManager<AppUser> users)=>{var employee=await db.Employees.SingleOrDefaultAsync(x=>x.Id==id)??throw new ApiError(404,"Funcionário não encontrado.");var user=(await users.FindByIdAsync(employee.UserId))!;if(await users.IsInRoleAsync(user,Roles.Owner))throw new ApiError(403,"Use a troca de senha da própria conta.");AuthService.Check(await users.ResetPasswordAsync(user,await users.GeneratePasswordResetTokenAsync(user),input.Password));return Results.Ok(new{message="Senha redefinida; sessões anteriores encerradas."});});
   owner.MapGet("/services",async(OrbeDb db)=>Results.Ok(await db.Services.OrderBy(x=>x.Name).ToArrayAsync()));
@@ -114,7 +118,7 @@ public static class Routes
    {
     if(!email.Ready&&!config.GetValue<bool>("Preview:AllowUnverifiedClients"))throw new ApiError(409,"Configure o envio de e-mails antes de abrir as reservas públicas.");
     if(!input.ImportCompleted||await db.Appointments.AnyAsync(x=>x.EmployeeId==null))throw new ApiError(409,"Conclua a importação e atribua os agendamentos antigos antes de abrir reservas.");
-    if(!await db.EmployeeServices.AnyAsync(x=>db.Employees.Any(e=>e.Id==x.EmployeeId&&e.Enabled&&e.User.Active)&&db.Services.Any(s=>s.Id==x.ServiceId&&s.Enabled)&&db.WeekWindows.Any(w=>w.EmployeeId==x.EmployeeId)))throw new ApiError(409,"Configure ao menos um profissional ativo, serviço e jornada antes de abrir reservas.");
+    if(!await (from link in db.EmployeeServices join service in db.Services on link.ServiceId equals service.Id where (link.Enabled??service.Enabled)&&db.Employees.Any(e=>e.Id==link.EmployeeId&&e.Enabled&&e.User.Active)&&db.WeekWindows.Any(w=>w.EmployeeId==link.EmployeeId) select link).AnyAsync())throw new ApiError(409,"Configure ao menos um profissional ativo, serviço e jornada antes de abrir reservas.");
    }
    row.Name=input.Name.Trim();row.ImportCompleted=input.ImportCompleted;row.PublicBookingOpen=input.PublicBookingOpen;row.SlotMinutes=input.SlotMinutes;row.LeadMinutes=input.LeadMinutes;row.HorizonDays=input.HorizonDays;row.CancellationHours=input.CancellationHours;row.TimeZoneId=input.TimeZoneId;row.Version=Guid.NewGuid();await db.SaveChangesAsync();return Results.Ok(row);
   });

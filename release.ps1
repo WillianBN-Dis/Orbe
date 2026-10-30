@@ -1,4 +1,4 @@
-param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='2.0.0',[switch]$SkipTests)
+param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='2.0.1',[switch]$SkipTests)
 $ErrorActionPreference='Stop'
 $dotnet=Join-Path $env:LOCALAPPDATA 'NexusDev\dotnet\dotnet.exe'
 if(!(Test-Path -LiteralPath $dotnet)){$dotnet=(Get-Command dotnet -ErrorAction Stop).Source}

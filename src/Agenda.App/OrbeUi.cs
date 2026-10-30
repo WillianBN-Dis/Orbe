@@ -65,6 +65,7 @@ internal sealed class LineIcon(string name, Color color) : IDrawable
         c.SaveState(); c.Scale(r.Width / 24, r.Height / 24); c.StrokeColor = color; c.StrokeSize = 1.6f; c.StrokeLineCap = LineCap.Round; c.StrokeLineJoin = LineJoin.Round;
         void Line(float x, float y, float a, float b) => c.DrawLine(x, y, a, b);
         if (name == "calendar") { c.DrawRoundedRectangle(3, 5, 18, 16, 3); Line(3,10,21,10); Line(8,3,8,7); Line(16,3,16,7); Line(7,14,9,14); Line(14,14,16,14); Line(7,18,9,18); }
+        else if (name == "bell") { c.DrawArc(6,3,12,12,0,180,false,false); Line(6,9,6,17); Line(18,9,18,17); Line(4,18,20,18); c.DrawArc(9,18,6,5,180,360,false,false); }
         else if (name == "chart") { Line(4,3,4,21); Line(4,21,22,21); Line(8,16,12,11); Line(12,11,16,14); Line(16,14,21,6); }
         else if (name == "wallet") { c.DrawRoundedRectangle(3,5,18,15,3); c.DrawRoundedRectangle(14,10,8,6,2); c.DrawCircle(17,13,.5f); }
         else if (name == "link") { c.DrawRoundedRectangle(3,9,11,7,3); c.DrawRoundedRectangle(10,5,11,7,3); Line(9,12,15,9); }

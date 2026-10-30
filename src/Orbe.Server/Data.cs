@@ -31,7 +31,13 @@ public sealed class Service
  public bool Enabled {get;set;}=true;
  public Guid Version {get;set;}=Guid.NewGuid();
 }
-public sealed class EmployeeService { public string EmployeeId {get;set;}=""; public string ServiceId {get;set;}=""; }
+public sealed class EmployeeService
+{
+ public string EmployeeId {get;set;}=""; public string ServiceId {get;set;}="";
+ // Null inherits the legacy catalog. Overrides isolate each professional without rewriting history.
+ public string? Name {get;set;} public int? DurationMinutes {get;set;} public long? PriceCents {get;set;}
+ public bool? Enabled {get;set;} public Guid Version {get;set;}=Guid.NewGuid();
+}
 public sealed class WeekWindow
 {
  public long Id {get;set;}
@@ -134,6 +140,7 @@ public sealed class OrbeDb(DbContextOptions<OrbeDb> options) : IdentityDbContext
   b.Entity<Employee>().HasIndex(x=>x.UserId).IsUnique();
   b.Entity<Employee>().HasOne(x=>x.User).WithMany().HasForeignKey(x=>x.UserId).OnDelete(DeleteBehavior.Restrict);
   b.Entity<EmployeeService>().HasKey(x=>new{x.EmployeeId,x.ServiceId});
+  b.Entity<EmployeeService>().Property(x=>x.Version).HasDefaultValueSql("gen_random_uuid()");
   b.Entity<EmployeeService>().HasOne<Employee>().WithMany().HasForeignKey(x=>x.EmployeeId).OnDelete(DeleteBehavior.Cascade);
   b.Entity<EmployeeService>().HasOne<Service>().WithMany().HasForeignKey(x=>x.ServiceId).OnDelete(DeleteBehavior.Cascade);
   b.Entity<WeekWindow>().HasOne<Employee>().WithMany().HasForeignKey(x=>x.EmployeeId).OnDelete(DeleteBehavior.Cascade);

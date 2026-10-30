@@ -60,7 +60,7 @@ public sealed partial class LoginPage
   var columns=new Grid{ColumnSpacing=0};
   var composition=Card(columns,0,Color.FromArgb("#141925"),Color.FromArgb("#34334A"),24);
   composition.MaximumWidthRequest=1360;composition.HorizontalOptions=LayoutOptions.Fill;composition.VerticalOptions=LayoutOptions.Center;
-  var footer=Text("Orbe · Agenda e finanças   /   2.0.0 · "+AppInfo.Current.BuildString,11,Dim);footer.HorizontalTextAlignment=TextAlignment.Center;
+  var footer=Text("Orbe · Agenda e finanças   /   2.0.1 · "+AppInfo.Current.BuildString,11,Dim);footer.HorizontalTextAlignment=TextAlignment.Center;
   var group=Stack(18,composition,footer);group.VerticalOptions=LayoutOptions.Center;group.HorizontalOptions=LayoutOptions.Fill;
   var stage=new Grid{Padding=32};stage.Add(group);
   var wide=false;

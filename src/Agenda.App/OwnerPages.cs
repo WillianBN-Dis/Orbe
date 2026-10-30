@@ -37,16 +37,22 @@ internal static partial class AccountPages
  }
  internal static Page Services(CloudApi api)
  {
-  var page=new CloudFormPage(api,"Serviços"){ReloadOnReturn=true};page.Load=async()=>
+  string? selectedEmployee=null;var page=new CloudFormPage(api,"Serviços"){ReloadOnReturn=true};page.Load=async()=>
   {
-   var catalog=await api.Get<JsonElement>("owner/services");page.Fields.Clear();page.Fields.Add(Text("Cada atendimento, no seu tempo",24,Ink,true));page.Fields.Add(Button("+ Serviço",async()=>await page.Navigation.PushAsync(EditService(api)),primary:true));
-   foreach(var record in catalog.EnumerateArray()){var item=record.Clone();page.Fields.Add(Card(Stack(12,Between(Text(S(item,"name"),19,Ink,true),Pill(B(item,"enabled")?"ATIVO":"INDISPONÍVEL",B(item,"enabled")?Mint:Muted)),Text($"{I(item,"durationMinutes")} min · {Finance.Currency(item.GetProperty("priceCents").GetInt64())}",13,Muted),Button("Editar serviço",async()=>await page.Navigation.PushAsync(EditService(api,item))))));}
+   var profile=await api.Me();var people=await api.Get<CloudEmployee[]>("team/employees");page.Fields.Clear();page.Fields.Add(Text(profile.Owner?"Serviços dos profissionais":"Meus serviços",24,Ink,true));
+   if(people.Length==0){page.Fields.Add(Text("Cadastre um profissional na seção Equipe para começar.",14,Muted));return;}
+   var picker=People(people,selectedEmployee??profile.EmployeeId??people[0].Id);if(profile.Owner)page.Fields.Add(Field("Profissional",picker));var host=Stack(16);page.Fields.Add(host);
+   async Task Render(){var employee=Picked(picker);selectedEmployee=employee;var catalog=await api.Get<JsonElement>("team/services?employeeId="+Uri.EscapeDataString(employee));host.Children.Clear();host.Add(Button("+ Serviço",async()=>await page.Navigation.PushAsync(EditService(api,employee)),primary:true));
+    foreach(var record in catalog.EnumerateArray()){var item=record.Clone();host.Add(Card(Stack(12,Between(Text(S(item,"name"),19,Ink,true),Pill(B(item,"enabled")?"ATIVO":"INDISPONÍVEL",B(item,"enabled")?Mint:Muted)),Text($"{I(item,"durationMinutes")} min · {Finance.Currency(item.GetProperty("priceCents").GetInt64())}",13,Muted),Button("Editar serviço",async()=>await page.Navigation.PushAsync(EditService(api,employee,item))),Button("Excluir serviço",()=>page.Run(async()=>{if(!await page.DisplayAlertAsync("Excluir serviço?","Ele sairá do catálogo deste profissional. Agendamentos e valores anteriores serão preservados.","Excluir","Manter"))return;await api.Delete("team/services/"+S(item,"id")+"?employeeId="+Uri.EscapeDataString(employee),new{version=S(item,"version")});await Render();}),danger:true))));}
+    if(!catalog.EnumerateArray().Any())host.Add(Text("Crie seu primeiro serviço para disponibilizá-lo às clientes.",14,Muted));
+   }
+   picker.SelectedIndexChanged+=async(_,_)=>await page.Run(Render);await Render();
   };return page;
  }
- private static Page EditService(CloudApi api,JsonElement? item=null)
+ private static Page EditService(CloudApi api,string employee,JsonElement? item=null)
  {
   var page=new CloudFormPage(api,item is null?"Novo serviço":"Editar serviço");Entry name=Input("Nome do serviço",item is null?"":S(item.Value,"name")),duration=Input("60",item is null?"60":I(item.Value,"durationMinutes").ToString()),price=Input("0,00",item is null?"0,00":(item.Value.GetProperty("priceCents").GetInt64()/100m).ToString("F2",Finance.Brazilian));duration.Keyboard=price.Keyboard=Keyboard.Numeric;var enabled=new Switch{IsToggled=item is null||B(item.Value,"enabled")};
-  page.Fields.Add(Stack(18,Field("Serviço",name),Field("Duração · minutos",duration),Field("Preço · R$",price),Between(Text("Disponível para reservar",13,Muted),enabled),Text("Depois de salvar, atribua o serviço aos profissionais na seção Equipe. Alterar o catálogo não modifica reservas existentes.",12,Muted),Button("Salvar serviço",()=>page.Run(async()=>{var input=new{name=Required(name,"o nome"),durationMinutes=Number(duration,"a duração"),priceCents=Finance.ParseCents(price.Text??""),enabled=enabled.IsToggled,version=item is null?null:S(item.Value,"version")};if(item is null)await api.Post<JsonElement>("owner/services",input);else await api.Put<JsonElement>("owner/services/"+S(item.Value,"id"),input);await Back(page);}),primary:true)));return page;
+  page.Fields.Add(Stack(18,Field("Serviço",name),Field("Duração · minutos",duration),Field("Preço · R$",price),Between(Text("Disponível para reservar",13,Muted),enabled),Text("O serviço pertence ao profissional selecionado. Alterar o catálogo não modifica reservas existentes.",12,Muted),Button("Salvar serviço",()=>page.Run(async()=>{var input=new{name=Required(name,"o nome"),durationMinutes=Number(duration,"a duração"),priceCents=Finance.ParseCents(price.Text??""),enabled=enabled.IsToggled,version=item is null?null:S(item.Value,"version")};var path="team/services"+(item is null?"":"/"+S(item.Value,"id"))+"?employeeId="+Uri.EscapeDataString(employee);if(item is null)await api.Post<JsonElement>(path,input);else await api.Put<JsonElement>(path,input);await Back(page);}),primary:true)));return page;
  }
  internal static Page Settings(CloudApi api)
  {

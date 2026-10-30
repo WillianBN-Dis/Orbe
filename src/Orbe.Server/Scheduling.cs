@@ -83,7 +83,7 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
  private async Task<Service> Offer(string employee,string service)
  {
   if(!await db.Employees.AnyAsync(x=>x.Id==employee&&x.Enabled&&x.User.Active)||!await db.EmployeeServices.AnyAsync(x=>x.EmployeeId==employee&&x.ServiceId==service))throw new ApiError(404,"Profissional ou serviço indisponível.");
-  return await db.Services.SingleOrDefaultAsync(x=>x.Id==service&&x.Enabled)??throw new ApiError(404,"Serviço indisponível.");
+  return await (from link in db.EmployeeServices join item in db.Services on link.ServiceId equals item.Id where link.EmployeeId==employee&&item.Id==service&&(link.Enabled??item.Enabled) select new Service{Id=item.Id,Name=link.Name??item.Name,DurationMinutes=link.DurationMinutes??item.DurationMinutes,PriceCents=link.PriceCents??item.PriceCents,Enabled=true,Version=link.Version}).SingleOrDefaultAsync()??throw new ApiError(404,"Serviço indisponível.");
  }
  private async Task CheckSlot(string employee,Service service,DateTimeOffset start,string? exclude=null)
  {

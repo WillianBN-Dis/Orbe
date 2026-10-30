@@ -105,7 +105,7 @@ public sealed partial class DashboardPage : ContentPage
     {
         if(tab==name)return Task.CompletedTask;tab=name;
         foreach(var item in navigationButtons){item.Key.TextColor=item.Value==tab?Violet:Muted;item.Key.BackgroundColor=item.Value==tab?Color.FromArgb("#27233E"):Colors.Transparent;}
-        foreach(var item in navigationGlyphs){item.Glyph.Drawable=new LineIcon(item.Tab=="Agenda"?"calendar":item.Tab=="Financeiro"?"chart":"people",item.Tab==tab?Violet:Muted);item.Glyph.Invalidate();}
+        foreach(var item in navigationGlyphs){item.Glyph.Drawable=new LineIcon(item.Tab=="Agenda"?"calendar":item.Tab=="Financeiro"?"chart":item.Tab=="Notificações"?"bell":"people",item.Tab==tab?Violet:Muted);item.Glyph.Invalidate();}
         RenderNow();_ = mainScroll.ScrollToAsync(0,0,false);return Task.CompletedTask;
     }
     private void BuildShell()
@@ -126,7 +126,7 @@ public sealed partial class DashboardPage : ContentPage
     {
         var panel=new Grid{BackgroundColor=Sidebar,Padding=new Thickness(20,26,20,20),RowDefinitions=new(){new(GridLength.Auto),new(GridLength.Star),new(GridLength.Auto)}};
         panel.Add(Stack(8,Brand(),Text("TEMPO E FINANÇAS EM SINTONIA",8,Dim,true)));
-        var nav=Stack(8,Text("PRINCIPAL",10,Dim,true));nav.Margin=new Thickness(0,40,0,0);nav.Add(NavButton("Agenda","calendar"));nav.Add(NavButton("Financeiro","chart"));nav.Add(new BoxView{HeightRequest=22,Color=Colors.Transparent});nav.Add(Text("SEU ESPAÇO",10,Dim,true));nav.Add(NavButton("Conta","people"));panel.Add(nav,0,1);
+        var nav=Stack(8,Text("PRINCIPAL",10,Dim,true));nav.Margin=new Thickness(0,40,0,0);nav.Add(NavButton("Agenda","calendar"));nav.Add(NavButton("Financeiro","chart"));nav.Add(NavButton("Notificações","bell"));nav.Add(new BoxView{HeightRequest=22,Color=Colors.Transparent});nav.Add(Text("SEU ESPAÇO",10,Dim,true));nav.Add(NavButton("Conta","people"));panel.Add(nav,0,1);
         var color=connectionProblem?Coral:dataLoaded?Mint:Muted;panel.Add(Stack(12,Rule(),Text(connectionProblem?"Conexão indisponível":dataLoaded?"Orbe conectado":"Atualizando seu espaço",12,color,true),Text(profile.FullName,11,Muted),Text(connectionProblem&&dataLoaded?"Exibindo a última leitura disponível.":"Seus dados, protegidos pela sua conta.",10,Dim),Text("ORBE / "+AppInfo.Current.VersionString,9,Dim,true)),0,2);return panel;
     }
     private View NavButton(string name,string icon)
@@ -136,12 +136,13 @@ public sealed partial class DashboardPage : ContentPage
     }
     private View BuildMobileNav()
     {
-        var nav=new Grid{BackgroundColor=Sidebar,Padding=new Thickness(10,8),ColumnDefinitions=new(){new(GridLength.Star),new(GridLength.Star),new(GridLength.Star)},ColumnSpacing=6};
-        var names=new[]{"Agenda","Financeiro","Conta"};for(int i=0;i<names.Length;i++){var name=names[i];var b=Button(name,()=>SwitchTab(name),quiet:true);navigationButtons[b]=name;b.HorizontalOptions=LayoutOptions.Fill;b.TextColor=name==tab?Violet:Muted;b.BackgroundColor=name==tab?Color.FromArgb("#27233E"):Colors.Transparent;nav.Add(b,i);}return nav;
+        var nav=new Grid{BackgroundColor=Sidebar,Padding=new Thickness(6,8),ColumnSpacing=4};
+        var names=new[]{"Agenda","Financeiro","Notificações","Conta"};for(int i=0;i<names.Length;i++){nav.ColumnDefinitions.Add(new(GridLength.Star));var name=names[i];var b=Button(name,()=>SwitchTab(name),quiet:true);b.FontSize=11;b.Padding=new Thickness(4,10);navigationButtons[b]=name;b.HorizontalOptions=LayoutOptions.Fill;b.TextColor=name==tab?Violet:Muted;b.BackgroundColor=name==tab?Color.FromArgb("#27233E"):Colors.Transparent;nav.Add(b,i);}return nav;
     }
     private void RenderNow()
     {
         if(status.Parent is Layout parent)parent.Children.Remove(status);if(spinner.Parent is Layout spinParent)spinParent.Children.Remove(spinner);body.Children.Clear();
+        if(tab=="Notificações"){body.Add(Stack(8,Text("Notificações",32,Ink,true),Text("Seu centro de novidades",14,Muted)));body.Add(Card(Stack(18,Icon("bell",Violet,48),Pill("EM BREVE",Violet),Text("Tudo importante, em um só lugar",23,Ink,true),Text("Este espaço está preparado para as notificações do Orbe. O envio de avisos ainda não está disponível.",14,Muted)),32));return;}
         var title=tab switch{"Agenda"=>"Sua agenda","Financeiro"=>"Visão financeira",_=>"Seu espaço, sua conta"};
         var subtitle=tab switch{"Agenda"=>"Abra espaço para o que importa.","Financeiro"=>"Acompanhe o que entra, o que sai e o que fica.",_=>"Seu perfil, sua disponibilidade e seus acessos."};
         var heading=Stack(6,Text(title,compact?28:32,Ink,true),Text(subtitle,13,Muted));

@@ -9,7 +9,7 @@
     <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
     <ApplicationTitle>Orbe</ApplicationTitle>
     <ApplicationId>br.com.agendafinanceira.app</ApplicationId>
-    <ApplicationDisplayVersion>2.0.0</ApplicationDisplayVersion><ApplicationVersion>20004</ApplicationVersion>
+    <ApplicationDisplayVersion>2.0.1</ApplicationDisplayVersion><ApplicationVersion>20010</ApplicationVersion>
     <WindowsPackageType>None</WindowsPackageType>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
@@ -18,10 +18,10 @@
   <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
     <!-- Avoid missing JNI callbacks (MauiApplication.n_onCreate) in standalone Release APKs. -->
     <AndroidEnableMarshalMethods>false</AndroidEnableMarshalMethods>
-    <ApplicationDisplayVersion>2.0.0</ApplicationDisplayVersion><ApplicationVersion>20004</ApplicationVersion>
+    <ApplicationDisplayVersion>2.0.1</ApplicationDisplayVersion><ApplicationVersion>20010</ApplicationVersion>
   </PropertyGroup>
   <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
-    <ApplicationVersion>20006</ApplicationVersion>
+    <ApplicationVersion>20010</ApplicationVersion>
   </PropertyGroup>
   <ItemGroup>
     <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#10172E" />
