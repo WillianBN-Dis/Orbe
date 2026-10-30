@@ -43,7 +43,7 @@ public sealed partial class DashboardPage : ContentPage
         shell.ColumnDefinitions.Add(new(new GridLength(224)));shell.ColumnDefinitions.Add(new(GridLength.Star));
         shell.RowDefinitions.Add(new(GridLength.Star));shell.RowDefinitions.Add(new(GridLength.Auto));
         shell.Add(sidebarHost);Grid.SetRowSpan(sidebarHost,2);main.Add(headerHost);mainScroll.Content=body;main.Add(mainScroll,0,1);shell.Add(main,1);shell.Add(mobileHost,1,1);Content=shell;
-        SizeChanged+=(_,_)=>{if(Width<1||Math.Abs(lastWidth-Width)<32)return;var changed=compact!=(Width<860)||(lastWidth>=1180)!=Wide;lastWidth=Width;compact=Width<860;if(loaded&&changed){var version=++resizeVersion;Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(120),()=>{if(version==resizeVersion)BuildShell();});}};
+        SizeChanged+=(_,_)=>{if(Width<1||Math.Abs(lastWidth-Width)<32)return;var changed=compact!=(Width<860)||(lastWidth>=1180)!=Wide;lastWidth=Width;compact=Width<860;var gutter=compact?18:Math.Max(32,(Width-224-1920)/2);main.Padding=new Thickness(gutter,22,gutter,0);if(loaded&&changed){var version=++resizeVersion;Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(120),()=>{if(version==resizeVersion)BuildShell();});}};
     }
     protected override async void OnAppearing()
     {
@@ -113,7 +113,9 @@ public sealed partial class DashboardPage : ContentPage
         navigationButtons.Clear();navigationGlyphs.Clear();
         if(status.Parent is Layout parent)parent.Children.Remove(status);if(spinner.Parent is Layout spinParent)spinParent.Children.Remove(spinner);
         shell.ColumnDefinitions[0].Width=compact?new GridLength(0):new GridLength(224);sidebarHost.Content=compact?null:BuildSidebar();sidebarHost.IsVisible=!compact;
-        main.Padding=new Thickness(compact?18:32,22,compact?18:32,0);
+        // Keep the workspace useful on large monitors without stretching every control edge to edge.
+        var desktopGutter=Math.Max(32,(Width-224-1920)/2);
+        main.Padding=new Thickness(compact?18:desktopGutter,22,compact?18:desktopGutter,0);
         var eyebrow=Text("ESPAÇO DE TRABALHO",10,Dim,true);eyebrow.CharacterSpacing=1.8;
         var scope=repository?.EmployeeId is {} id?people.FirstOrDefault(x=>x.Id==id)?.DisplayName:profile.Owner?"Visão geral":profile.FullName;
         headerHost.Content=compact?Between(Brand(),Pill(scope??profile.FullName,Violet)):Between(eyebrow,Row(10,Icon("people",Dim,16),Text(scope??profile.FullName,12,Muted)));

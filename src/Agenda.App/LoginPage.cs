@@ -15,7 +15,7 @@ public sealed class LoginPage:ContentPage
  private readonly Entry user=Input("Seu usuário ou e-mail"),password=Input("Sua senha");
  private readonly Label message=Text("",12,Coral);
  private readonly ActivityIndicator spinner=new(){Color=Violet,IsVisible=false,HeightRequest=24};
- private readonly Grid presentation=new(){ColumnSpacing=40};
+ private readonly Grid presentation=new(){ColumnSpacing=0};
  private readonly Border loginCard;
  private readonly View introduction;
  private bool? widePresentation;
@@ -36,25 +36,28 @@ public sealed class LoginPage:ContentPage
 #endif
   foreach(var button in panel.Children.OfType<Button>()){button.HorizontalOptions=LayoutOptions.Fill;button.MaximumWidthRequest=double.PositiveInfinity;}
   panel.Add(Text("Orbe · "+AppInfo.Current.VersionString+" · compilação "+AppInfo.Current.BuildString,10,Dim));
-  var heroTitle=Text("Seu negócio.\nNo seu ritmo.",60,Ink,true);heroTitle.MaximumWidthRequest=950;heroTitle.HorizontalOptions=LayoutOptions.Start;
+  var heroTitle=Text("Mais tempo para\no que importa.",52,Ink,true);heroTitle.MaximumWidthRequest=640;heroTitle.HorizontalOptions=LayoutOptions.Start;
   var heroDescription=Text("Um espaço para organizar seus atendimentos, cuidar da equipe e acompanhar cada resultado.",20,Muted);heroDescription.MaximumWidthRequest=720;heroDescription.HorizontalOptions=LayoutOptions.Start;
-  introduction=Stack(30,Pill("AGENDA, EQUIPE E FINANÇAS",Mint),heroTitle,heroDescription,Rule(),
+  introduction=Stack(24,Row(12,BrandImage(44),Text("orbe",32,Ink,true)),Pill("AGENDA, EQUIPE E FINANÇAS",Mint),heroTitle,heroDescription,Rule(),
    Row(18,Card(Icon("calendar",Violet,28),16,Raised),Stack(5,Text("Sua rotina em perspectiva",19,Ink,true),Text("Calendário, jornadas e horários de cada profissional.",14,Muted))),
    Row(18,Card(Icon("chart",Mint,28),16,Raised),Stack(5,Text("Clareza para decidir",19,Ink,true),Text("Recebimentos, despesas e resultados em um só lugar.",14,Muted))),
    Row(18,Card(Icon("people",Blue,28),16,Raised),Stack(5,Text("Todos conectados",19,Ink,true),Text("Aplicativo e reservas online compartilham a mesma agenda.",14,Muted))));
-  introduction.VerticalOptions=LayoutOptions.Center;introduction.MaximumWidthRequest=900;introduction.HorizontalOptions=LayoutOptions.Center;
+  introduction.VerticalOptions=LayoutOptions.Center;introduction.MaximumWidthRequest=640;introduction.HorizontalOptions=LayoutOptions.Center;
   Content=new ScrollView{Content=presentation};SizeChanged+=(_,_)=>ArrangePresentation();ArrangePresentation();
   password.Completed+=async(_,_)=>await Attempt(false);
  }
  private void ArrangePresentation()
  {
-  presentation.MinimumHeightRequest=Math.Max(0,Height-16);var wide=Width>=1000;
+  presentation.MinimumHeightRequest=Math.Max(0,Height);var wide=Width>=1000;
   loginCard.MaximumWidthRequest=wide?double.PositiveInfinity:540;loginCard.VerticalOptions=wide?LayoutOptions.Fill:LayoutOptions.Center;
-  loginCard.Padding=wide?new Thickness(Math.Clamp(Width*.035,32,100),40):new Thickness(28);
-  if(loginCard.Content is View fields){fields.MaximumWidthRequest=wide?720:double.PositiveInfinity;fields.VerticalOptions=LayoutOptions.Center;}
+  loginCard.Padding=wide?new Thickness(48,40):new Thickness(28);
+  loginCard.BackgroundColor=wide?Sidebar:Surface;loginCard.StrokeThickness=wide?0:1;
+  loginCard.StrokeShape=new Microsoft.Maui.Controls.Shapes.RoundRectangle{CornerRadius=wide?0:18};
+  introduction.Margin=wide?new Thickness(48,48):new Thickness(0);
+  if(loginCard.Content is View fields){fields.MaximumWidthRequest=wide?520:double.PositiveInfinity;fields.HorizontalOptions=LayoutOptions.Fill;fields.VerticalOptions=LayoutOptions.Center;}
   if(widePresentation==wide)return;widePresentation=wide;
   presentation.Children.Clear();presentation.ColumnDefinitions.Clear();presentation.RowDefinitions.Clear();
-  presentation.Padding=wide?new Thickness(48,32):new Thickness(18,24);
+  presentation.Padding=wide?new Thickness(0):new Thickness(18,24);
   if(wide){presentation.ColumnDefinitions.Add(new(new GridLength(1.25,GridUnitType.Star)));presentation.ColumnDefinitions.Add(new(GridLength.Star));presentation.Add(introduction);presentation.Add(loginCard,1);}
   else{presentation.ColumnDefinitions.Add(new(GridLength.Star));presentation.Add(loginCard);}
  }

@@ -20,6 +20,9 @@
     <AndroidEnableMarshalMethods>false</AndroidEnableMarshalMethods>
     <ApplicationDisplayVersion>2.0.0</ApplicationDisplayVersion><ApplicationVersion>20004</ApplicationVersion>
   </PropertyGroup>
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+    <ApplicationVersion>20005</ApplicationVersion>
+  </PropertyGroup>
   <ItemGroup>
     <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#10172E" />
     <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#0D101B" BaseSize="112,112" />
