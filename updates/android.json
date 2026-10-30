@@ -1,7 +1,7 @@
 {
   "version": "2.0.0",
   "build": 20004,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.0/Orbe-2.0.0-ajuste.4.apk",
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.0-ajuste.4/Orbe-2.0.0.apk",
   "sha256": "3daf82b4892622698ae96a8f5c4426351d63cf34ae778c4a9b08df0eea9a4880",
   "notes": "Ajuste 4: calendário e abas com menos reconstruções e sem transição bloqueando cliques. Login do PC com painel direito amplo e novo login do site para celular e computador. Versão 2.0.0 mantida."
 }
