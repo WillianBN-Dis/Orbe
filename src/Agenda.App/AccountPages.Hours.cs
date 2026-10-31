@@ -11,11 +11,22 @@ internal static partial class AccountPages
   internal object Window()=>new{startMinute=(int)(Start.Time??TimeSpan.Zero).TotalMinutes,endMinute=Midnight.IsChecked?1440:(int)(End.Time??TimeSpan.Zero).TotalMinutes};
  }
  private sealed record ScheduleDay(Picker? Weekday,DatePicker? Date,List<TimePeriod> Periods);
+ private static Grid TimeFields(View first,View second)
+ {
+  var grid=Columns(false,first,second);bool? last=null;
+  grid.SizeChanged+=(_,_)=>{
+   if(grid.Width<=0)return;var wide=grid.Width>=560;if(last==wide)return;last=wide;
+   grid.ColumnDefinitions.Clear();grid.RowDefinitions.Clear();
+   grid.ColumnDefinitions.Add(new(GridLength.Star));grid.RowDefinitions.Add(new(GridLength.Auto));
+   if(wide)grid.ColumnDefinitions.Add(new(GridLength.Star));else grid.RowDefinitions.Add(new(GridLength.Auto));
+   Grid.SetColumn(second,wide?1:0);Grid.SetRow(second,wide?0:1);
+  };return grid;
+ }
  private static TimePeriod AddTimePeriod(VerticalStackLayout host,string label,int start,int end,bool disabled=false)
  {
   var from=new TimePicker{Time=TimeSpan.FromMinutes(start),Format="HH:mm"};var until=new TimePicker{Time=TimeSpan.FromMinutes(end==1440?0:end),Format="HH:mm"};
   var off=new CheckBox{IsChecked=disabled,Color=Violet};var midnight=new CheckBox{IsChecked=end==1440,Color=Violet};
-  var fields=Columns(true,Field("Início",from),Field("Fim",until));
+  var fields=TimeFields(Field("Início",from),Field("Fim",until));
   void Update(){from.IsEnabled=until.IsEnabled=midnight.IsEnabled=!off.IsChecked;until.IsEnabled&=!midnight.IsChecked;fields.Opacity=off.IsChecked?.4:1;}
   off.CheckedChanged+=(_,_)=>Update();midnight.CheckedChanged+=(_,_)=>Update();
   host.Add(Card(Stack(10,Between(Text(label,16,Ink,true),Row(6,off,Text("Desativado",12,Muted))),fields,Row(6,midnight,Text("Termina à meia-noite",11,Muted))),14,CanvasColor));Update();return new(from,until,off,midnight);
@@ -53,7 +64,7 @@ internal static partial class AccountPages
  internal static Page Block(CloudApi api,string employee)
  {
   var page=new CloudFormPage(api,"Folga ou compromisso");var title=Input("Ex.: Folga");var notes=new Editor{Placeholder="Observações privadas",MinimumHeightRequest=90};var kind=new Picker{ItemsSource=new[]{"Folga","Compromisso","Outro"},SelectedIndex=0};var today=api.Local(DateTimeOffset.UtcNow).Date;
-  var date=new DatePicker{Date=today,Format="dd/MM/yyyy"};var scope=new Picker{ItemsSource=new[]{"Dia inteiro","Manhã","Tarde","Escolher horários"},SelectedIndex=0};var from=new TimePicker{Time=TimeSpan.FromHours(9),Format="HH:mm"};var until=new TimePicker{Time=TimeSpan.FromHours(12),Format="HH:mm"};var times=Columns(true,Field("Início",from),Field("Fim",until));times.IsVisible=false;
+  var date=new DatePicker{Date=today,Format="dd/MM/yyyy"};var scope=new Picker{ItemsSource=new[]{"Dia inteiro","Manhã","Tarde","Escolher horários"},SelectedIndex=0};var from=new TimePicker{Time=TimeSpan.FromHours(9),Format="HH:mm"};var until=new TimePicker{Time=TimeSpan.FromHours(12),Format="HH:mm"};var times=TimeFields(Field("Início",from),Field("Fim",until));times.IsVisible=false;
   scope.SelectedIndexChanged+=(_,_)=>{times.IsVisible=scope.SelectedIndex!=0;if(scope.SelectedIndex==1){from.Time=TimeSpan.FromHours(9);until.Time=TimeSpan.FromHours(12);}if(scope.SelectedIndex==2){from.Time=TimeSpan.FromHours(13);until.Time=TimeSpan.FromHours(18);}};
   page.Fields.Add(Stack(18,Text("Reserve seu tempo",24,Ink,true),Field("Título",title),Field("Tipo",kind),Field("Dia",date),Field("Período",scope),times,Field("Observações",notes),Text("Os horários de manhã e tarde são sugestões; ajuste se necessário. Conflitos com atendimentos confirmados serão recusados.",12,Muted),Button("Salvar bloqueio",()=>page.Run(async()=>{var day=(date.Date??today).Date;var all=scope.SelectedIndex==0;await api.Post<JsonElement>("team/blocks",new{employeeId=employee,title=Required(title,"o título"),kind=kind.SelectedItem,start=api.Instant(all?day:day+(from.Time??TimeSpan.Zero)),end=api.Instant(all?day.AddDays(1):day+(until.Time??TimeSpan.Zero)),notes=notes.Text});await Back(page);}),primary:true)));return page;
  }
