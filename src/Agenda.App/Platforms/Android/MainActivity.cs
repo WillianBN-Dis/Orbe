@@ -1,4 +1,4 @@
-﻿using Android.App;
+using Android.App;
 using Android.Content.PM;
 using Android.OS;
 
@@ -13,8 +13,8 @@ public class MainActivity : MauiAppCompatActivity
         // Synthetic local UI fixture; absent from distributed Release builds.
         var form=Intent?.GetStringExtra("orbe.qa.form");
         if(form is "hours" or "block" or "services"){
-            Environment.SetEnvironmentVariable("ORBE_QA_FORM",form);
-            Environment.SetEnvironmentVariable("ORBE_QA_FORMS","true");
+            System.Environment.SetEnvironmentVariable("ORBE_QA_FORM",form);
+            System.Environment.SetEnvironmentVariable("ORBE_QA_FORMS","true");
         }
         base.OnCreate(savedInstanceState);
     }

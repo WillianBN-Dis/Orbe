@@ -20,6 +20,8 @@ if((Adb shell getprop sys.boot_completed) -notmatch '1'){throw 'Aguarde a inicia
 $existing=(Adb shell pm list packages $package) -join ''
 $installMode=if($existing -match [regex]::Escape($package)){'atualização'}else{'instalação limpa'}
 Adb install -r (Resolve-Path -LiteralPath $Apk).Path
+# Clear only the owned emulator fixture state, never an actual phone or server data.
+Adb shell pm clear $package | Out-Null
 $installed=(Adb shell dumpsys package $package) -join "`n"
 if($installed -notmatch "versionName=$([regex]::Escape($Version))(\s|$)"){throw 'Versão instalada incorreta.'}
 $activity=(Adb shell cmd package resolve-activity --brief $package | Select-Object -Last 1).Trim()
@@ -46,6 +48,10 @@ try {
  }
  # Fresh QA emulator must present authentication, without demo data or saved tokens.
  if($tree.SelectNodes('//node') | Where-Object {$_.text -eq 'Financeiro'}){throw 'A agenda não deve abrir sem autenticação.'}
+ # Debug-only synthetic form launch must be ignored by the distributed APK.
+ Adb shell am force-stop $package | Out-Null
+ Adb shell am start -W -n $activity --es orbe.qa.form hours | Out-Null
+ $null=CheckScreen 'release-sem-fixture' 'Tudo no seu tempo.'
  Adb shell input keyevent KEYCODE_HOME | Out-Null
  Start-Sleep -Seconds 2
  Adb shell am start -W -n $activity | Out-Null

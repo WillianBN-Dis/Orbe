@@ -11,7 +11,7 @@ public static class ProfessionalServices
    return Results.Ok(await (from link in db.EmployeeServices join item in db.Services on link.ServiceId equals item.Id join person in db.Employees on link.EmployeeId equals person.Id where employee==null||link.EmployeeId==employee orderby person.DisplayName,link.Name??item.Name select new{item.Id,link.EmployeeId,EmployeeName=person.DisplayName,Name=link.Name??item.Name,DurationMinutes=link.DurationMinutes??item.DurationMinutes,PriceCents=link.PriceCents??item.PriceCents,Enabled=link.Enabled??item.Enabled,link.Version}).ToArrayAsync());
   });
   team.MapPost("/services",async(string? employeeId,ServiceInput input,Actor actor,OrbeDb db)=>{
-   var employee=await actor.Employee(employeeId);Validate(input);
+   var employee=await actor.Employee(employeeId,actor.Owner);Validate(input);
    await using var tx=await db.Database.BeginTransactionAsync();await Lock(db,employee);
    var item=new Service{Name=input.Name.Trim(),DurationMinutes=input.DurationMinutes,PriceCents=input.PriceCents,Enabled=input.Enabled};db.Services.Add(item);db.EmployeeServices.Add(new(){EmployeeId=employee,ServiceId=item.Id});
    var person=await db.Employees.SingleAsync(x=>x.Id==employee);person.Version=Guid.NewGuid();await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(new{item.Id,EmployeeId=employee});

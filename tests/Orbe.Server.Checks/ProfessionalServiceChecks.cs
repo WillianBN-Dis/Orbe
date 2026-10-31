@@ -54,5 +54,9 @@ internal static class ProfessionalServiceChecks
   var historic=await Send(client,HttpMethod.Get,"/bookings/mine");Check(historic.EnumerateArray().Any(x=>Id(x)==Id(booking)&&x.GetProperty("expectedCents").GetInt64()==4000),"exclusão de serviço preserva agendamentos e valores anteriores");
   Check(!(await Send(anonymous,HttpMethod.Get,"/public/services?employeeId="+a)).EnumerateArray().Any(x=>Id(x)==id),"serviço excluído deixa o catálogo público");
   var target=(await Send(owner,HttpMethod.Get,"/team/services?employeeId="+b)).EnumerateArray().Single(x=>Id(x)==Id(ownerCreated));await Send(owner,HttpMethod.Delete,"/team/services/"+Id(target)+"?employeeId="+b,new{version=target.GetProperty("version").GetString()},204);Check(true,"administrador exclui serviço de outro profissional");
+  var disabled=(await Send(owner,HttpMethod.Get,"/owner/employees")).EnumerateArray().Single(x=>Id(x)==b);
+  await Send(owner,HttpMethod.Put,"/owner/employees/"+b,new{version=disabled.GetProperty("version").GetString(),displayName=disabled.GetProperty("displayName").GetString(),enabled=false,services=disabled.GetProperty("services").EnumerateArray().Select(x=>x.GetString()).ToArray()});
+  await Send(owner,HttpMethod.Post,"/team/services?employeeId="+b,new{name="Preparação para retorno",durationMinutes=30,priceCents=1000,enabled=true});
+  Check(!(await Send(anonymous,HttpMethod.Get,"/public/services?employeeId="+b)).EnumerateArray().Any(),"administrador prepara catálogo do inativo sem reabrir reservas públicas dele");
  }
 }

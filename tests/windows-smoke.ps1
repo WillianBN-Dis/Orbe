@@ -1,4 +1,4 @@
-param([Parameter(Mandatory)][string]$Payload,[string]$Version='2.0.0')
+param([Parameter(Mandatory)][string]$Payload,[string]$Version='2.0.0',[ValidateRange(30,300)][int]$StartupTimeoutSeconds=60,[switch]$ReuseQaInstaller)
 $ErrorActionPreference='Stop'
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $payloadPath=(Resolve-Path -LiteralPath $Payload).Path
@@ -7,17 +7,21 @@ $qaRoot=Join-Path $workspace ('artifacts/qa/windows/'+$Version+'-'+[Guid]::NewGu
 $install=Join-Path $qaRoot 'installed';New-Item -ItemType Directory -Force $qaRoot|Out-Null
 $iscc=Join-Path $env:LOCALAPPDATA 'Programs/Inno Setup 6/ISCC.exe'
 $qaOutput='Orbe-QA-Setup-'+$Version
-& $iscc /Q "/DOrbeVersion=$Version" "/DOrbePayload=$payloadPath" /DOrbeQa=1 "/DOrbeAppId=Orbe.QA.$Version" "/DOrbeOutput=$qaOutput" (Join-Path $workspace 'installer/orbe.iss') *> (Join-Path $qaRoot 'compile.txt')
-if($LASTEXITCODE -ne 0){throw 'Falha ao compilar instalador isolado de QA.'}
+if(!$ReuseQaInstaller){
+ & $iscc /Q "/DOrbeVersion=$Version" "/DOrbePayload=$payloadPath" /DOrbeQa=1 "/DOrbeAppId=Orbe.QA.$Version" "/DOrbeOutput=$qaOutput" (Join-Path $workspace 'installer/orbe.iss') *> (Join-Path $qaRoot 'compile.txt')
+ if($LASTEXITCODE -ne 0){throw 'Falha ao compilar instalador isolado de QA.'}
+}
 $installer=Join-Path $workspace ('dist/'+$qaOutput+'.exe')
+if(!(Test-Path -LiteralPath $installer)){throw 'Instalador QA ausente.'}
 $setup=Start-Process -FilePath $installer -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOICONS',('/DIR="'+$install+'"'),('/LOG="'+(Join-Path $qaRoot 'install.log')+'"') -WindowStyle Hidden -PassThru
 if(!$setup.WaitForExit(180000) -or $setup.ExitCode -ne 0){throw 'Instalação isolada falhou.'}
 $savedDotnetRoot=$env:DOTNET_ROOT
 try{
  Remove-Item Env:DOTNET_ROOT -ErrorAction SilentlyContinue
  foreach($name in 'Agenda.App.exe','coreclr.dll','hostfxr.dll','Microsoft.UI.Xaml.dll','e_sqlite3.dll'){if(!(Test-Path -LiteralPath (Join-Path $install $name))){throw "Dependência autocontida ausente: $name"}}
+ if((Get-FileHash (Join-Path $install 'Agenda.App.dll')).Hash -ne (Get-FileHash (Join-Path $payloadPath 'Agenda.App.dll')).Hash){throw 'Instalador QA não corresponde ao payload solicitado.'}
  $app=Start-Process -FilePath (Join-Path $install 'Agenda.App.exe') -ArgumentList '--startup-check' -WindowStyle Hidden -PassThru
- if(!$app.WaitForExit(60000)){Stop-Process -Id $app.Id;throw 'Abertura do app instalado excedeu prazo.'}
+ if(!$app.WaitForExit($StartupTimeoutSeconds*1000)){Stop-Process -Id $app.Id;throw 'Abertura do app instalado excedeu prazo.'}
  $report=Join-Path ([IO.Path]::GetTempPath()) "orbe-startup-check-$($app.Id).json"
  if(!(Test-Path -LiteralPath $report)){throw 'Relatório de abertura do app instalado ausente.'}
  $result=Get-Content -LiteralPath $report -Raw|ConvertFrom-Json

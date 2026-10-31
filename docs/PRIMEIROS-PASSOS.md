@@ -1,14 +1,14 @@
-# Primeiros passos — Orbe 2.0
+# Primeiros passos — Orbe 2.0.1
 
-1. No Windows, execute **Orbe-Setup.exe**. O instalador inclui .NET e Windows App SDK; o atalho na área de trabalho é opcional. No Android, instale **Orbe-2.0.0.apk**, assinado com a mesma chave da versão 1.0.2.
+1. No Windows, execute **Orbe-Setup.exe**. O instalador inclui .NET e Windows App SDK; o atalho na área de trabalho é opcional. No Android, instale **Orbe-2.0.1.apk**, assinado com a mesma chave da versão 1.0.2.
 2. Abra o Orbe e entre com usuário e senha. Servidor padrão: https://orbe.discloud.dev. O computador principal não precisa permanecer ligado; uma conexão com a internet é necessária.
 3. O proprietário entra como **WillianBN**. A senha inicial foi gerada e protegida no PC; consulte o assistente local deploy/discloud/Show-OwnerAccess.ps1 no projeto. Depois de entrar, use **Conta → Editar meu cadastro → Trocar senha**. Não compartilhe a senha administrativa.
-4. Em **Conta → Equipe e acessos**, crie os funcionários. Se o proprietário também atende, use **Eu também atendo**. Somente WillianBN cria/desativa acessos e define os serviços de cada profissional.
-5. Cadastre os serviços e atribua-os aos profissionais. Cada funcionário configura a própria jornada, folgas e compromissos, sem aprovação. Você também pode ajustar essas configurações.
+4. Em **Conta → Equipe e acessos**, crie os funcionários. Se o proprietário também atende, use **Eu também atendo**. Somente WillianBN cria e desativa os acessos da equipe.
+5. Cada profissional pode criar, editar e excluir seus próprios serviços em Conta → Serviços/Meus serviços. WillianBN pode selecionar qualquer profissional e gerenciar seu catálogo. Excluir uma oferta preserva os agendamentos e valores anteriores. Cada funcionário configura a própria jornada, folgas e compromissos, sem aprovação. Você também pode ajustar essas configurações.
 
 ## Jornada e agenda
 
-Em **Conta → Jornadas, folgas e compromissos**, adicione períodos por dia da semana: por exemplo, 09:00–12:00 e 13:00–18:00. Uma data especial substitui a jornada semanal; sem períodos, fecha o dia inteiro. Folgas e compromissos também podem bloquear algumas horas. Alterações que conflitam com atendimentos confirmados são recusadas.
+Em **Conta → Jornadas, folgas e compromissos**, selecione o dia e os horários da manhã e da tarde, por exemplo 09:00–12:00 e 13:00–18:00. Marque Desativado no período em que não atende; adicione períodos extras se necessário. Os horários são escolhidos nos seletores. Uma data especial substitui a jornada semanal; sem períodos, fecha o dia inteiro. Folgas e compromissos oferecem atalhos de dia inteiro, manhã, tarde ou horários personalizados. Alterações que conflitam com atendimentos confirmados são recusadas.
 
 Para criar atendimentos manualmente como proprietário, escolha antes o profissional em **Conta → Agenda em foco**. A visão geral reúne todos os registros; funcionários veem somente os próprios atendimentos e financeiro.
 
@@ -16,7 +16,7 @@ Para criar atendimentos manualmente como proprietário, escolha antes o profissi
 
 **Ambiente atual de testes: cadastro de clientes e reservas liberados sem confirmação de e-mail, por autorização do proprietário. A recuperação por e-mail continua indisponível.** O botão **Entrar como cliente** abre o site, sem acesso à agenda administrativa. Clientes usam **e-mail e senha** após criar a própria conta; o usuário WillianBN é exclusivo da administração. A configuração de servidor foi retirada do login e fica em **Conta → Configurar conexão**, somente para WillianBN.
 
-Quando e-mail e configuração inicial estiverem prontos, o cliente poderá criar conta, confirmar e-mail e escolher serviço → profissional → dia → horário. A confirmação é automática, sem sobreposição. O cliente vê somente o próprio cadastro e agendamentos. Cancelamento/remarcação permite até 24 horas antes, prazo ajustável pelo proprietário.
+Quando e-mail e configuração inicial estiverem prontos, o cliente poderá criar conta, confirmar e-mail e escolher profissional → serviço → dia → horário. A confirmação é automática, sem sobreposição. O cliente vê somente o próprio cadastro e agendamentos. Cancelamento/remarcação permite até 24 horas antes, prazo ajustável pelo proprietário.
 
 ## Importar dados antigos
 
@@ -40,8 +40,12 @@ Versões anteriores permanecem no GitHub. Atualize executando o novo instalador 
 
 No Android, o **ajuste 1 da versão 2.0.0** inclui **Atualizar aplicativo**, disponível na tela de entrada e em **Conta**. Instale esse primeiro ajuste manualmente pelo GitHub, por cima do app existente. A partir dele, toque em **Verificar atualizações → Baixar e instalar**. Se solicitado, permita instalações desta fonte para o Orbe, volte ao aplicativo e toque em **Continuar instalação**. Confirme a atualização no instalador do Android; não é necessário desinstalar o app.
 
-A versão exibida continua **2.0.0**; o código interno atual é **20004 (ajuste 4)**. O aplicativo busca os ajustes no repositório oficial, verifica SHA-256 e abre o instalador com acesso temporário somente ao APK. Sua conta e os dados são preservados pela atualização com a mesma assinatura. Para futuras publicações, consulte [Atualizações Android](ATUALIZACOES-ANDROID.md).
+A versão atual é **2.0.1**, código interno **20010**. O aplicativo busca os ajustes no repositório oficial, verifica SHA-256 e abre o instalador com acesso temporário somente ao APK. Sua conta e os dados são preservados pela atualização com a mesma assinatura. Para futuras publicações, consulte [Atualizações Android](ATUALIZACOES-ANDROID.md).
 
 No ajuste 3, a agenda atualiza automaticamente a cada 15 segundos com a tela ativa. Somente WillianBN altera a conexão em Conta, com efeito global. O endereço inicial de descoberta precisa permanecer disponível e o novo destino deve usar o mesmo banco; mudar a URL não transfere dados.
 
-O ajuste 4 reaproveita os controles do calendário ao selecionar o dia e da navegação ao trocar abas, sem transição que bloqueie o clique. No PC, o painel de login ocupa cerca de 44% da largura. O site tem página de entrada em https://orbe.discloud.dev/entrar, adaptada ao celular e computador, com opção de mostrar a senha.
+O ajuste 4 reaproveita os controles do calendário ao selecionar o dia e da navegação ao trocar abas, sem transição que bloqueie o clique. No PC, o login usa um painel único centralizado com arte orbital e formulário ao lado. O site tem página de entrada em https://orbe.discloud.dev/entrar, adaptada ao celular e computador, com opção de mostrar a senha.
+
+## Notificações
+
+A nova aba está presente no Windows, Android e site. Por enquanto ela mostra apenas o layout de preparação; ainda não envia nem recebe avisos.
