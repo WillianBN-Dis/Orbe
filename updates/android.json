@@ -1,7 +1,7 @@
 {
-  "version": "2.0.0",
-  "build": 20004,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.0-ajuste.4/Orbe-2.0.0.apk",
-  "sha256": "3daf82b4892622698ae96a8f5c4426351d63cf34ae778c4a9b08df0eea9a4880",
-  "notes": "Ajuste 4: calendário e abas com menos reconstruções e sem transição bloqueando cliques. Login do PC com painel direito amplo e novo login do site para celular e computador. Versão 2.0.0 mantida."
+  "notes": "Serviços próprios por profissional, reserva profissional antes do serviço, jornadas manhã/tarde com seletores e atalhos de bloqueio. Aba Notificações preparada.",
+  "build": 20010,
+  "sha256": "e63b106dcf1b9cdcc6ad64c06ccd4d52b428cd2ec3728904fe88dec8c5979db5",
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.1/Orbe-2.0.1.apk",
+  "version": "2.0.1"
 }
