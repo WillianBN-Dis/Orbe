@@ -12,13 +12,13 @@ A versão 2 centraliza contas, agenda e financeiro na Discloud e funciona com o 
 
 - [Site de testes](https://orbe.discloud.dev) · [Administração](https://orbe.discloud.dev/equipe)
 - [Versões e downloads](https://github.com/WillianBN-Dis/Orbe/releases)
-- Downloads atuais 2.0.0: [Windows](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.0-ajuste.4/Orbe-Setup.exe) · [Android](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.0-ajuste.4/Orbe-2.0.0.apk). Android atual: build 20004/ajuste 4, sem configurar servidor no login. A conexão fica somente em Conta para o administrador e é compartilhada por todos os dispositivos. O endereço inicial de descoberta precisa continuar acessível; a troca de endereço não migra o banco.
+- Downloads atuais 2.0.1: [Windows](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.1/Orbe-Setup.exe) · [Android](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.1/Orbe-2.0.1.apk). Android atual: build 20010, sem configurar servidor no login. A conexão fica somente em Conta para o administrador e é compartilhada por todos os dispositivos. O endereço inicial de descoberta precisa continuar acessível; a troca de endereço não migra o banco.
 - [Primeiros passos](docs/PRIMEIROS-PASSOS.md) · [Operação e backups](deploy/discloud/README.md)
-- Android: **Atualizar aplicativo** no login e em Conta, a partir do **2.0.0 ajuste 1**. A versão exibida continua 2.0.0. [Como atualizar e publicar ajustes](docs/ATUALIZACOES-ANDROID.md).
+- Android: **Atualizar aplicativo** no login e em Conta, a partir do **2.0.0 ajuste 1**. A versão atual é 2.0.1. [Como atualizar e publicar ajustes](docs/ATUALIZACOES-ANDROID.md).
 
 ## Agenda, equipe e financeiro
 
-WillianBN cria/desativa funcionários, cadastra serviços e define as habilitações. Cada profissional configura a própria jornada, com períodos separados por dia, exceções, folgas e compromissos parciais ou integrais. O proprietário consulta todos, inclusive o histórico dos profissionais desativados. A autorização é verificada no servidor.
+WillianBN cria/desativa funcionários e gerencia todos os serviços. Cada profissional cria, edita e exclui os próprios serviços; o proprietário também pode preparar o catálogo de profissionais desativados, sem torná-los disponíveis publicamente. Cada profissional configura a própria jornada, com períodos separados por dia, exceções, folgas e compromissos parciais ou integrais. O proprietário consulta todos, inclusive o histórico dos profissionais desativados. A autorização é verificada no servidor.
 
 Desktop usa a área disponível ao lado da navegação, com login em duas colunas; no celular o site usa menu recolhível. Agenda e financeiro atualizam a cada 15 segundos enquanto a tela está ativa, sem interromper formulários.
 
@@ -26,7 +26,7 @@ No aplicativo: calendário mensal e agenda do dia, criar/editar/excluir eventos,
 
 **Agendar não gera receita.** Lucro é receita menos despesa registrada. Cancelar libera o horário e mantém histórico/financeiro. Excluir o evento também exclui seus lançamentos vinculados em uma transação; avulsos são mantidos. Confirmações repetidas usam IDs estáveis para evitar duplicar lançamentos.
 
-O fluxo público preparado é serviço → profissional → dia → horário → confirmação automática. A duração inteira precisa caber no intervalo livre. O servidor impede reservas sobrepostas/duplicadas, oculta detalhes de bloqueios privados e valida o prazo de cancelamento/remarcação, por padrão 24 horas. Preço/duração ficam congelados na reserva. Defaults: intervalos de 15 min, antecedência de 2 h, horizonte de 60 dias, fuso America/Sao_Paulo.
+O fluxo público preparado é profissional → serviço → dia → horário → confirmação automática. A duração inteira precisa caber no intervalo livre. O servidor impede reservas sobrepostas/duplicadas, oculta detalhes de bloqueios privados e valida o prazo de cancelamento/remarcação, por padrão 24 horas. Preço/duração ficam congelados na reserva. Defaults: intervalos de 15 min, antecedência de 2 h, horizonte de 60 dias, fuso America/Sao_Paulo.
 
 ## Importação e primeiro acesso
 
@@ -47,3 +47,8 @@ Requer .NET 10, workload MAUI e os SDKs da plataforma. O projeto fixa MAUI 10.0.
 As suítes e os testes de instalação estão em [tests/README.md](tests/README.md). O PostgreSQL de testes usa endereço/nome exclusivos e os dados são sintéticos. A implantação e as dependências nativas verificadas por SHA-256 estão documentadas em [deploy/discloud](deploy/discloud/README.md).
 
 Decisões e checkpoints: [docs/PLANO-NUVEM.md](docs/PLANO-NUVEM.md), com cópia organizada no Obsidian do proprietário. As instruções de conexão direta ao Nexus pertencem à linha 1.x e podem ser consultadas no [histórico 1.0.2](https://github.com/WillianBN-Dis/Orbe/tree/v1.0.2).
+
+## Ajustes 2.0.1
+
+Jornadas com seletores de dia e hora, manhã/tarde e desativação por período; folgas e compromissos com atalhos. Aba Notificações preparada no aplicativo e site, ainda sem envio. [Validação e hashes](docs/VALIDACAO-2.0.1.md).
+

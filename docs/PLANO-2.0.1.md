@@ -1,13 +1,7 @@
-# Orbe 2.0.1 — candidata em validação
+# Orbe 2.0.1
 
-A versão está em preparação, ainda sem release publicada.
+Implementação concluída: serviços por profissional com autorização no servidor, reserva profissional → serviço → horário, jornadas manhã/tarde com seletores e períodos desativáveis, atalhos de bloqueio e aba Notificações somente visual.
 
-- Cada profissional gerencia o próprio catálogo; WillianBN gerencia qualquer profissional. O servidor valida acesso, concorrência e vínculo.
-- As ofertas antigas herdam o catálogo comum; alterações por profissional usam overrides e preservam IDs e histórico. Excluir retira a oferta do profissional, preservando agendamentos e valores congelados.
-- O portal começa por profissional, depois serviço, dia e horário.
-- Jornada semanal e datas especiais com seletores de dia/hora, manhã e tarde, desativação por período, períodos extras e suporte à meia-noite. Bloqueios com atalhos dia inteiro/manhã/tarde/personalizado.
-- Notificações no aplicativo e no site: apenas layout de preparação, sem entrega de avisos.
+Migração ProfessionalServiceOptions preserva IDs, reservas e valores históricos. Excluir serviço retira a oferta do profissional sem apagar histórico. Owner acessa todos; funcionário somente o próprio catálogo.
 
-Validação realizada: 70 verificações HTTP/PostgreSQL existentes mais regressões de catálogo/permissões/preço/histórico; seis cenários web com API simulada em390/1440; fixtures Debug nativas em1440/430. A correção posterior dos seletores empilha Início/Fim abaixo de560px; recompilação Debug e novas capturas passaram sem cortes de minutos.
-
-Distribuição final depende ainda dos pacotes autocontidos Windows/Android, instalação/abertura, backup e implantação da migração, verificação HTTPS e publicação com hashes. Não distribuir a candidata intermediária. Produto2.0.1/build20010; somente instalador Windows e APK como anexos da futura release.
+Validado em Windows, Android e site. Consulte VALIDACAO-2.0.1.md para verificações, hashes e limitações. Servidor implantado em 31/10/2026, revisão fb903d9, health ready e modo de testes sem SMTP preservado. Snapshot privado obtido antes da migração. Site real conferido em390/1440, sem criar reservas ou alterar dados pessoais.
