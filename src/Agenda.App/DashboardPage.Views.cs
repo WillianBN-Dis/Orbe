@@ -52,8 +52,8 @@ public sealed partial class DashboardPage
     {
         calendarButtons.Clear();
         var title=Text(TitleCase(calendarMonth.ToString("MMMM yyyy",Finance.Brazilian)),19,Ink,true);
-        var previous=Button("‹",()=>MoveMonth(-1),quiet:true); previous.WidthRequest=40;
-        var next=Button("›",()=>MoveMonth(1),quiet:true); next.WidthRequest=40;
+        var previous=Button("‹",()=>MoveMonth(-1),quiet:true); previous.WidthRequest=compact?40:48;previous.FontSize=22;
+        var next=Button("›",()=>MoveMonth(1),quiet:true); next.WidthRequest=compact?40:48;next.FontSize=22;
         var today=Button("Hoje",()=>SelectDay(DateOnly.FromDateTime(DateTime.Today)),quiet:true);
         var s=Stack(20,Between(title,Row(0,previous,today,next)),Rule());
         var grid=new Grid { ColumnSpacing=4,RowSpacing=5 };
@@ -64,14 +64,14 @@ public sealed partial class DashboardPage
         var start=calendarMonth.AddDays(-(((int)calendarMonth.DayOfWeek+6)%7));
         for(int row=0;row<6;row++)
         {
-            grid.RowDefinitions.Add(new(new GridLength(compact?52:64)));
+            grid.RowDefinitions.Add(new(new GridLength(compact?52:80)));
             for(int col=0;col<7;col++)
             {
                 var day=start.AddDays(row*7+col); var isSelected=day==Selected; var current=day.Month==calendarMonth.Month;
                 var events=appointments.Where(a=>a.Value.Intersects(day)).ToArray();
                 var cell=Button(day.Day.ToString("D2"),()=>SelectDay(day),quiet:true);
                 calendarButtons[day]=cell;
-                cell.HorizontalOptions=LayoutOptions.Center;cell.VerticalOptions=LayoutOptions.Center;cell.WidthRequest=44;cell.HeightRequest=44;cell.FontSize=13;cell.Padding=0;cell.FontFamily=isSelected?"OpenSansSemibold":"OpenSansRegular";
+                cell.HorizontalOptions=LayoutOptions.Center;cell.VerticalOptions=LayoutOptions.Center;cell.WidthRequest=compact?44:64;cell.HeightRequest=compact?44:64;cell.FontSize=compact?13:17;cell.Padding=0;cell.FontFamily=isSelected?"OpenSansSemibold":"OpenSansRegular";
                 cell.BackgroundColor=isSelected?Violet:day==DateOnly.FromDateTime(DateTime.Today)?Raised:Colors.Transparent;
                 cell.TextColor=isSelected?CanvasColor:current?Ink:Dim;
                 cell.BorderWidth=day==DateOnly.FromDateTime(DateTime.Today)&&!isSelected?1:0;cell.BorderColor=Violet.WithAlpha(.5f);
@@ -86,6 +86,12 @@ public sealed partial class DashboardPage
                 grid.Add(layer,col,row+1);
             }
         }
+        grid.SizeChanged+=(_,_)=>
+        {
+            if(grid.Width<=0)return;
+            var size=compact?44:Math.Clamp((grid.Width-grid.ColumnSpacing*6)/7-4,44,64);
+            foreach(var button in calendarButtons.Values){button.WidthRequest=size;button.HeightRequest=size;}
+        };
         s.Add(grid);s.Add(Rule());
         var legend=new FlexLayout{Wrap=Microsoft.Maui.Layouts.FlexWrap.Wrap,Direction=Microsoft.Maui.Layouts.FlexDirection.Row};
         foreach(var kind in Enum.GetValues<EventKind>()) {var r=Row(6,new BoxView{Color=KindColor(kind),HeightRequest=5,WidthRequest=5,CornerRadius=3,VerticalOptions=LayoutOptions.Center},Text(kind.ToString(),10,Muted));r.Margin=new Thickness(0,0,14,6);legend.Add(r);}

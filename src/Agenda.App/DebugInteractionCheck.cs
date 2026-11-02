@@ -6,6 +6,17 @@ public sealed partial class DashboardPage
  internal async Task QaInteractions()
  {
   var initial=calendarButtons.Values.ToArray();var nav=navigationButtons.Keys.ToArray();var month=calendarMonth;var watch=Stopwatch.StartNew();
+#if WINDOWS
+  var dayButton=initial.First();
+  var cursorProperty=typeof(Microsoft.UI.Xaml.UIElement).GetProperty("ProtectedCursor",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance)!;
+  var native=(Microsoft.UI.Xaml.Controls.Control)dayButton.Handler!.PlatformView!;
+  var enabledCursor=cursorProperty.GetValue(native);
+  if(enabledCursor is not Microsoft.UI.Input.InputSystemCursor)throw new Exception("Clickable calendar must use hand cursor");
+  dayButton.IsEnabled=false;await Task.Delay(100);
+  if(cursorProperty.GetValue(native) is not Microsoft.UI.Input.InputSystemCursor || ReferenceEquals(enabledCursor,cursorProperty.GetValue(native)))throw new Exception("Disabled calendar must use arrow cursor");
+  dayButton.IsEnabled=true;
+  if(!compact&&(dayButton.WidthRequest<56||dayButton.HeightRequest<56))throw new Exception("Desktop calendar targets too small");
+#endif
   await SelectDay(month.AddDays(1));var milliseconds=watch.Elapsed.TotalMilliseconds;
   if(!initial.SequenceEqual(calendarButtons.Values))throw new Exception("Calendar controls rebuilt on selection");
   if(selected!=month.AddDays(1))throw new Exception("Selected date not updated");

@@ -11,3 +11,5 @@ Paleta: fundo #0D101B, lateral #111521, superfícies #171C2B, bordas #2A3144, te
 Desktop: navegação lateral fixa e conteúdo em duas colunas quando há espaço. Mobile: navegação inferior, cartões empilhados, calendário compacto. Estados reais desconectado/vazio/erro, sem demonstração. Sem previsões ou comparações financeiras fictícias em dados reais.
 
 Ajuste 3: fundo do ícone em gradiente navy #111A34 → #0D142B, margem externa transparente e símbolo a 90%, inspirado no tratamento de fundo do Nexus. Logo móvel menor. Demonstração removida da versão 2; estados vazios refletem os dados da conta.
+
+02/11/2026 — Ajuste Windows: fundo sólido #10172E, cantos arredondados transparentes, sem camada quadrada de cor no MauiIcon Windows. ICO multirresolução16/24/32/48/64/128/256px; o instalador preserva esse arquivo em vez de substituir por PNG256único. Símbolo vetorial preservado.

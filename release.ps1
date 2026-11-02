@@ -16,10 +16,7 @@ try {
  if($LASTEXITCODE -ne 0){throw 'Publicação Windows falhou.'}
  Copy-Item -LiteralPath licenses -Destination $payload -Recurse -Force
  Copy-Item docs/PRIMEIROS-PASSOS.md $payload/PRIMEIROS-PASSOS.md
- $png=Join-Path $PSScriptRoot 'assets\orbe-icon.png';$icon=Join-Path $PSScriptRoot 'assets\orbe.ico'
- # ICO com PNG 256px, preservando a transparência do asset original.
- $bytes=[IO.File]::ReadAllBytes($png);$stream=[IO.File]::Create($icon)
- try{$writer=[IO.BinaryWriter]::new($stream);$writer.Write([uint16]0);$writer.Write([uint16]1);$writer.Write([uint16]1);$writer.Write([byte]0);$writer.Write([byte]0);$writer.Write([byte]0);$writer.Write([byte]0);$writer.Write([uint16]1);$writer.Write([uint16]32);$writer.Write([uint32]$bytes.Length);$writer.Write([uint32]22);$writer.Write($bytes);$writer.Flush()}finally{$stream.Dispose()}
+ # Preserve the checked-in multi-resolution ICO, including rounded transparency.
  & $iscc /Qp "/DOrbeVersion=$Version" "/DOrbePayload=$payload" installer/orbe.iss
  if($LASTEXITCODE -ne 0){throw 'Instalador falhou.'}
  Get-FileHash dist/Orbe-Setup.exe -Algorithm SHA256 | ForEach-Object{$_.Hash.ToLowerInvariant()+'  Orbe-Setup.exe'} | Set-Content dist/SHA256SUMS.txt -Encoding ascii

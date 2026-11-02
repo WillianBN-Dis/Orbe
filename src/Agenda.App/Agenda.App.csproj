@@ -24,7 +24,8 @@
     <ApplicationVersion>20010</ApplicationVersion>
   </PropertyGroup>
   <ItemGroup>
-    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#10172E" />
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#10172E" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'windows'" />
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="Transparent" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'" />
     <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#0D101B" BaseSize="112,112" />
     <MauiImage Include="Resources\Images\*.svg" />
 <MauiFont Include="Resources\Fonts\*" />

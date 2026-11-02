@@ -7,6 +7,9 @@ public static class MauiProgram
 	public static MauiApp CreateMauiApp()
 	{
 		var builder = MauiApp.CreateBuilder();
+#if WINDOWS
+        DesktopPointer.Configure();
+#endif
 		builder
 			.UseMauiApp<App>()
 			.ConfigureFonts(fonts =>
@@ -22,4 +25,3 @@ public static class MauiProgram
 		return builder.Build();
 	}
 }
-
