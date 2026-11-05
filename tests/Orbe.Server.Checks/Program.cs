@@ -146,6 +146,14 @@ internal static class ChecksMain
   await Send(client1,HttpMethod.Post,"/api/v1/auth/password",new{currentPassword=Password,newPassword="AnotherSyntheticPassword123"});await Send(client1,HttpMethod.Get,"/api/v1/auth/me",expected:401);Check(true,"Troca de senha revoga sessão anterior");
   await Send(anonymous,HttpMethod.Post,"/api/v1/auth/recover",new{email="cliente2@example.test"});
   var recovery=factory.Mail.Items.Last(x=>x.To=="cliente2@example.test"&&x.Subject.Contains("Recuperar"));var recoveryUrl=new Uri(recovery.Body[recovery.Body.IndexOf("http",StringComparison.Ordinal)..]);var recoveryQuery=Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(recoveryUrl.Query);
+  var existingUserId=recoveryQuery["userId"].ToString();
+  var missingUserId=Guid.NewGuid().ToString();
+  var existingReset=await Send(anonymous,HttpMethod.Post,"/api/v1/auth/reset",new{userId=existingUserId,token="invalid",password=Password},400);
+  var missingReset=await Send(anonymous,HttpMethod.Post,"/api/v1/auth/reset",new{userId=missingUserId,token="invalid",password=Password},400);
+  Check(existingReset.GetRawText()==missingReset.GetRawText(),"Redefinição com token inválido não revela se o identificador existe");
+  var existingConfirm=await Send(anonymous,HttpMethod.Post,$"/api/v1/auth/confirm?userId={Uri.EscapeDataString(existingUserId)}&token=invalid",expected:400);
+  var missingConfirm=await Send(anonymous,HttpMethod.Post,$"/api/v1/auth/confirm?userId={missingUserId}&token=invalid",expected:400);
+  Check(existingConfirm.GetRawText()==missingConfirm.GetRawText(),"Confirmação com token inválido não revela se o identificador existe");
   await Send(anonymous,HttpMethod.Post,"/api/v1/auth/reset",new{userId=recoveryQuery["userId"].ToString(),token=recoveryQuery["token"].ToString(),password="RecoveredSyntheticPassword123"});await Send(client2,HttpMethod.Get,"/api/v1/auth/me",expected:401);Check(true,"Recuperação por e-mail revoga sessões anteriores");
   var closedSettings=await Get(owner,"/api/v1/owner/settings");
   object Policy(JsonElement s,bool open)=>new{version=s.GetProperty("version").GetString(),name="Orbe QA",importCompleted=true,publicBookingOpen=open,slotMinutes=15,leadMinutes=120,horizonDays=60,cancellationHours=24,timeZoneId="America/Sao_Paulo"};
@@ -194,6 +202,12 @@ internal static class ChecksMain
   Check((await Get(anonymous,"/api/v1/public/info")).GetProperty("testMode").GetBoolean(),"Modo de testes sem e-mail é explicitamente identificado no site");
   var previewRegistration=await Send(anonymous,HttpMethod.Post,"/api/v1/auth/register",new{fullName="Cliente Teste",email="preview@example.test",phone="11999999999",birthDate="2000-01-01",password=Password},202);
   Check(!previewRegistration.GetProperty("emailConfirmationRequired").GetBoolean(),"Cadastro de testes funciona sem envio de e-mail");
+  foreach(var address in new[]{"preview@example.test","security-missing@example.test"})
+  {
+   await Send(anonymous,HttpMethod.Post,"/api/v1/auth/register",new{fullName="Cliente Teste",email=address,phone="11999999999",birthDate="2000-01-01",password="short"},400);
+   await Send(anonymous,HttpMethod.Post,"/api/v1/auth/resend",new{email=address},503);
+  }
+  Check(true,"Cadastro inválido e reenvio indisponível não revelam se o e-mail existe");
   var previewClient=await Login("preview@example.test");var previewMe=await Get(previewClient,"/api/v1/auth/me");
   Check(!previewMe.GetProperty("emailConfirmed").GetBoolean()&&previewMe.GetProperty("roles").EnumerateArray().Single().GetString()=="Client","Teste não marca e-mail como verificado nem promove o cliente");
   await Send(previewClient,HttpMethod.Get,"/api/v1/owner/employees",expected:403);

@@ -34,14 +34,19 @@ builder.Services.AddRateLimiter(o=>
   o.AddPolicy("account",c=>RateLimitPartition.GetFixedWindowLimiter(c.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new(){PermitLimit=120,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));
   o.GlobalLimiter=PartitionedRateLimiter.Create<HttpContext,string>(c=>RateLimitPartition.GetFixedWindowLimiter(c.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new(){PermitLimit=240,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));
  });
-builder.WebHost.ConfigureKestrel(o=>o.Limits.MaxRequestBodySize=2*1024*1024);
+builder.WebHost.ConfigureKestrel(o=>
+{
+ o.AddServerHeader=false;
+ o.Limits.MaxRequestBodySize=2*1024*1024;
+});
 var app=builder.Build();
 app.UseForwardedHeaders();
 app.Use(async(c,next)=>
  {
   c.Response.Headers.XContentTypeOptions="nosniff";c.Response.Headers["Referrer-Policy"]="no-referrer";
   if(c.Request.Path.StartsWithSegments("/api"))c.Response.Headers.CacheControl="no-store";
-  c.Response.Headers["Content-Security-Policy"]="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+  c.Response.Headers["X-Frame-Options"]="DENY";
+  c.Response.Headers["Content-Security-Policy"]="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
   if(app.Environment.IsProduction())c.Response.Headers.StrictTransportSecurity="max-age=31536000";
   if(app.Configuration.GetValue<bool>("Database:SkipInitialize")&&c.Request.Path.StartsWithSegments("/api")){c.Response.StatusCode=503;await c.Response.WriteAsJsonAsync(new{message="O servidor está sendo preparado. As reservas continuam fechadas."});return;}
   try{await next();}

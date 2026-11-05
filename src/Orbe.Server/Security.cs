@@ -72,6 +72,7 @@ public sealed class SmtpEmail(IConfiguration config):IEmailDelivery
 }
 public sealed class AuthService(OrbeDb db,UserManager<AppUser> users,IEmailDelivery email,IConfiguration config,TimeProvider clock)
 {
+ internal const string InvalidLink="O link ou código é inválido ou expirou. Solicite um novo.";
  public async Task<object> Profile(AppUser u)=>new{u.Id,u.FullName,u.Email,phone=u.PhoneNumber,u.BirthDate,u.EmailConfirmed,roles=await users.GetRolesAsync(u),employeeId=await db.Employees.Where(x=>x.UserId==u.Id&&x.Enabled).Select(x=>x.Id).SingleOrDefaultAsync()};
  public static void Check(IdentityResult result)
  {
@@ -88,7 +89,7 @@ public sealed class AuthService(OrbeDb db,UserManager<AppUser> users,IEmailDeliv
    "PasswordRequiresNonAlphanumeric"=>"A senha deve conter um símbolo.",
    "PasswordRequiresUniqueChars"=>"A senha precisa de mais caracteres diferentes.",
    "PasswordMismatch"=>"A senha atual está incorreta.",
-   "InvalidToken"=>"O link ou código é inválido ou expirou. Solicite um novo.",
+   "InvalidToken"=>InvalidLink,
    "ConcurrencyFailure"=>"O cadastro foi alterado em outra sessão. Atualize e tente novamente.",
    _=>"Não foi possível salvar o acesso. Confira os dados e tente novamente."
   }).Distinct()));
@@ -145,22 +146,32 @@ public static class AuthRoutes
    var preview=config.GetValue<bool>("Preview:AllowUnverifiedClients");
    if(!email.Ready&&!preview)throw new ApiError(503,"Cadastro disponível após configurar o envio de e-mails.");
    if(string.IsNullOrWhiteSpace(input.FullName)||input.FullName.Length>150||string.IsNullOrWhiteSpace(input.Phone)||input.Phone.Length>30||new string(input.Phone.Where(char.IsDigit).ToArray()).Length<8||string.IsNullOrWhiteSpace(input.Email)||input.Email.Length>256||input.Password is null||input.Password.Length>256||input.BirthDate>DateOnly.FromDateTime(DateTime.UtcNow)||input.BirthDate.Year<1900)throw new ApiError(400,"Confira nome, telefone, e-mail e nascimento. Use senha de 10 a 256 caracteres.");
+   var user=new AppUser{UserName=input.Email,Email=input.Email,FullName=input.FullName.Trim(),PhoneNumber=input.Phone,BirthDate=input.BirthDate,LockoutEnabled=true};
+   // Apply the password policy before looking up the email so an invalid password
+   // produces the same response for existing and unknown accounts.
+   foreach(var validator in users.PasswordValidators)
+    AuthService.Check(await validator.ValidateAsync(users,user,input.Password));
    if(await users.FindByEmailAsync(input.Email) is null)
    {
-    var user=new AppUser{UserName=input.Email,Email=input.Email,FullName=input.FullName.Trim(),PhoneNumber=input.Phone,BirthDate=input.BirthDate,LockoutEnabled=true};
     AuthService.Check(await users.CreateAsync(user,input.Password));AuthService.Check(await users.AddToRoleAsync(user,Roles.Client));if(!preview)await auth.ConfirmEmail(user);
    }
    return Results.Accepted(value:new{emailConfirmationRequired=!preview,message=preview?"Ambiente de testes: se o cadastro foi concluído, você já pode entrar. O e-mail ainda não foi verificado.":"Confira seu e-mail para confirmar o cadastro."});
   });
-  group.MapPost("/resend",async(EmailInput input,UserManager<AppUser> users,AuthService auth)=>{var user=await users.FindByEmailAsync(input.Email);if(user is not null&&!user.EmailConfirmed&&user.Active)await auth.ConfirmEmail(user);return Results.Ok(new{message="Se houver uma confirmação pendente, enviaremos as instruções."});});
+  group.MapPost("/resend",async(EmailInput input,UserManager<AppUser> users,AuthService auth,IEmailDelivery email)=>
+  {
+   if(!email.Ready)throw new ApiError(503,"O envio de e-mails ainda não foi configurado. Entre em contato com a equipe.");
+   var user=await users.FindByEmailAsync(input.Email);
+   if(user is not null&&!user.EmailConfirmed&&user.Active)await auth.ConfirmEmail(user);
+   return Results.Ok(new{message="Se houver uma confirmação pendente, enviaremos as instruções."});
+  });
   group.MapPost("/login",async(LoginInput input,AuthService auth,HttpContext c,IAntiforgery anti)=>
   {await anti.ValidateRequestAsync(c);var result=await auth.Login(input.Login,input.Password);c.Response.Cookies.Append(Secrets.Cookie,result.Token,Secrets.CookieOptions(c,result.Expiry));return Results.Ok(await auth.Profile(result.User));});
   group.MapPost("/token",async(LoginInput input,AuthService auth)=>{var result=await auth.Login(input.Login,input.Password);return Results.Ok(new{accessToken=result.Token,expiresAt=result.Expiry,profile=await auth.Profile(result.User)});});
   group.MapPost("/recover",async(EmailInput input,AuthService auth)=>{await auth.Recover(input.Email);return Results.Ok(new{message="Se o e-mail estiver cadastrado e confirmado, enviaremos as instruções."});});
-  group.MapPost("/reset",async(TokenInput input,UserManager<AppUser> users)=>{var user=await users.FindByIdAsync(input.UserId)??throw new ApiError(400,"Link inválido ou expirado.");AuthService.Check(await users.ResetPasswordAsync(user,input.Token,input.Password));return Results.Ok(new{message="Senha alterada. Entre novamente."});});
+  group.MapPost("/reset",async(TokenInput input,UserManager<AppUser> users)=>{var user=await users.FindByIdAsync(input.UserId)??throw new ApiError(400,AuthService.InvalidLink);AuthService.Check(await users.ResetPasswordAsync(user,input.Token,input.Password));return Results.Ok(new{message="Senha alterada. Entre novamente."});});
   group.MapPost("/confirm",async(string userId,string token,string? email,UserManager<AppUser> users)=>
   {
-   var user=await users.FindByIdAsync(userId)??throw new ApiError(400,"Link inválido ou expirado.");
+   var user=await users.FindByIdAsync(userId)??throw new ApiError(400,AuthService.InvalidLink);
    if(email is null)AuthService.Check(await users.ConfirmEmailAsync(user,token));
    else{AuthService.Check(await users.ChangeEmailAsync(user,email,token));if(await users.IsInRoleAsync(user,Roles.Client))AuthService.Check(await users.SetUserNameAsync(user,email));await users.UpdateSecurityStampAsync(user);}
    return Results.Ok(new{message="E-mail confirmado. Você já pode entrar."});
