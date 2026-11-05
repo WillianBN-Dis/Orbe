@@ -49,7 +49,12 @@ public sealed partial class DashboardPage : ContentPage
     {
         base.OnAppearing();compact=Width<860;lastWidth=Width;
 #if DEBUG
-        if(Environment.GetCommandLineArgs().Contains("--layout-check")){loaded=dataLoaded=true;tab=Environment.GetEnvironmentVariable("ORBE_QA_TAB")??"Agenda";BuildShell();return;}
+        if(Environment.GetCommandLineArgs().Contains("--layout-check"))
+        {
+            loaded=dataLoaded=true;tab=Environment.GetEnvironmentVariable("ORBE_QA_TAB")??"Agenda";
+            if(Environment.GetCommandLineArgs().Contains("--interaction-check"))SeedCalendarMarkers();
+            BuildShell();return;
+        }
 #endif
         await Guard(async()=>
         {

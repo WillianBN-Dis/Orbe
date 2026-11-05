@@ -75,19 +75,26 @@ public sealed partial class DashboardPage
                 cell.BackgroundColor=isSelected?Violet:day==DateOnly.FromDateTime(DateTime.Today)?Raised:Colors.Transparent;
                 cell.TextColor=isSelected?CanvasColor:current?Ink:Dim;
                 cell.BorderWidth=day==DateOnly.FromDateTime(DateTime.Today)&&!isSelected?1:0;cell.BorderColor=Violet.WithAlpha(.5f);
-                SemanticProperties.SetDescription(cell,$"{day:dd/MM/yyyy}, {events.Length} agendamentos");
+                SemanticProperties.SetDescription(cell,$"{day:dd/MM/yyyy}, {events.Length} eventos");
                 var layer=new Grid();layer.Add(cell);
                 if(events.Length>0)
                 {
-                    var kind=events.Min(e=>e.Value.Kind);
-                    var dot=new Microsoft.Maui.Controls.Shapes.Ellipse
+                    var markers=new HorizontalStackLayout
                     {
-                        WidthRequest=7,HeightRequest=7,HorizontalOptions=LayoutOptions.Center,
+                        Spacing=2,HeightRequest=7,HorizontalOptions=LayoutOptions.Center,
                         VerticalOptions=LayoutOptions.Center,TranslationY=compact?14:16,
-                        InputTransparent=true,Fill=new SolidColorBrush(KindColor(kind)),
-                        Stroke=new SolidColorBrush(CanvasColor),StrokeThickness=1
+                        InputTransparent=true
                     };
-                    layer.Add(dot);
+                    foreach(var kind in events.Select(e=>e.Value.Kind).Distinct().Order())
+                    {
+                        markers.Add(new Microsoft.Maui.Controls.Shapes.Ellipse
+                        {
+                            WidthRequest=7,HeightRequest=7,InputTransparent=true,
+                            Fill=new SolidColorBrush(KindColor(kind)),
+                            Stroke=new SolidColorBrush(CanvasColor),StrokeThickness=1
+                        });
+                    }
+                    layer.Add(markers);
                 }
                 grid.Add(layer,col,row+1);
             }
