@@ -24,3 +24,8 @@ Ajuste 3 (20003): conexão central exclusiva do proprietário, atualização aut
 Ajuste 4 (20004): seleção do calendário e navegação com menos reconstruções, sem fade bloqueando cliques; login do PC com painel direito amplo e página de login web responsiva em /entrar. Versão de produto2.0.0 mantida.
 
 A partir do ajuste4, publicar cada ajuste em release própria (ex.: v2.0.0-ajuste.4) com somente Orbe-Setup.exe e Orbe-2.0.0.apk. O feed aponta esse APK em endereço permanente, sem precisar duplicá-lo com outro nome. Guias e hashes permanecem na documentação e nas notas da release.
+## Numeração das releases
+
+Para ajustes pequenos e melhorias, avance o terceiro número da versão em uma unidade. Exemplo `v2.0.2` → `v2.0.3`.
+
+Para uma release dedicada apenas a corrigir bugs, mantenha a versão base e acrescente um identificador numérico de quatro dígitos à tag e ao título. Exemplo `v2.0.3.8249`. A versão base continua no campo `version` do feed e nos parâmetros de empacotamento. Incremente `versionCode` no APK e `build` no feed a cada publicação para permitir a atualização.

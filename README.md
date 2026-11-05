@@ -12,9 +12,9 @@ A versão 2 centraliza contas, agenda e financeiro na Discloud e funciona com o 
 
 - [Site de testes](https://orbe.discloud.dev) · [Administração](https://orbe.discloud.dev/equipe)
 - [Versões e downloads](https://github.com/WillianBN-Dis/Orbe/releases)
-- Downloads atuais 2.0.1: [Windows](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.1/Orbe-Setup.exe) · [Android](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.1/Orbe-2.0.1.apk). Android atual: build 20010, sem configurar servidor no login. A conexão fica somente em Conta para o administrador e é compartilhada por todos os dispositivos. O endereço inicial de descoberta precisa continuar acessível; a troca de endereço não migra o banco.
+- Downloads atuais 2.0.2: [Windows](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.2/Orbe-Setup-2.0.2.exe) · [Android](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.2/Orbe-2.0.2.apk). Android atual: build 20012, sem configurar servidor no login. A conexão fica somente em Conta para o administrador e é compartilhada por todos os dispositivos. O endereço inicial de descoberta precisa continuar acessível; a troca de endereço não migra o banco.
 - [Primeiros passos](docs/PRIMEIROS-PASSOS.md) · [Operação e backups](deploy/discloud/README.md)
-- Android: **Atualizar aplicativo** no login e em Conta, a partir do **2.0.0 ajuste 1**. A versão atual é 2.0.1. [Como atualizar e publicar ajustes](docs/ATUALIZACOES-ANDROID.md).
+- Android: **Atualizar aplicativo** no login e em Conta, a partir do **2.0.0 ajuste 1**. A versão atual é 2.0.2. [Como atualizar e publicar ajustes](docs/ATUALIZACOES-ANDROID.md).
 
 ## Agenda, equipe e financeiro
 
@@ -52,3 +52,8 @@ Decisões e checkpoints: [docs/PLANO-NUVEM.md](docs/PLANO-NUVEM.md), com cópia 
 
 Jornadas com seletores de dia e hora, manhã/tarde e desativação por período; folgas e compromissos com atalhos. Aba Notificações preparada no aplicativo e site, ainda sem envio. [Validação e hashes](docs/VALIDACAO-2.0.1.md).
 
+## Ajustes 2.0.2
+
+A caixa de notificações reúne novas reservas e lembretes de 24 horas e 1 hora, com contador de não lidas e ações de leitura e exclusão por conta. O calendário do app mostra uma bolinha por tipo de evento presente no dia. Serviços podem ter preço fixo ou valor inicial **A partir de**.
+
+A publicação segue a [numeração das releases](docs/ATUALIZACOES-ANDROID.md#numeração-das-releases).
