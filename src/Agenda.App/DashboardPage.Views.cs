@@ -18,7 +18,7 @@ public sealed partial class DashboardPage
         else { for(int i=0;i<views.Length;i++){g.ColumnDefinitions.Add(new(GridLength.Star));g.Add(views[i],i);} }
         return g;
     }
-    private readonly ContentView agendaStats=new(),agendaCalendar=new(),agendaTimeline=new();
+    private ContentView agendaStats=new(),agendaCalendar=new(),agendaTimeline=new();
     private readonly Dictionary<DateOnly,Button> calendarButtons=new();
     private Task SelectDay(DateOnly day)
     {
@@ -35,7 +35,9 @@ public sealed partial class DashboardPage
     }
     private void RenderAgenda()
     {
-        foreach(var host in new[]{agendaStats,agendaCalendar,agendaTimeline})if(host.Parent is Layout owner)owner.Children.Remove(host);
+        agendaStats=new ContentView();
+        agendaCalendar=new ContentView();
+        agendaTimeline=new ContentView();
         UpdateAgendaDay();agendaCalendar.Content=BuildCalendar();
         body.Add(agendaStats);body.Add(Columns(Wide,agendaCalendar,agendaTimeline,1.3,1));
     }
