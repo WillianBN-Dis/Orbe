@@ -27,8 +27,9 @@ public partial class App : Application
         // Synthetic layout fixture, compiled out of distributed Release packages.
         if(args.Contains("--layout-check"))
         {
-            var qa=new DashboardPage(new Agenda.Core.CloudApi(Agenda.Core.CloudApi.DefaultUrl),new Agenda.Core.CloudProfile("qa","Equipe QA","qa@example.test",null,null,true,["Owner"],null));
+            var qa=new DashboardPage(Environment.GetEnvironmentVariable("ORBE_QA_NOTICES")=="true"?DebugNotificationFixture.Api():new Agenda.Core.CloudApi(Agenda.Core.CloudApi.DefaultUrl),new Agenda.Core.CloudProfile("qa","Equipe QA","qa@example.test",null,null,true,["Owner"],null));
             window.Page=Navigation(qa);
+            if(Environment.GetEnvironmentVariable("ORBE_QA_NOTICES")=="true")window.Created+=(_,_)=>window.Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(1),async()=>{try{await qa.QaNotificationCheck(args.Contains("--notification-check"));}catch(Exception e){System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(),$"orbe-notifications-{Environment.ProcessId}.json"),e.ToString());Environment.Exit(1);}});
             if(args.Contains("--interaction-check"))window.Created+=(_,_)=>window.Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(1),async()=>{try{await qa.QaInteractions();}catch(Exception e){System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(),$"orbe-interaction-{Environment.ProcessId}.json"),e.ToString());Environment.Exit(1);}});
         }
         if(args.Contains("--startup-check")||args.Contains("--layout-check"))

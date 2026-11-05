@@ -28,6 +28,7 @@ public sealed class Service
  public string Name {get;set;}="";
  public int DurationMinutes {get;set;}=60;
  public long PriceCents {get;set;}
+ public bool PriceFrom {get;set;}
  public bool Enabled {get;set;}=true;
  public Guid Version {get;set;}=Guid.NewGuid();
 }
@@ -35,7 +36,7 @@ public sealed class EmployeeService
 {
  public string EmployeeId {get;set;}=""; public string ServiceId {get;set;}="";
  // Null inherits the legacy catalog. Overrides isolate each professional without rewriting history.
- public string? Name {get;set;} public int? DurationMinutes {get;set;} public long? PriceCents {get;set;}
+ public string? Name {get;set;} public int? DurationMinutes {get;set;} public long? PriceCents {get;set;} public bool? PriceFrom {get;set;}
  public bool? Enabled {get;set;} public Guid Version {get;set;}=Guid.NewGuid();
 }
 public sealed class WeekWindow
@@ -54,6 +55,8 @@ public sealed class DayOverride
 }
 public sealed class ScheduleItem
 {
+ public DateTimeOffset? RecordedAt {get;set;}
+ public bool PriceFrom {get;set;}
  public string Id {get;set;}=Guid.NewGuid().ToString("N");
  public string? EmployeeId {get;set;}
  public string? ClientId {get;set;}
@@ -121,6 +124,7 @@ public sealed class ImportBatch
 }
 public sealed class OrbeDb(DbContextOptions<OrbeDb> options) : IdentityDbContext<AppUser>(options), IDataProtectionKeyContext
 {
+ public DbSet<InboxNotification> Notifications=>Set<InboxNotification>();
  public DbSet<DataProtectionKey> DataProtectionKeys {get;set;}
  public DbSet<Employee> Employees=>Set<Employee>();
  public DbSet<Service> Services=>Set<Service>();
@@ -136,6 +140,11 @@ public sealed class OrbeDb(DbContextOptions<OrbeDb> options) : IdentityDbContext
  protected override void OnModelCreating(ModelBuilder b)
  {
   base.OnModelCreating(b);
+  b.Entity<InboxNotification>().HasIndex(x=>new{x.UserId,x.AppointmentId,x.Kind,x.OccurrenceStart}).IsUnique();
+  b.Entity<InboxNotification>().HasIndex(x=>new{x.UserId,x.DeliverAt});
+  b.Entity<InboxNotification>().Property(x=>x.Kind).HasMaxLength(16);
+  b.Entity<InboxNotification>().HasOne<AppUser>().WithMany().HasForeignKey(x=>x.UserId).OnDelete(DeleteBehavior.Cascade);
+  b.Entity<InboxNotification>().HasOne<ScheduleItem>().WithMany().HasForeignKey(x=>x.AppointmentId).OnDelete(DeleteBehavior.Cascade);
   b.Entity<BusinessSettings>().Property(x=>x.InstanceId).HasDefaultValueSql("gen_random_uuid()");
   b.Entity<Employee>().HasIndex(x=>x.UserId).IsUnique();
   b.Entity<Employee>().HasOne(x=>x.User).WithMany().HasForeignKey(x=>x.UserId).OnDelete(DeleteBehavior.Restrict);

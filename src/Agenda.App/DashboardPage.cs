@@ -64,7 +64,7 @@ public sealed partial class DashboardPage : ContentPage
                 repository=new(client,string.IsNullOrEmpty(employee)?null:employee);
                 selected=DateOnly.FromDateTime(client.Local(DateTimeOffset.UtcNow));calendarMonth=new(selected.Year,selected.Month,1);loaded=true;
             }
-            await Reload();BuildShell();StartLiveUpdates();
+            await Reload();await LoadNotifications(false);BuildShell();StartLiveUpdates();
         });
         if(loaded){BuildShell();StartLiveUpdates();}
     }
@@ -91,7 +91,7 @@ public sealed partial class DashboardPage : ContentPage
                 CloudApi.DefaultUrl);
             if(connection.ApiUrl!=client.BaseUrl){await CloudSessionStore.End(this,client);return;}
             var oldAppointments=appointments.Select(x=>x.Value).ToArray();var oldEntries=entries.Select(x=>x.Value).ToArray();var wasOffline=connectionProblem;
-            await Reload();
+            await Reload();await LoadNotifications();
             if(wasOffline||!oldAppointments.SequenceEqual(appointments.Select(x=>x.Value))||!oldEntries.SequenceEqual(entries.Select(x=>x.Value)))
             {var scroll=mainScroll.ScrollY;RenderNow();if(!compact)sidebarHost.Content=BuildSidebar();await mainScroll.ScrollToAsync(0,scroll,false);}
         }
@@ -106,11 +106,11 @@ public sealed partial class DashboardPage : ContentPage
         if(tab==name)return Task.CompletedTask;tab=name;
         foreach(var item in navigationButtons){item.Key.TextColor=item.Value==tab?Violet:Muted;item.Key.BackgroundColor=item.Value==tab?Color.FromArgb("#27233E"):Colors.Transparent;}
         foreach(var item in navigationGlyphs){item.Glyph.Drawable=new LineIcon(item.Tab=="Agenda"?"calendar":item.Tab=="Financeiro"?"chart":item.Tab=="Notificações"?"bell":"people",item.Tab==tab?Violet:Muted);item.Glyph.Invalidate();}
-        RenderNow();_ = mainScroll.ScrollToAsync(0,0,false);return Task.CompletedTask;
+        RenderNow();if(name=="Notificações")_ = LoadNotifications();_ = mainScroll.ScrollToAsync(0,0,false);return Task.CompletedTask;
     }
     private void BuildShell()
     {
-        navigationButtons.Clear();navigationGlyphs.Clear();
+        navigationButtons.Clear();navigationGlyphs.Clear();notificationBadges.Clear();
         if(status.Parent is Layout parent)parent.Children.Remove(status);if(spinner.Parent is Layout spinParent)spinParent.Children.Remove(spinner);
         shell.ColumnDefinitions[0].Width=compact?new GridLength(0):new GridLength(224);sidebarHost.Content=compact?null:BuildSidebar();sidebarHost.IsVisible=!compact;
         // Keep the workspace useful on large monitors without stretching every control edge to edge.
@@ -132,17 +132,17 @@ public sealed partial class DashboardPage : ContentPage
     private View NavButton(string name,string icon)
     {
         var active=name==tab;var b=Button(name,()=>SwitchTab(name),quiet:true);b.BackgroundColor=active?Color.FromArgb("#27233E"):Colors.Transparent;b.TextColor=active?Violet:Muted;b.HorizontalOptions=LayoutOptions.Fill;b.Padding=new Thickness(43,12,10,12);
-        navigationButtons[b]=name;var grid=new Grid();grid.Add(b);var glyph=Icon(icon,active?Violet:Muted,19);navigationGlyphs.Add((glyph,name));glyph.HorizontalOptions=LayoutOptions.Start;glyph.Margin=new Thickness(14,0,0,0);grid.Add(glyph);return grid;
+        navigationButtons[b]=name;var grid=new Grid();grid.Add(b);var glyph=Icon(icon,active?Violet:Muted,19);navigationGlyphs.Add((glyph,name));glyph.HorizontalOptions=LayoutOptions.Start;glyph.Margin=new Thickness(14,0,0,0);grid.Add(glyph);return name=="Notificações"?WithNotificationBadge(grid):grid;
     }
     private View BuildMobileNav()
     {
         var nav=new Grid{BackgroundColor=Sidebar,Padding=new Thickness(6,8),ColumnSpacing=4};
-        var names=new[]{"Agenda","Financeiro","Notificações","Conta"};for(int i=0;i<names.Length;i++){nav.ColumnDefinitions.Add(new(GridLength.Star));var name=names[i];var b=Button(name,()=>SwitchTab(name),quiet:true);b.FontSize=11;b.Padding=new Thickness(4,10);navigationButtons[b]=name;b.HorizontalOptions=LayoutOptions.Fill;b.TextColor=name==tab?Violet:Muted;b.BackgroundColor=name==tab?Color.FromArgb("#27233E"):Colors.Transparent;nav.Add(b,i);}return nav;
+        var names=new[]{"Agenda","Financeiro","Notificações","Conta"};for(int i=0;i<names.Length;i++){nav.ColumnDefinitions.Add(new(GridLength.Star));var name=names[i];var b=Button(name,()=>SwitchTab(name),quiet:true);b.FontSize=11;b.Padding=new Thickness(4,10);navigationButtons[b]=name;b.HorizontalOptions=LayoutOptions.Fill;b.TextColor=name==tab?Violet:Muted;b.BackgroundColor=name==tab?Color.FromArgb("#27233E"):Colors.Transparent;nav.Add(name=="Notificações"?WithNotificationBadge(b):b,i);}return nav;
     }
     private void RenderNow()
     {
         if(status.Parent is Layout parent)parent.Children.Remove(status);if(spinner.Parent is Layout spinParent)spinParent.Children.Remove(spinner);body.Children.Clear();
-        if(tab=="Notificações"){body.Add(Stack(8,Text("Notificações",32,Ink,true),Text("Seu centro de novidades",14,Muted)));body.Add(Card(Stack(18,Icon("bell",Violet,48),Pill("EM BREVE",Violet),Text("Tudo importante, em um só lugar",23,Ink,true),Text("Este espaço está preparado para as notificações do Orbe. O envio de avisos ainda não está disponível.",14,Muted)),32));return;}
+        if(tab=="Notificações"){RenderNotifications();return;}
         var title=tab switch{"Agenda"=>"Sua agenda","Financeiro"=>"Visão financeira",_=>"Seu espaço, sua conta"};
         var subtitle=tab switch{"Agenda"=>"Abra espaço para o que importa.","Financeiro"=>"Acompanhe o que entra, o que sai e o que fica.",_=>"Seu perfil, sua disponibilidade e seus acessos."};
         var heading=Stack(6,Text(title,compact?28:32,Ink,true),Text(subtitle,13,Muted));

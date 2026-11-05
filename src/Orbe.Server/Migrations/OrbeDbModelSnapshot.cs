@@ -384,6 +384,9 @@ namespace Orbe.Server.Migrations
                     b.Property<long?>("PriceCents")
                         .HasColumnType("bigint");
 
+                    b.Property<bool?>("PriceFrom")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid>("Version")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAdd()
@@ -457,6 +460,49 @@ namespace Orbe.Server.Migrations
                     b.ToTable("Imports");
                 });
 
+            modelBuilder.Entity("Orbe.Server.InboxNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AppointmentId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("DeliverAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset>("OccurrenceStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppointmentId");
+
+                    b.HasIndex("UserId", "DeliverAt");
+
+                    b.HasIndex("UserId", "AppointmentId", "Kind", "OccurrenceStart")
+                        .IsUnique();
+
+                    b.ToTable("Notifications");
+                });
+
             modelBuilder.Entity("Orbe.Server.LoginSession", b =>
                 {
                     b.Property<string>("TokenHash")
@@ -510,6 +556,12 @@ namespace Orbe.Server.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("text");
 
+                    b.Property<bool>("PriceFrom")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("ServiceId")
                         .HasColumnType("text");
 
@@ -556,6 +608,9 @@ namespace Orbe.Server.Migrations
 
                     b.Property<long>("PriceCents")
                         .HasColumnType("bigint");
+
+                    b.Property<bool>("PriceFrom")
+                        .HasColumnType("boolean");
 
                     b.Property<Guid>("Version")
                         .IsConcurrencyToken()
@@ -693,6 +748,21 @@ namespace Orbe.Server.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Appointment");
+                });
+
+            modelBuilder.Entity("Orbe.Server.InboxNotification", b =>
+                {
+                    b.HasOne("Orbe.Server.ScheduleItem", null)
+                        .WithMany()
+                        .HasForeignKey("AppointmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Orbe.Server.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Orbe.Server.LoginSession", b =>

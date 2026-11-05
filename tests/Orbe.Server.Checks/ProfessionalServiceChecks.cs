@@ -32,7 +32,7 @@ internal static class ProfessionalServiceChecks
   var publicA=await Send(anonymous,HttpMethod.Get,"/public/services?employeeId="+a);var publicB=await Send(anonymous,HttpMethod.Get,"/public/services?employeeId="+b);
   Check(publicA.EnumerateArray().Single().GetProperty("name").GetString()=="Serviço atualizado"&&!publicB.EnumerateArray().Any(),"catálogo público contém somente os serviços do profissional selecionado");
   item=(await Send(owner,HttpMethod.Get,"/team/services?employeeId="+a)).EnumerateArray().Single();
-  await Send(owner,HttpMethod.Put,path,Input(item,"Ajustado pelo administrador",4000));
+  await Send(owner,HttpMethod.Put,path,new{name="Ajustado pelo administrador",durationMinutes=30,priceCents=4000,priceFrom=true,enabled=true,version=item.GetProperty("version").GetString()});
   var ownerCreated=await Send(owner,HttpMethod.Post,"/team/services?employeeId="+b,new{name="Serviço B",durationMinutes=45,priceCents=4500,enabled=true});
   Check((await Send(owner,HttpMethod.Get,"/team/services")).EnumerateArray().Any(x=>Id(x)==Id(ownerCreated)),"administrador cria e edita serviços de qualquer profissional e consulta todos");
   // Existing shared catalog entries remain independent when edited per professional.
@@ -49,9 +49,9 @@ internal static class ProfessionalServiceChecks
   var slots=await Send(anonymous,HttpMethod.Get,$"/public/availability?employeeId={a}&serviceId={id}&from=2026-11-02");Check(slots.GetProperty("days")[0].GetProperty("slots").GetArrayLength()>0,"disponibilidade usa a duração da oferta individual");
   var session=await Send(anonymous,HttpMethod.Post,"/auth/token",new{login="cliente1@example.test",password="AnotherSyntheticPassword123"});using var client=factory.CreateClient(new(){HandleCookies=false});client.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",session.GetProperty("accessToken").GetString());
   var booking=await Send(client,HttpMethod.Post,"/bookings",new{employeeId=a,serviceId=id,start="2026-11-02T10:30:00-03:00"});
-  Check(booking.GetProperty("expectedCents").GetInt64()==4000&&booking.GetProperty("durationMinutes").GetInt32()==30,"reserva congela preço e duração personalizados");
+  Check(booking.GetProperty("expectedCents").GetInt64()==4000&&booking.GetProperty("durationMinutes").GetInt32()==30&&booking.GetProperty("priceFrom").GetBoolean(),"reserva congela preço e duração personalizados");
   item=(await Send(staffA,HttpMethod.Get,"/team/services")).EnumerateArray().Single(x=>Id(x)==id);await Send(staffA,HttpMethod.Delete,path,new{version=item.GetProperty("version").GetString()},204);
-  var historic=await Send(client,HttpMethod.Get,"/bookings/mine");Check(historic.EnumerateArray().Any(x=>Id(x)==Id(booking)&&x.GetProperty("expectedCents").GetInt64()==4000),"exclusão de serviço preserva agendamentos e valores anteriores");
+  var historic=await Send(client,HttpMethod.Get,"/bookings/mine");Check(historic.EnumerateArray().Any(x=>Id(x)==Id(booking)&&x.GetProperty("expectedCents").GetInt64()==4000&&x.GetProperty("priceFrom").GetBoolean()),"exclusão de serviço preserva agendamentos e valores anteriores");
   Check(!(await Send(anonymous,HttpMethod.Get,"/public/services?employeeId="+a)).EnumerateArray().Any(x=>Id(x)==id),"serviço excluído deixa o catálogo público");
   var target=(await Send(owner,HttpMethod.Get,"/team/services?employeeId="+b)).EnumerateArray().Single(x=>Id(x)==Id(ownerCreated));await Send(owner,HttpMethod.Delete,"/team/services/"+Id(target)+"?employeeId="+b,new{version=target.GetProperty("version").GetString()},204);Check(true,"administrador exclui serviço de outro profissional");
   var disabled=(await Send(owner,HttpMethod.Get,"/owner/employees")).EnumerateArray().Single(x=>Id(x)==b);

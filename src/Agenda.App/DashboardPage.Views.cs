@@ -79,9 +79,15 @@ public sealed partial class DashboardPage
                 var layer=new Grid();layer.Add(cell);
                 if(events.Length>0)
                 {
-                    var dots=new HorizontalStackLayout{Spacing=3,HorizontalOptions=LayoutOptions.Center,VerticalOptions=LayoutOptions.End,Margin=new Thickness(0,0,0,8),InputTransparent=true};
-                    foreach(var type in events.Select(e=>e.Value.Kind).Distinct().Take(3)) dots.Add(new BoxView{WidthRequest=4,HeightRequest=4,CornerRadius=2,Color=isSelected?CanvasColor:KindColor(type)});
-                    layer.Add(dots);
+                    var kind=events.Min(e=>e.Value.Kind);
+                    var dot=new Microsoft.Maui.Controls.Shapes.Ellipse
+                    {
+                        WidthRequest=7,HeightRequest=7,HorizontalOptions=LayoutOptions.Center,
+                        VerticalOptions=LayoutOptions.Center,TranslationY=compact?14:16,
+                        InputTransparent=true,Fill=new SolidColorBrush(KindColor(kind)),
+                        Stroke=new SolidColorBrush(CanvasColor),StrokeThickness=1
+                    };
+                    layer.Add(dot);
                 }
                 grid.Add(layer,col,row+1);
             }
@@ -121,7 +127,7 @@ public sealed partial class DashboardPage
                 Row(6,Icon("clock",Dim,13),Text($"{a.Start:HH:mm} – {a.End:HH:mm}"+(DateOnly.FromDateTime(a.Start)!=DateOnly.FromDateTime(a.End)?$"  ·  até {a.End:dd/MM}":""),11,Muted)));
             if(!string.IsNullOrWhiteSpace(a.Client))content.Add(Text(a.Client,12,Muted));
             if(!string.IsNullOrWhiteSpace(a.Notes))content.Add(Text(a.Notes,11,Dim));
-            if(a.ExpectedCents>0) content.Add(Text(Finance.Currency(a.ExpectedCents)+" previsto",12,color,true));
+            if(a.ExpectedCents>0) content.Add(Text(a.PriceFrom?"A partir de "+Finance.Currency(a.ExpectedCents):Finance.Currency(a.ExpectedCents)+" previsto",12,color,true));
             var card=Card(content,16,CanvasColor,Line,12);
             var row=new Grid{ColumnDefinitions=new(){new(new GridLength(3)),new(GridLength.Star)},ColumnSpacing=10};
             row.Add(new BoxView{Color=color,CornerRadius=2,Margin=new Thickness(0,8)});row.Add(card,1);s.Add(row);

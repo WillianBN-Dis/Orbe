@@ -48,4 +48,10 @@ O ajuste 4 reaproveita os controles do calendário ao selecionar o dia e da nave
 
 ## Notificações
 
-A nova aba está presente no Windows, Android e site. Por enquanto ela mostra apenas o layout de preparação; ainda não envia nem recebe avisos.
+A aba reúne novas reservas e lembretes de 24 horas e 1 hora antes do atendimento. O número vermelho indica quantos avisos estão por ler. Use **Marcar como lida** ou **Excluir** em cada aviso. A leitura e a exclusão ficam salvas na sua conta. O servidor precisa estar atualizado com a migração que cria a caixa de avisos.
+
+## Calendário e preços de serviços
+
+O calendário exibe uma bolinha por dia. Se houver mais de um tipo de evento, a cor segue a ordem Atendimento, Compromisso, Folga e Outro. Abra o dia para ver todos os eventos.
+
+No cadastro de qualquer serviço, escolha **Preço fixo** ou **A partir de**. No segundo caso, informe o valor inicial. O catálogo e a reserva mostram esse valor como referência para combinar o preço final.

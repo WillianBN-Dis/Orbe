@@ -7,7 +7,7 @@ public enum EntryKind { Receita, Despesa }
 public enum Period { Dia, Mes, Ano }
 
 public sealed record Appointment(string Id, string Title, EventKind Kind, DateTime Start, DateTime End,
-    string? Client, string? Notes, long ExpectedCents)
+    string? Client, string? Notes, long ExpectedCents, bool PriceFrom = false)
 {
     public void Validate()
     {

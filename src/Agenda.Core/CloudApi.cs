@@ -10,8 +10,10 @@ public sealed record CloudProfile(string Id,string FullName,string Email,string?
 public sealed record CloudSession(string AccessToken,DateTimeOffset ExpiresAt,CloudProfile Profile);
 public sealed record CloudInfo(string Name,bool PublicBookingOpen,string TimeZoneId,int CancellationHours,bool EmailReady);
 public sealed record CloudEmployee(string Id,string DisplayName,bool Enabled,Guid Version){public string Caption=>DisplayName+(Enabled?"":" · inativo");}
-public sealed record CloudItem(string Id,string? EmployeeId,string? ClientId,string? ServiceId,string Title,string Kind,string Status,DateTimeOffset Start,DateTimeOffset End,string? LegacyClient,string? ClientName,string? Notes,long ExpectedCents,int DurationMinutes,Guid Version);
+public sealed record CloudItem(string Id,string? EmployeeId,string? ClientId,string? ServiceId,string Title,string Kind,string Status,DateTimeOffset Start,DateTimeOffset End,string? LegacyClient,string? ClientName,string? Notes,long ExpectedCents,int DurationMinutes,Guid Version,bool PriceFrom=false);
 public sealed record CloudMoney(string Id,string? EmployeeId,string? AppointmentId,string Description,string Kind,DateOnly Date,long Cents,Guid Version);
+public sealed record CloudNotice(Guid Id,string AppointmentId,string Kind,DateTimeOffset OccurrenceStart,DateTimeOffset DeliverAt,DateTimeOffset? ReadAt,string Subject,string? Person);
+public sealed record CloudInbox(CloudNotice[] Items,int UnreadCount,int Total);
 public sealed class CloudApi:IDisposable
 {
  public const string DefaultUrl="https://orbe-willianbn.discloud.dev";
@@ -75,7 +77,7 @@ public sealed class CloudAgendaRepository(CloudApi api,string? employeeId):IAgen
  private static Guid Version(RowSnapshot snapshot)=>snapshot.Valores[0].GetGuid();
  private async Task<List<T>> Pages<T>(string path)
  {var all=new List<T>();for(int offset=0;;offset+=200){var page=await api.Get<T[]>(path+"?offset="+offset+Scope);all.AddRange(page);if(page.Length<200)return all;}}
- public async Task<IReadOnlyList<Stored<Appointment>>> Appointments()=> (await Pages<CloudItem>("team/appointments")).Where(x=>x.Status=="Confirmed").Select(x=>new Stored<Appointment>(new(x.Id,x.Title,Enum.Parse<EventKind>(x.Kind),api.Local(x.Start),api.Local(x.End),x.ClientName??x.LegacyClient,x.Notes,x.ExpectedCents),Snapshot(x.Id,x.Version,x.ClientId))).ToArray();
+ public async Task<IReadOnlyList<Stored<Appointment>>> Appointments()=> (await Pages<CloudItem>("team/appointments")).Where(x=>x.Status=="Confirmed").Select(x=>new Stored<Appointment>(new(x.Id,x.Title,Enum.Parse<EventKind>(x.Kind),api.Local(x.Start),api.Local(x.End),x.ClientName??x.LegacyClient,x.Notes,x.ExpectedCents,x.PriceFrom),Snapshot(x.Id,x.Version,x.ClientId))).ToArray();
  public async Task<IReadOnlyList<Stored<MoneyEntry>>> Entries()=> (await Pages<CloudMoney>("team/entries")).Select(x=>new Stored<MoneyEntry>(new(x.Id,x.Description,Enum.Parse<EntryKind>(x.Kind),x.Date,x.Cents,x.AppointmentId),Snapshot(x.Id,x.Version))).ToArray();
  public async Task Save(Appointment item,RowSnapshot? original=null)
  {

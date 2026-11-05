@@ -83,7 +83,7 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
  private async Task<Service> Offer(string employee,string service)
  {
   if(!await db.Employees.AnyAsync(x=>x.Id==employee&&x.Enabled&&x.User.Active)||!await db.EmployeeServices.AnyAsync(x=>x.EmployeeId==employee&&x.ServiceId==service))throw new ApiError(404,"Profissional ou serviço indisponível.");
-  return await (from link in db.EmployeeServices join item in db.Services on link.ServiceId equals item.Id where link.EmployeeId==employee&&item.Id==service&&(link.Enabled??item.Enabled) select new Service{Id=item.Id,Name=link.Name??item.Name,DurationMinutes=link.DurationMinutes??item.DurationMinutes,PriceCents=link.PriceCents??item.PriceCents,Enabled=true,Version=link.Version}).SingleOrDefaultAsync()??throw new ApiError(404,"Serviço indisponível.");
+  return await (from link in db.EmployeeServices join item in db.Services on link.ServiceId equals item.Id where link.EmployeeId==employee&&item.Id==service&&(link.Enabled??item.Enabled) select new Service{Id=item.Id,Name=link.Name??item.Name,DurationMinutes=link.DurationMinutes??item.DurationMinutes,PriceCents=link.PriceCents??item.PriceCents,PriceFrom=link.PriceFrom??item.PriceFrom,Enabled=true,Version=link.Version}).SingleOrDefaultAsync()??throw new ApiError(404,"Serviço indisponível.");
  }
  private async Task CheckSlot(string employee,Service service,DateTimeOffset start,string? exclude=null)
  {
@@ -108,7 +108,7 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
   var service=await Offer(input.EmployeeId,input.ServiceId);await CheckSlot(input.EmployeeId,service,start);
   var end=start.AddMinutes(service.DurationMinutes);
   if(await db.Appointments.AnyAsync(x=>x.ClientId==client&&x.Status=="Confirmed"&&x.Start<end&&x.End>start))throw new ApiError(409,"Você já tem um atendimento neste período.");
-  var result=new ScheduleItem{EmployeeId=input.EmployeeId,ClientId=client,ServiceId=service.Id,Title=service.Name,Start=start,End=end,ExpectedCents=service.PriceCents,DurationMinutes=service.DurationMinutes};
+  var result=new ScheduleItem{RecordedAt=clock.GetUtcNow(),PriceFrom=service.PriceFrom,EmployeeId=input.EmployeeId,ClientId=client,ServiceId=service.Id,Title=service.Name,Start=start,End=end,ExpectedCents=service.PriceCents,DurationMinutes=service.DurationMinutes};
   db.Appointments.Add(result);db.BookingRequests.Add(new(){UserId=client,Key=key,RequestHash=hash,AppointmentId=result.Id});await db.SaveChangesAsync();await tx.CommitAsync();return result;
  }
  public async Task<ScheduleItem> Accessible(string id,bool teamOnly=false)
@@ -139,7 +139,7 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
   var snapshot=new Service{Id=service.Id,DurationMinutes=item.DurationMinutes,PriceCents=item.ExpectedCents};
   var start=input.Start.ToUniversalTime();var end=start.AddMinutes(item.DurationMinutes);await CheckSlot(item.EmployeeId,snapshot,start,item.Id);
   if(item.ClientId is not null&&await db.Appointments.AnyAsync(x=>x.Id!=id&&x.ClientId==item.ClientId&&x.Status=="Confirmed"&&x.Start<end&&x.End>start))throw new ApiError(409,"Já existe outro atendimento da cliente neste período.");
-  item.Start=start;item.End=end;item.Version=Guid.NewGuid();await db.SaveChangesAsync();await tx.CommitAsync();return item;
+  if(item.Start!=start)item.RecordedAt=clock.GetUtcNow();item.Start=start;item.End=end;item.Version=Guid.NewGuid();await db.SaveChangesAsync();await tx.CommitAsync();return item;
  }
  public async Task Delete(string id,VersionInput input)
  {
