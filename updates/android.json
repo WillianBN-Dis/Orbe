@@ -1,7 +1,7 @@
 {
   "version": "2.0.2",
-  "build": 20013,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.2.8249/Orbe-2.0.2.8249.apk",
-  "sha256": "02dc4572af3d40fdc5d677d06306798989aae75a2b97df965e7e8db1431370be",
-  "notes": "Correção 2.0.2.8249. Build Android 20013. Correções da API documentadas na release; implantação do servidor pendente."
+  "build": 20014,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.2.8250/Orbe-2.0.2.8250.apk",
+  "sha256": "f7e9a934aafe41d9a49a4064c2417106142af83ecc1a34ff203bcb944e7e79a5",
+  "notes": "Correção 2.0.2.8250. Botões de cliente, recuperação de senha e meu espaço abrem agendaorbe.com.br diretamente."
 }
