@@ -16,7 +16,7 @@ public sealed record CloudNotice(Guid Id,string AppointmentId,string Kind,DateTi
 public sealed record CloudInbox(CloudNotice[] Items,int UnreadCount,int Total);
 public sealed class CloudApi:IDisposable
 {
- public const string DefaultUrl="https://orbe-willianbn.discloud.dev";
+ public const string DefaultUrl="https://orbe.discloud.dev";
  private readonly HttpClient http;
  private static readonly JsonSerializerOptions Json=new(JsonSerializerDefaults.Web);
  public string BaseUrl {get;}

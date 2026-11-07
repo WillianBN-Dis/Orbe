@@ -8,6 +8,7 @@ foreach(var bad in new[]{"http://orbe.discloud.dev","https://127.0.0.1","https:/
 {try{ConnectionAddress.Normalize(bad);throw new Exception("Unsafe connection accepted");}catch(ArgumentException){count++;}}
 Check(ConnectionAddress.Normalize("https://Orbe.discloud.dev/")=="https://orbe.discloud.dev","HTTPS central normalizado sem caminho/credenciais");
 var connection=new SharedConnection("https://next.discloud.dev",Guid.NewGuid(),Guid.NewGuid());
+Check(CloudApi.DefaultUrl=="https://orbe.discloud.dev","Login inicia pelo servidor atual, sem depender do domínio antigo");
 var found=await CloudRouting.Discover(new Handler(request=>{Check(request.Headers.Authorization is null,"Descoberta não envia credenciais de sessão");Check(request.RequestUri!.AbsolutePath=="/api/v1/public/connection","Descoberta usa ponto inicial estável");return JsonSerializer.Serialize(connection);}));
 Check(found==connection,"Aplicativo recebe o endereço central para o mesmo espaço Orbe");
 try{await CloudRouting.Discover(new Handler(_=>JsonSerializer.Serialize(connection with{ApiUrl="http://127.0.0.1"})));throw new Exception("Unsafe discovered destination accepted");}catch(ArgumentException){Check(true,"Resposta não pode encaminhar login para endereço privado");}

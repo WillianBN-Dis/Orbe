@@ -94,6 +94,8 @@ public sealed partial class LoginPage:ContentPage
    CloudSessionStore.Show(this,new DashboardPage(api,profile));api=null;
   }
   catch(CloudException e){message.Text=e.Message;if(e.Status==HttpStatusCode.Unauthorized)SecureStorage.Default.Remove(CloudSessionStore.TokenKey);}
+  catch(HttpRequestException){message.Text="Não foi possível conectar ao Orbe. Confira sua conexão e tente novamente.";}
+  catch(OperationCanceledException){message.Text="O servidor demorou a responder. Tente novamente em alguns instantes.";}
   catch(ArgumentException e){message.Text=e.Message;}
   catch(Exception){message.Text="Não foi possível abrir sua sessão com segurança. Tente novamente.";}
   finally{api?.Dispose();busy=false;spinner.IsRunning=spinner.IsVisible=false;}
