@@ -76,7 +76,7 @@ public sealed partial class LoginPage:ContentPage
 #endif
   if(!Environment.GetCommandLineArgs().Contains("--startup-check"))await Attempt(true);}
  private async Task Portal(string path)
- {try{var connection=await CloudRouting.Discover();if(!await Launcher.Default.OpenAsync(new Uri(connection.ApiUrl+path)))message.Text="Não foi possível abrir o navegador.";}catch(ArgumentException e){message.Text=e.Message;}catch(Exception){message.Text="Não foi possível abrir o navegador. Tente novamente.";}}
+ {try{if(!await Launcher.Default.OpenAsync(new Uri(CloudRouting.PortalUrl+path)))message.Text="Não foi possível abrir o navegador.";}catch(ArgumentException e){message.Text=e.Message;}catch(Exception){message.Text="Não foi possível abrir o navegador. Tente novamente.";}}
  private async Task Attempt(bool restore)
  {
   if(busy)return;busy=true;spinner.IsVisible=spinner.IsRunning=true;CloudApi? api=null;

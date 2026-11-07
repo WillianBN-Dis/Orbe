@@ -4,6 +4,7 @@ using Orbe.Cloud.Core;
 namespace Agenda.Core;
 public static class CloudRouting
 {
+ public const string PortalUrl="https://agendaorbe.com.br";
  public static async Task<SharedConnection> Discover(HttpMessageHandler? handler=null,string bootstrap=CloudApi.DefaultUrl,CancellationToken token=default)
  {
   using var deadline=CancellationTokenSource.CreateLinkedTokenSource(token);deadline.CancelAfter(TimeSpan.FromSeconds(10));token=deadline.Token;
