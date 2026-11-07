@@ -1,7 +1,7 @@
 {
   "version": "2.0.2",
-  "build": 20012,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.2/Orbe-2.0.2.apk",
-  "sha256": "52f4c37856402d98486547f4b1a74a484f88f316a7b7899ec4dd3cc1d365496d",
-  "notes": "Notificações de reservas e lembretes, marcadores do calendário por tipo de evento e preço A partir de nos serviços."
+  "build": 20013,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.2.8249/Orbe-2.0.2.8249.apk",
+  "sha256": "02dc4572af3d40fdc5d677d06306798989aae75a2b97df965e7e8db1431370be",
+  "notes": "Correção 2.0.2.8249. Build Android 20013. Correções da API documentadas na release; implantação do servidor pendente."
 }

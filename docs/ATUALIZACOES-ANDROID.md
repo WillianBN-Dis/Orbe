@@ -29,3 +29,6 @@ A partir do ajuste4, publicar cada ajuste em release própria (ex.: v2.0.0-ajust
 Para ajustes pequenos e melhorias, avance o terceiro número da versão em uma unidade. Exemplo `v2.0.2` → `v2.0.3`.
 
 Para uma release dedicada apenas a corrigir bugs, mantenha a versão base e acrescente um identificador numérico de quatro dígitos à tag e ao título. Exemplo `v2.0.3.8249`. A versão base continua no campo `version` do feed e nos parâmetros de empacotamento. Incremente `versionCode` no APK e `build` no feed a cada publicação para permitir a atualização.
+
+Release v2.0.2.8249, código Android 20013. APK assinado com a chave anterior e atualização testada em Android 16. Windows autocontido validado em instalação isolada. Correções de respostas públicas e cabeçalhos da API verificadas por 73 cenários HTTP/PostgreSQL. Implantação na Discloud pendente; atualizar os aplicativos não implanta a API. ZAP autenticado continua pendente devido a bloqueio da revisão automática. Links e hashes nas notas da release.
+
