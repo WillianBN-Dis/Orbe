@@ -8,7 +8,7 @@
 
 A versão 2 centraliza contas, agenda e financeiro na Discloud e funciona com o computador principal desligado. O aplicativo usa login; a demonstração foi removida. O Nexus permanece independente e o histórico antigo é importado uma única vez, com backup e conferência.
 
-**Ambiente de testes:** cadastro de clientes e reservas estão liberados, por decisão do proprietário, sem confirmação de e-mail. O site identifica esse modo; recuperação por e-mail continua indisponível. A administração está disponível e a linha anterior 1.0.2 permanece preservada.
+**E-mail ativado em 08/11/2026:** clientes confirmam o cadastro pelo link enviado por e-mail. A recuperação de senha e o reenvio da confirmação estão disponíveis no site. Cadastros anteriores ainda não confirmados precisam solicitar a confirmação no login. As reservas continuam sujeitas às jornadas e regras configuradas pela administração.
 
 - [Site de testes](https://orbe.discloud.dev) · [Administração](https://orbe.discloud.dev/equipe)
 - [Versões e downloads](https://github.com/WillianBN-Dis/Orbe/releases)

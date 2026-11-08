@@ -90,6 +90,7 @@ internal static class ChecksMain
    await Send(anonymous,HttpMethod.Post,"/api/v1/auth/register",new{fullName=name,email=address,phone="11999990000",birthDate="2000-01-01",password=Password,role="Owner",employeeId=e1},202);
    await Send(anonymous,HttpMethod.Post,"/api/v1/auth/token",new{login=address,password=Password},403);
    var mail=factory.Mail.Items.Last(x=>x.To==address);var url=new Uri(mail.Body[(mail.Body.IndexOf("http",StringComparison.Ordinal))..]);
+   Check(url.Host=="agendaorbe.com.br","Confirmação usa domínio público próprio sem alterar descoberta da API");
    await Send(anonymous,HttpMethod.Post,"/api/v1/auth/confirm"+url.Query,new{});
    var client=await Login(address);var me=await Get(client,"/api/v1/auth/me");Check(me.GetProperty("roles").EnumerateArray().Single().GetString()=="Client","Confirmação de e-mail e papel Client fixado no servidor: "+name);return client;
   }
@@ -233,7 +234,7 @@ internal sealed class OrbeFactory(string connection,int authLimit=1000):WebAppli
  {
   builder.UseEnvironment("Testing");
   builder.UseContentRoot(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../../src/Orbe.Server")));
-  builder.ConfigureAppConfiguration((_,c)=>c.AddInMemoryCollection(new Dictionary<string,string?>{{"ConnectionStrings:Orbe",connection},{"Owner:Email","owner@example.test"},{"Owner:Password","SyntheticPassword123"},{"PublicUrl","http://localhost"},{"Limits:AuthPerMinute",authLimit.ToString()}}));
+  builder.ConfigureAppConfiguration((_,c)=>c.AddInMemoryCollection(new Dictionary<string,string?>{{"ConnectionStrings:Orbe",connection},{"Owner:Email","owner@example.test"},{"Owner:Password","SyntheticPassword123"},{"PublicUrl","http://localhost"},{"Email:PublicUrl","https://agendaorbe.com.br"},{"Limits:AuthPerMinute",authLimit.ToString()}}));
   builder.ConfigureServices(s=>{s.RemoveAll<TimeProvider>();s.AddSingleton<TimeProvider>(Clock);s.RemoveAll<IEmailDelivery>();s.AddSingleton<IEmailDelivery>(Mail);s.RemoveAll<IConnectionProbe>();s.AddSingleton<IConnectionProbe>(Probe);});
  }
 }

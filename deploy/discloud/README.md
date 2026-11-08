@@ -34,7 +34,7 @@ Depois use `pg_restore --no-owner --no-acl --exit-on-error` **somente em banco n
 
 O usuário administrativo é `WillianBN`. Após configurar o e-mail real, execute localmente `./deploy/discloud/Show-OwnerAccess.ps1`: a senha inicial é exibida em janela mascarada e pode ser copiada por ação explícita. Não é impressa no terminal, enviada ao GitHub nem adicionada às notas. Troque a senha em Minha conta após entrar. O assistente não redefine uma senha já trocada.
 
-**Pendências:** SMTP (adiado pelo usuário; cadastro e recuperação de clientes fechados), QA final dos aplicativos e release. A versão estável 1.0.2 e as anteriores permanecem intactas no GitHub.
+**Situação em 08/11/2026:** SMTP Gmail ativado, recuperação por e-mail disponível e confirmação obrigatória para clientes. A prévia sem confirmação está desativada. Contas existentes ainda não confirmadas usam o reenvio na página de login.
 
 ## Prévia sem SMTP, autorizada para testes
 
@@ -61,3 +61,11 @@ O DNS padrão deste PC e o DNS do provedor(138.117.233.254) passaram a responder
 O gateway voltou a encaminhar a descoberta sem reescrita e redirecionar navegação web307 para o endereço novo. Ele continua servindo API aos clientes antigos, sem acesso direto ao banco/backups. Recursos, plano, dados e contas inalterados nesta conclusão. Nenhum DNS/hosts/Firewall do PC/roteador foi alterado. Aplicativos ajuste3 recebem a nova origem pela descoberta; podem solicitar login novamente, sem necessidade de reinstalar. As seções de recuperação anteriores registram o histórico; o endereço recomendado agora é https://orbe.discloud.dev.
 
 Evidências privadas: artifacts/domain-move/normal-dns-check.cjs, final-redirect-check.cjs e capturas normal-dns-390/1440.png. Teste legadoNode passou. Automação de continuação encerrada após concluir a validação e documentação.
+
+## Configuração do remetente Gmail
+
+Execute Configure-Gmail.ps1 no perfil Windows responsável pela implantação. Ele grava somente a configuração SMTP em OrbeDev/smtp.dpapi, sob LocalApplicationData, cifrada por DPAPI. A senha de app é inserida em campo mascarado. O cofre da implantação e o cofre SMTP precisam ser acessíveis pelo mesmo usuário que executa Publish-Test.ps1. Os valores são incluídos no pacote privado, fora de wwwroot.
+
+Para os links de e-mail no domínio próprio, use o parâmetro -PublicWebUrl https://agendaorbe.com.br ao publicar. Esse valor configura Email:PublicUrl; a descoberta da API continua com seu endereço separado. O parâmetro -EnableUnverifiedClientTests só deve ser usado para reativar explicitamente a prévia. Omiti-lo exige confirmação de clientes e invalida suas sessões ainda não verificadas.
+
+Validados envio real pelo Gmail e implementação SMTP do Orbe, recebimento na caixa de entrada confirmado pelo proprietário, recuperação pela Discloud com HTTP 200 e 75 verificações HTTP/PostgreSQL sintéticas. Segredos e endereços pessoais permanecem fora desta documentação.
