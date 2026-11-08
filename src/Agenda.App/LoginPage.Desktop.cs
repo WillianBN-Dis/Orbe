@@ -44,6 +44,7 @@ public sealed partial class LoginPage
   var clientButton=Button("Reservar um horário como cliente  ↗",()=>Portal("/"));
   foreach(var button in new[]{enter,clientButton}){button.HorizontalOptions=LayoutOptions.Fill;button.MaximumWidthRequest=double.PositiveInfinity;button.MinimumHeightRequest=52;button.FontSize=14;}
   var recovery=Button("Esqueci minha senha",()=>Portal("/recuperar-senha"),quiet:true);recovery.FontSize=12;recovery.Padding=0;recovery.MinimumHeightRequest=32;recovery.HorizontalOptions=LayoutOptions.End;
+  var update=Button("Atualizar aplicativo",async()=>await Navigation.PushAsync(new UpdatePage()),quiet:true);update.FontSize=12;update.MinimumHeightRequest=32;update.HorizontalOptions=LayoutOptions.Start;
   var feedback=Row(8,spinner,message);feedback.MinimumHeightRequest=24;feedback.IsVisible=false;
   void UpdateFeedback()=>feedback.IsVisible=spinner.IsVisible||!string.IsNullOrWhiteSpace(message.Text);
   message.PropertyChanged+=(_,e)=>{if(e.PropertyName==nameof(Label.Text))UpdateFeedback();};
@@ -54,13 +55,13 @@ public sealed partial class LoginPage
    new BoxView{HeightRequest=8,Color=Colors.Transparent},
    Field("Usuário ou e-mail",user),Field("Senha",passwordRow),recovery,enter,feedback,
    Rule(),Stack(12,Text("Seu próximo atendimento começa aqui.",13,Muted),clientButton),
-   Text("Acesso seguro para você e sua equipe.",11,Dim));
+   update,Text("Acesso seguro para você e sua equipe.",11,Dim));
   form.MaximumWidthRequest=520;form.VerticalOptions=LayoutOptions.Center;
   var formPanel=new ContentView{Content=form,Padding=new Thickness(52,44)};
   var columns=new Grid{ColumnSpacing=0};
   var composition=Card(columns,0,Color.FromArgb("#141925"),Color.FromArgb("#34334A"),24);
   composition.MaximumWidthRequest=1360;composition.HorizontalOptions=LayoutOptions.Fill;composition.VerticalOptions=LayoutOptions.Center;
-  var footer=Text("Orbe · Agenda e finanças   /   2.0.1 · "+AppInfo.Current.BuildString,11,Dim);footer.HorizontalTextAlignment=TextAlignment.Center;
+  var footer=Text("Orbe · Agenda e finanças   /   "+AppInfo.Current.VersionString+" · compilação "+AppInfo.Current.BuildString,11,Dim);footer.HorizontalTextAlignment=TextAlignment.Center;
   var group=Stack(18,composition,footer);group.VerticalOptions=LayoutOptions.Center;group.HorizontalOptions=LayoutOptions.Fill;
   var stage=new Grid{Padding=32};stage.Add(group);
   var wide=false;
