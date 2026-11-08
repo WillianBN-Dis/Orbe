@@ -1,6 +1,6 @@
 # Atualizações Android fora da Play Store
 
-O botão **Atualizar aplicativo** fica no login e no menu Conta. Não exige sessão: pode corrigir problemas de acesso ao próprio app. A verificação é manual, pelo GitHub público oficial; não usa tokens, credenciais do usuário ou servidor Discloud.
+O botão **Atualizar aplicativo** fica no login e no menu Conta. Não exige sessão: pode corrigir problemas de acesso ao próprio app. A versão 2.0.3 consulta automaticamente o GitHub público oficial alguns segundos após abrir, uma vez por execução. Havendo compilação mais recente, exibe um aviso com Ver atualização e Agora não. O botão permite consultar manualmente. A consulta não usa tokens de sessão do Orbe.
 
 O ajuste 1 mantém `versionName=2.0.0` e incrementa `versionCode` para `20001`. Quem possui o APK anterior precisa instalar este primeiro ajuste manualmente uma vez. O instalador do Android exige confirmação e, desde Android 8, autorização por fonte. O app orienta a habilitar somente o Orbe e retomar a instalação.
 
@@ -35,3 +35,11 @@ Release v2.0.2.8249, código Android 20013. APK assinado com a chave anterior e 
 Correção v2.0.2.8250, Android 20014. Links do login e da conta abrem https://agendaorbe.com.br diretamente, sem aguardar descoberta para abrir o navegador. Instaladores Windows/Android aprovados; Android atualiza a versão anterior com a mesma assinatura. Botão de cliente testado no emulador e intent HTTPS conferido.
 
 Correção v2.0.2.8251, Android 20015. Descoberta inicia em https://orbe.discloud.dev para remover dependência do bootstrap antigo indisponível. Mensagens específicas para falha de rede e timeout. Windows autocontido e Android 16 aprovados em QA. Descoberta real .NET e chamada de login pelo APK com identidade sintética inexistente validadas. Assinatura anterior preservada; hashes nas notas da release.
+
+## Versão 2.0.3 — Windows e Android
+
+Build 20016. A consulta automática tem limite de 12 segundos e falhas de rede não interrompem o acesso. A instalação é iniciada pelo usuário na página de atualização. Windows também oferece Atualizar aplicativo no login e em Conta; baixa o Setup com SHA-256 e abre o instalador. O rodapé desktop usa a versão instalada.
+
+Cada publicação atualiza updates/android.json e updates/windows.json somente depois de disponibilizar os dois assets da release. Ambos seguem os campos version, build, url, sha256 e notes; o manifesto Windows aponta ao arquivo .exe e o Android ao .apk. A versão e a compilação devem acompanhar o projeto. O aplicativo rejeita o pacote da outra plataforma e downloads que falhem na integridade. Anexar somente Setup Windows e APK Android à release, com hashes e notas no corpo.
+
+Validados 15 cenários sintéticos do atualizador, 25 do núcleo e smoke de Windows autocontido e Android 16. Assinatura Android mantida, instalação sobre versão anterior aprovada e layout desktop do login conferido.

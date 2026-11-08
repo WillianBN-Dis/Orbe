@@ -1,7 +1,7 @@
 {
-  "version": "2.0.2",
-  "build": 20015,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.2.8251/Orbe-2.0.2.8251.apk",
-  "sha256": "048096be42bd9c3ecca91eca4ebd17ad671fc3d01816b1fe9e581e948dd4caf1",
-  "notes": "Correção 2.0.2.8251. Corrige a conexão inicial do login com o servidor atual e mantém os atalhos para agendaorbe.com.br."
+  "version": "2.0.3",
+  "build": 20016,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.3/Orbe-2.0.3.apk",
+  "sha256": "9f99ac3ae45997b4b918ffa2ccfddc9f2379854204176da89634b13662d9e223",
+  "notes": "Orbe 2.0.3: confirmação e recuperação por e-mail, consulta automática de atualizações ao abrir e atualização manual no login e em Conta."
 }
