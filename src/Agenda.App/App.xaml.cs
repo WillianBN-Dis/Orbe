@@ -21,7 +21,7 @@ public partial class App : Application
             if(await page.DisplayAlertAsync("Atualização disponível","Orbe "+update.Version+" está disponível. Deseja ver a atualização?","Ver atualização","Agora não"))
                 await page.Navigation.PushAsync(new UpdatePage());
         }
-        catch(Exception e) when(e is HttpRequestException or OperationCanceledException or System.IO.InvalidDataException or System.Text.Json.JsonException or InvalidOperationException)
+        catch(Exception e) when(e is HttpRequestException or OperationCanceledException or System.IO.IOException or System.Text.Json.JsonException or InvalidOperationException)
         { /* Background checks must not interrupt access when the feed is unavailable. */ }
     }
     internal static NavigationPage Navigation(Page page)=>new(page){BarBackgroundColor=Color.FromArgb("#0D101B"),BarTextColor=Colors.White};
