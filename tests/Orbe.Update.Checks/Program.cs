@@ -21,6 +21,20 @@ try
  using var redirected=new AppUpdates(new Handler(_=>new(HttpStatusCode.Redirect){Headers={Location=new Uri("http://evil.example/update.apk")}}));
  try{await redirected.Download(found with{Build=20003},directory);throw new Exception("Redirect accepted");}catch(InvalidDataException){Check(true,"redirect cannot downgrade HTTPS or leave trusted hosts");}
  using var cancelled=new CancellationTokenSource();cancelled.Cancel();try{await service.Download(found with{Build=20004},directory,token:cancelled.Token);throw new Exception("Cancellation ignored");}catch(OperationCanceledException){Check(!Directory.GetFiles(directory,"*.partial-*").Any(),"cancelled download leaves no partial package");}
+ var windowsUpdate=update with{Url="https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.3/Orbe-Setup-2.0.3.exe",Build=20016,Version="2.0.3"};
+ using var windows=new AppUpdates(new Handler(request=>
+ {
+  if(request.RequestUri!.Host=="raw.githubusercontent.com"){
+   Check(request.RequestUri.AbsolutePath.EndsWith("/updates/windows.json"),"Windows uses its own manifest");
+   return new(HttpStatusCode.OK){Content=new StringContent(JsonSerializer.Serialize(windowsUpdate))};
+  }
+  return new(HttpStatusCode.OK){Content=new ByteArrayContent(bytes)};
+ }),windows:true);
+ var windowsFound=await windows.Check();
+ var setup=await windows.Download(windowsFound,directory);
+ Check(setup.EndsWith(".exe")&&File.ReadAllBytes(setup).SequenceEqual(bytes),"Windows installer download verified independently of Android cache");
+ try{await service.Download(windowsUpdate,directory);throw new Exception("Android accepted Windows installer");}catch(InvalidDataException){Check(true,"Android rejects Windows installer metadata");}
+ try{await windows.Download(update,directory);throw new Exception("Windows accepted Android package");}catch(InvalidDataException){Check(true,"Windows rejects Android package metadata");}
  Console.WriteLine($"{checks} update checks passed using synthetic data.");
 }finally{Directory.Delete(directory,true);}
 sealed class Handler(Func<HttpRequestMessage,HttpResponseMessage> handler):HttpMessageHandler

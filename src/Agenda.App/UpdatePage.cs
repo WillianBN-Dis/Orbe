@@ -12,19 +12,21 @@ internal sealed class UpdatePage:ContentPage
  private AndroidUpdate? available;
  private CancellationTokenSource? cancellation;
  private bool busy;
+ private bool initialCheck;
  public UpdatePage()
  {
   Title="Atualizar aplicativo";BackgroundColor=CanvasColor;SafeAreaEdges=SafeAreaEdges.All;
   check=Button("Verificar atualizações",Check,primary:true);install=Button("Baixar e instalar",Install,primary:true);install.IsVisible=false;
-  var panel=Stack(18,Card(Stack(18,Pill("SEMPRE EM DIA",Mint),Text("Um Orbe cada vez melhor.",27,Ink,true),Text("Versão instalada: "+AppInfo.Current.VersionString,14,Ink),status,spinner,details,progress,check,install,Text("A atualização vem do GitHub oficial. O Android pedirá sua confirmação para instalar; sua conta e seus dados são preservados.",12,Muted),Text("Compilação "+AppInfo.Current.BuildString,10,Dim)),22));
+  var panel=Stack(18,Card(Stack(18,Pill("SEMPRE EM DIA",Mint),Text("Um Orbe cada vez melhor.",27,Ink,true),Text("Versão instalada: "+AppInfo.Current.VersionString,14,Ink),status,spinner,details,progress,check,install,Text("A atualização vem do GitHub oficial. Confirme a instalação quando o instalador abrir.",12,Muted),Text("Compilação "+AppInfo.Current.BuildString,10,Dim)),22));
   panel.Padding=22;panel.MaximumWidthRequest=780;panel.HorizontalOptions=LayoutOptions.Fill;Content=new ScrollView{Content=panel};
  }
+ protected override async void OnAppearing(){base.OnAppearing();if(!initialCheck){initialCheck=true;await Check();}}
  protected override void OnDisappearing(){cancellation?.Cancel();base.OnDisappearing();}
  private async Task Run(Func<AppUpdates,CancellationToken,Task> action)
  {
   if(busy)return;busy=true;check.IsEnabled=install.IsEnabled=false;spinner.IsVisible=spinner.IsRunning=true;cancellation=new();
   cancellation.CancelAfter(TimeSpan.FromMinutes(15));
-  try{using var service=new AppUpdates();await action(service,cancellation.Token);}
+  try{using var service=new AppUpdates(windows:DeviceInfo.Current.Platform==DevicePlatform.WinUI);await action(service,cancellation.Token);}
   catch(OperationCanceledException){status.Text="A verificação ou o download foi cancelado. Você pode tentar novamente.";}
   catch(Exception e){status.Text=e is InvalidDataException or HttpRequestException?e.Message:"Não foi possível atualizar agora. Confira sua internet e tente novamente.";}
   finally{cancellation.Dispose();cancellation=null;busy=false;check.IsEnabled=install.IsEnabled=true;spinner.IsVisible=spinner.IsRunning=false;}
@@ -54,8 +56,9 @@ internal sealed class UpdatePage:ContentPage
   }
   status.Text="Confirme a atualização no instalador do Android.";
   if(!await Launcher.Default.OpenAsync(new OpenFileRequest("Atualizar Orbe",new ReadOnlyFile(file,"application/vnd.android.package-archive"))))throw new InvalidDataException("O Android não disponibilizou um instalador para este pacote.");
-#else
-  status.Text="Este ajuste está disponível para o aplicativo Android.";
+#elif WINDOWS
+  status.Text="Siga as instruções do instalador para atualizar o Orbe.";
+  System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(file){UseShellExecute=true});
 #endif
  });
 }

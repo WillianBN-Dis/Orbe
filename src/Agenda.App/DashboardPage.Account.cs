@@ -26,7 +26,7 @@ public sealed partial class DashboardPage
    for(var i=0;i<buttons.Length;i++){if(i%columns==0)actions.RowDefinitions.Add(new(GridLength.Auto));buttons[i].HorizontalOptions=LayoutOptions.Fill;actions.Add(buttons[i],i%columns,i/columns);}management.Add(actions);
   }
   management.Add(Rule());management.Add(Button("Sair da conta",async()=>{if(await DisplayAlertAsync("Sair da sua conta?","Você precisará entrar novamente para acessar sua agenda.","Sair","Manter")){appointments=[];entries=[];await CloudSessionStore.End(this,client);}},danger:true));
-#if ANDROID
+#if ANDROID || WINDOWS
   management.Add(Rule());management.Add(Button("Atualizar aplicativo",async()=>await Navigation.PushAsync(new UpdatePage())));
 #endif
   var personalCard=Card(personal);personalCard.VerticalOptions=LayoutOptions.Start;var managementCard=Card(management);managementCard.VerticalOptions=LayoutOptions.Start;

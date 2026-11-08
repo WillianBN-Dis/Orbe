@@ -7,11 +7,11 @@ namespace Agenda.Core;
 
 public sealed record AndroidUpdate(string Version,int Build,string Url,string Sha256,string Notes)
 {
- public void Validate()
+ public void Validate(string packageExtension=".apk")
  {
   if(!System.Version.TryParse(Version,out _)||Build<1||Notes is null||Notes.Length>2000||!Regex.IsMatch(Sha256??"","\\A[0-9a-fA-F]{64}\\z")||
    !Uri.TryCreate(Url,UriKind.Absolute,out var uri)||uri.Scheme!="https"||uri.Host!="github.com"||uri.UserInfo.Length>0||uri.Query.Length>0||uri.Fragment.Length>0||
-   !uri.AbsolutePath.StartsWith("/WillianBN-Dis/Orbe/releases/download/",StringComparison.Ordinal)||!uri.AbsolutePath.EndsWith(".apk",StringComparison.OrdinalIgnoreCase))
+   packageExtension is not (".apk" or ".exe")||!uri.AbsolutePath.StartsWith("/WillianBN-Dis/Orbe/releases/download/",StringComparison.Ordinal)||!uri.AbsolutePath.EndsWith(packageExtension,StringComparison.OrdinalIgnoreCase))
    throw new InvalidDataException("As informações da atualização são inválidas. Tente novamente mais tarde.");
  }
 }
@@ -19,10 +19,12 @@ public sealed record AndroidUpdate(string Version,int Build,string Url,string Sh
 public sealed class AppUpdates:IDisposable
 {
  public const string FeedUrl="https://raw.githubusercontent.com/WillianBN-Dis/Orbe/codex/orbe-cloud/updates/android.json";
+ public const string WindowsFeedUrl="https://raw.githubusercontent.com/WillianBN-Dis/Orbe/codex/orbe-cloud/updates/windows.json";
  private const long MaximumApk=150L*1024*1024;
  private readonly HttpClient http;
- public AppUpdates(HttpMessageHandler? handler=null)
- {http=handler is null?new(new HttpClientHandler{AllowAutoRedirect=false}):new(handler);http.Timeout=TimeSpan.FromMinutes(15);http.DefaultRequestHeaders.UserAgent.ParseAdd("Orbe-Android-Updater/1.0");}
+ private readonly string feedUrl,packageExtension;
+ public AppUpdates(HttpMessageHandler? handler=null,bool windows=false)
+ {feedUrl=windows?WindowsFeedUrl:FeedUrl;packageExtension=windows?".exe":".apk";http=handler is null?new(new HttpClientHandler{AllowAutoRedirect=false}):new(handler);http.Timeout=TimeSpan.FromMinutes(15);http.DefaultRequestHeaders.UserAgent.ParseAdd("Orbe-Updater/1.0");}
  private async Task<HttpResponseMessage> Open(string url,CancellationToken token)
  {
   for(int hop=0;hop<6;hop++)
@@ -38,15 +40,15 @@ public sealed class AppUpdates:IDisposable
  }
  public async Task<AndroidUpdate> Check(CancellationToken token=default)
  {
-  using var response=await Open(FeedUrl+"?check="+DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),token);
+  using var response=await Open(feedUrl+"?check="+DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),token);
   if(response.Content.Headers.ContentLength>16384)throw new InvalidDataException("Resposta de atualização inválida.");
   await using var input=await response.Content.ReadAsStreamAsync(token);using var memory=new MemoryStream();var buffer=new byte[4096];int length;
   while((length=await input.ReadAsync(buffer,token))>0){if(memory.Length+length>16384)throw new InvalidDataException("Resposta de atualização inválida.");memory.Write(buffer,0,length);}
-  var update=JsonSerializer.Deserialize<AndroidUpdate>(memory.ToArray(),new JsonSerializerOptions(JsonSerializerDefaults.Web))??throw new InvalidDataException("Resposta de atualização vazia.");update.Validate();return update;
+  var update=JsonSerializer.Deserialize<AndroidUpdate>(memory.ToArray(),new JsonSerializerOptions(JsonSerializerDefaults.Web))??throw new InvalidDataException("Resposta de atualização vazia.");update.Validate(packageExtension);return update;
  }
  public async Task<string> Download(AndroidUpdate update,string cacheDirectory,IProgress<double>? progress=null,CancellationToken token=default)
  {
-  update.Validate();Directory.CreateDirectory(cacheDirectory);var output=Path.Combine(cacheDirectory,$"orbe-{update.Build}.apk");
+  update.Validate(packageExtension);Directory.CreateDirectory(cacheDirectory);var output=Path.Combine(cacheDirectory,$"orbe-{update.Build}{packageExtension}");
   if(File.Exists(output))
   {await using var existing=File.OpenRead(output);if(Convert.ToHexString(await SHA256.HashDataAsync(existing,token)).Equals(update.Sha256,StringComparison.OrdinalIgnoreCase)){progress?.Report(1);return output;}}
   var partial=output+".partial-"+Guid.NewGuid().ToString("N");

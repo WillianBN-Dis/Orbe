@@ -4,6 +4,26 @@ namespace Agenda.App;
 
 public partial class App : Application
 {
+    private bool updateCheckStarted;
+    private async Task CheckUpdates(Window window)
+    {
+        if(updateCheckStarted||window.Page is null)return;
+        updateCheckStarted=true;
+        try
+        {
+            using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(12));
+            using var service=new Agenda.Core.AppUpdates(windows:DeviceInfo.Current.Platform==DevicePlatform.WinUI);
+            var update=await service.Check(timeout.Token);
+            if(!int.TryParse(AppInfo.Current.BuildString,out var current)||update.Build<=current)return;
+            if(window.Handler is null)return;
+            var page=window.Page is NavigationPage navigation?navigation.CurrentPage:window.Page;
+            if(page is null||page is UpdatePage)return;
+            if(await page.DisplayAlertAsync("Atualização disponível","Orbe "+update.Version+" está disponível. Deseja ver a atualização?","Ver atualização","Agora não"))
+                await page.Navigation.PushAsync(new UpdatePage());
+        }
+        catch(Exception e) when(e is HttpRequestException or OperationCanceledException or System.IO.InvalidDataException or System.Text.Json.JsonException or InvalidOperationException)
+        { /* Background checks must not interrupt access when the feed is unavailable. */ }
+    }
     internal static NavigationPage Navigation(Page page)=>new(page){BarBackgroundColor=Color.FromArgb("#0D101B"),BarTextColor=Colors.White};
     public App() { InitializeComponent(); }
     protected override Window CreateWindow(IActivationState? activationState)
@@ -13,6 +33,7 @@ public partial class App : Application
         var compactPreview=args.Contains("--compact");
         var window=new Window(Navigation(new LoginPage()))
         {Title="Orbe · Agenda e finanças",Width=compactPreview?430:1440,Height=compactPreview?900:960};
+        window.Created+=(_,_)=>window.Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(8),async()=>await CheckUpdates(window));
 #if DEBUG
         if(args.Contains("--forms-check")||Environment.GetEnvironmentVariable("ORBE_QA_FORMS")=="true"){
             var form=DebugFormFixture.Create();window.Page=Navigation(form);
