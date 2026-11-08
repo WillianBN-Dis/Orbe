@@ -1,5 +1,12 @@
-param([string]$SiteName='orbe',[string]$OwnerEmail='', [switch]$SkipBuild,[string[]]$TrustedProxyAddresses=@(),[switch]$ProbeProxy,[switch]$EnableUnverifiedClientTests)
+param([string]$SiteName='orbe',[string]$OwnerEmail='', [switch]$SkipBuild,[string[]]$TrustedProxyAddresses=@(),[switch]$ProbeProxy,[switch]$EnableUnverifiedClientTests,[string]$PublicWebUrl='')
 $ErrorActionPreference='Stop'
+if($PublicWebUrl){
+ $webAddress=$null
+ if(![Uri]::TryCreate($PublicWebUrl,[UriKind]::Absolute,[ref]$webAddress) -or $webAddress.Scheme -ne 'https' -or !$webAddress.IsDefaultPort -or $webAddress.UserInfo -or $webAddress.Query -or $webAddress.Fragment -or $webAddress.AbsolutePath -ne '/'){
+  throw 'Informe um endereço público HTTPS sem caminhos ou credenciais.'
+ }
+ $PublicWebUrl=$webAddress.GetLeftPart([UriPartial]::Authority)
+}
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $output=Join-Path $workspace 'artifacts/discloud-test'
 $vaultFolder=Join-Path $env:LOCALAPPDATA 'OrbeDev'
@@ -40,11 +47,13 @@ function Call([string]$Method,[string]$Route,$Body=$null,$File=$null){
 }
 $account=Call GET '/user';$free=$account.user.totalRamMb-$account.user.ramUsedMb
 $needed=0;if(!$state.SiteId){$needed+=512};if(!$state.DatabaseId){$needed+=512};if($free -lt $needed){throw "RAM insuficiente: necessário $needed MB livres para os serviços ainda não criados. O plano não será alterado."}
-$subdomains=Call GET '/subdomain/all'
-if(!($subdomains.subdomains|Where-Object {$_.id -eq $SiteName})){$null=Call POST "/subdomain/$SiteName" @{}}
-$subdomain=Call GET "/subdomain/$SiteName"
-if(!$subdomain.subdomain.baseDomain){throw 'A Discloud ainda não informou o domínio público. Aguarde a configuração antes de publicar.'}
-$state.PublicUrl="https://$SiteName.$($subdomain.subdomain.baseDomain)";SaveState
+if(!$state.SiteId -or !$state.PublicUrl){
+ $subdomains=Call GET '/subdomain/all'
+ if(!($subdomains.subdomains|Where-Object {$_.id -eq $SiteName})){$null=Call POST "/subdomain/$SiteName" @{}}
+ $subdomain=Call GET "/subdomain/$SiteName"
+ if(!$subdomain.subdomain.baseDomain){throw 'A Discloud ainda não informou o domínio público. Aguarde a configuração antes de publicar.'}
+ $state.PublicUrl="https://$SiteName.$($subdomain.subdomain.baseDomain)";SaveState
+}
 $dotnet=Join-Path $env:LOCALAPPDATA 'NexusDev/dotnet/dotnet.exe'
 $server=Join-Path $output 'package/server'
 if(!$SkipBuild){& $dotnet publish (Join-Path $workspace 'src/Orbe.Server') -c Release -r linux-x64 --self-contained true -p:RuntimeFrameworkVersion=10.0.14 -p:InvariantGlobalization=true -p:DebugType=None -p:DebugSymbols=false -o $server;if($LASTEXITCODE -ne 0){throw 'Publicação Linux falhou'}}
@@ -60,7 +69,14 @@ $revision=(& git -C $workspace rev-parse --short HEAD).Trim()
 if((& git -C $workspace status --porcelain)){ $revision+='-local' }
 function Package([bool]$DatabaseReady){
  $secret=@{PublicUrl=$state.PublicUrl;Deployment=@{Revision=$revision};DataProtection=@{Certificate=$vault.Certificate;Password=$vault.CertificatePassword};Database=@{SkipInitialize=(!$DatabaseReady)};Bootstrap=@{AllowUnconfiguredOwner=([string]::IsNullOrWhiteSpace($vault.OwnerEmail))};Owner=@{Email=$vault.OwnerEmail;Password=$vault.OwnerPassword}}
+ if($PublicWebUrl){$secret.PublicUrl=$PublicWebUrl}
  if($state.TrustedProxyAddresses){$secret.Proxy=@{Addresses=@($state.TrustedProxyAddresses)}}
+ if($vault.Smtp){$secret.Smtp=$vault.Smtp}
+ $smtpFile=Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'OrbeDev/smtp.dpapi'
+ if(Test-Path -LiteralPath $smtpFile){
+  $smtpSecure=ConvertTo-SecureString ([IO.File]::ReadAllText($smtpFile).Trim())
+  $secret.Smtp=[Net.NetworkCredential]::new('', $smtpSecure).Password | ConvertFrom-Json
+ }
  if($ProbeProxy){$secret.Logging=@{LogLevel=@{'Microsoft.AspNetCore.HttpOverrides.ForwardedHeadersMiddleware'='Debug'}}}
  if($DatabaseReady){$secret.ConnectionStrings=@{Orbe="Host=$($state.DatabaseHost);Port=5432;Database=orbe_test;Username=orbe;Password=$($vault.DbPassword);Maximum Pool Size=10;Timeout=15;Command Timeout=15"}}
  if($DatabaseReady){
