@@ -96,7 +96,7 @@ public sealed class AuthService(OrbeDb db,UserManager<AppUser> users,IEmailDeliv
  }
  private string Link(string path,string userId,string token,string? newEmail=null)
  {
-  var root=config["PublicUrl"]?.TrimEnd('/');
+  var root=(config["Email:PublicUrl"]??config["PublicUrl"])?.TrimEnd('/');
   if(!Uri.TryCreate(root,UriKind.Absolute,out var uri)||uri.Scheme!="https"&&uri.Host!="localhost"&&uri.Host!="127.0.0.1")throw new ApiError(503,"Endereço público do Orbe não configurado.");
   return $"{root}/{path}?userId={Uri.EscapeDataString(userId)}&token={Uri.EscapeDataString(token)}"+(newEmail is null?"":"&email="+Uri.EscapeDataString(newEmail));
  }

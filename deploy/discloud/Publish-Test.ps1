@@ -69,7 +69,7 @@ $revision=(& git -C $workspace rev-parse --short HEAD).Trim()
 if((& git -C $workspace status --porcelain)){ $revision+='-local' }
 function Package([bool]$DatabaseReady){
  $secret=@{PublicUrl=$state.PublicUrl;Deployment=@{Revision=$revision};DataProtection=@{Certificate=$vault.Certificate;Password=$vault.CertificatePassword};Database=@{SkipInitialize=(!$DatabaseReady)};Bootstrap=@{AllowUnconfiguredOwner=([string]::IsNullOrWhiteSpace($vault.OwnerEmail))};Owner=@{Email=$vault.OwnerEmail;Password=$vault.OwnerPassword}}
- if($PublicWebUrl){$secret.PublicUrl=$PublicWebUrl}
+ if($PublicWebUrl){$secret.Email=@{PublicUrl=$PublicWebUrl}}
  if($state.TrustedProxyAddresses){$secret.Proxy=@{Addresses=@($state.TrustedProxyAddresses)}}
  if($vault.Smtp){$secret.Smtp=$vault.Smtp}
  $smtpFile=Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'OrbeDev/smtp.dpapi'
