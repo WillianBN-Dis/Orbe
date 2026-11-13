@@ -25,6 +25,7 @@ public static class Routes
   api.MapGet("/public/availability",async(string employeeId,string serviceId,DateOnly from,int? days,Scheduling scheduling)=>Results.Ok(await scheduling.AvailabilityFor(employeeId,serviceId,from,days??1)));
   var team=api.MapGroup("/team").RequireAuthorization(p=>p.RequireRole(Roles.Owner,Roles.Staff));
   team.MapProfessionalServices();
+  team.MapRecurring();
   team.MapGet("/employees",async(Actor actor,OrbeDb db)=>Results.Ok(await db.Employees.Where(x=>actor.Owner||x.UserId==actor.Id).OrderBy(x=>x.DisplayName).Select(x=>new{x.Id,x.DisplayName,x.Enabled,x.Version}).ToArrayAsync()));
   team.MapGet("/hours",async(string? employeeId,Scheduling s)=>Results.Ok(await s.ReadHours(employeeId)));
   team.MapPut("/hours",async(string? employeeId,HoursInput input,Scheduling s)=>{await s.SaveHours(employeeId,input);return Results.Ok(await s.ReadHours(employeeId));});

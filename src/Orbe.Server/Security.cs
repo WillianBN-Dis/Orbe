@@ -24,6 +24,7 @@ public static class Secrets
 public sealed class SessionAuth(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder,
  OrbeDb db, UserManager<AppUser> users,TimeProvider clock,IConfiguration config) : AuthenticationHandler<AuthenticationSchemeOptions>(options,logger,encoder)
 {
+ internal const string PendingEmail="orbe:pending-email";
  protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
  {
   var header=Request.Headers.Authorization.ToString();
@@ -34,9 +35,12 @@ public sealed class SessionAuth(IOptionsMonitor<AuthenticationSchemeOptions> opt
   if(session is null)return AuthenticateResult.Fail("Sessão inválida.");
   var user=await users.FindByIdAsync(session.UserId);
   if(user is null||!user.Active||user.SecurityStamp!=session.SecurityStamp)return AuthenticateResult.Fail("Sessão encerrada.");
-  if(!user.EmailConfirmed&&!(config.GetValue<bool>("Preview:AllowUnverifiedClients")&&(await users.GetRolesAsync(user)).SequenceEqual(new[]{Roles.Client})))return AuthenticateResult.Fail("Confirme seu e-mail.");
+  var roles=await users.GetRolesAsync(user);
+  var pending=!user.EmailConfirmed&&!config.GetValue<bool>("Preview:AllowUnverifiedClients");
+  if(!user.EmailConfirmed&&(!roles.SequenceEqual(new[]{Roles.Client})||header.StartsWith("Bearer ",StringComparison.OrdinalIgnoreCase)&&pending))return AuthenticateResult.Fail("Confirme seu e-mail.");
   var claims=new List<Claim>{new(ClaimTypes.NameIdentifier,user.Id),new(ClaimTypes.Name,user.UserName??user.FullName)};
-  claims.AddRange((await users.GetRolesAsync(user)).Select(role=>new Claim(ClaimTypes.Role,role)));
+  if(pending)claims.Add(new(PendingEmail,"true"));
+  else claims.AddRange(roles.Select(role=>new Claim(ClaimTypes.Role,role)));
   return AuthenticateResult.Success(new(new ClaimsPrincipal(new ClaimsIdentity(claims,Scheme.Name)),Scheme.Name));
  }
 }
@@ -73,7 +77,7 @@ public sealed class SmtpEmail(IConfiguration config):IEmailDelivery
 public sealed class AuthService(OrbeDb db,UserManager<AppUser> users,IEmailDelivery email,IConfiguration config,TimeProvider clock)
 {
  internal const string InvalidLink="O link ou código é inválido ou expirou. Solicite um novo.";
- public async Task<object> Profile(AppUser u)=>new{u.Id,u.FullName,u.Email,phone=u.PhoneNumber,u.BirthDate,u.EmailConfirmed,roles=await users.GetRolesAsync(u),employeeId=await db.Employees.Where(x=>x.UserId==u.Id&&x.Enabled).Select(x=>x.Id).SingleOrDefaultAsync()};
+ public async Task<object> Profile(AppUser u)=>new{u.Id,u.FullName,u.Email,phone=u.PhoneNumber,u.BirthDate,u.EmailConfirmed,u.BookingUsername,roles=await users.GetRolesAsync(u),employeeId=await db.Employees.Where(x=>x.UserId==u.Id&&x.Enabled).Select(x=>x.Id).SingleOrDefaultAsync()};
  public static void Check(IdentityResult result)
  {
   if(result.Succeeded)return;
@@ -101,13 +105,13 @@ public sealed class AuthService(OrbeDb db,UserManager<AppUser> users,IEmailDeliv
   return $"{root}/{path}?userId={Uri.EscapeDataString(userId)}&token={Uri.EscapeDataString(token)}"+(newEmail is null?"":"&email="+Uri.EscapeDataString(newEmail));
  }
  public async Task ConfirmEmail(AppUser user)=>await email.Send(user.Email!,"Confirme sua conta Orbe","Confirme seu e-mail: "+Link("confirmar-email",user.Id,await users.GenerateEmailConfirmationTokenAsync(user)));
- public async Task<(string Token,AppUser User,DateTimeOffset Expiry)> Login(string login,string password)
+ public async Task<(string Token,AppUser User,DateTimeOffset Expiry)> Login(string login,string password,bool accountOnlyAllowed=false)
  {
   if(string.IsNullOrWhiteSpace(login)||login.Length>256||string.IsNullOrEmpty(password)||password.Length>256)throw new ApiError(401,"Usuário ou senha inválidos.");
   var user=await users.FindByNameAsync(login)??await users.FindByEmailAsync(login);
   if(user is null||!user.Active||await users.IsLockedOutAsync(user))throw new ApiError(401,"Usuário ou senha inválidos. Se necessário, aguarde e tente novamente.");
   if(!await users.CheckPasswordAsync(user,password)){await users.AccessFailedAsync(user);throw new ApiError(401,"Usuário ou senha inválidos. Se necessário, aguarde e tente novamente.");}
-  if(!user.EmailConfirmed&&!(config.GetValue<bool>("Preview:AllowUnverifiedClients")&&(await users.GetRolesAsync(user)).SequenceEqual(new[]{Roles.Client})))throw new ApiError(403,"Confirme seu e-mail antes de entrar.");
+  if(!user.EmailConfirmed&&(!(accountOnlyAllowed||config.GetValue<bool>("Preview:AllowUnverifiedClients"))||!(await users.GetRolesAsync(user)).SequenceEqual(new[]{Roles.Client})))throw new ApiError(403,"Confirme seu e-mail antes de entrar.");
   await users.ResetAccessFailedCountAsync(user);
   var token=Secrets.Random();var expiry=clock.GetUtcNow().AddDays(14);
   db.Sessions.Add(new(){TokenHash=Secrets.Hash(token),UserId=user.Id,SecurityStamp=user.SecurityStamp!,ExpiresAt=expiry});
@@ -134,6 +138,7 @@ public sealed record TokenInput(string UserId,string Token,string Password);
 public sealed record ProfileInput(string FullName,string Phone,DateOnly? BirthDate);
 public sealed record PasswordInput(string CurrentPassword,string NewPassword);
 public sealed record ChangeEmailInput(string Email,string Password);
+public sealed record BookingUsernameInput(string Username);
 
 public static class AuthRoutes
 {
@@ -157,15 +162,16 @@ public static class AuthRoutes
    }
    return Results.Accepted(value:new{emailConfirmationRequired=!preview,message=preview?"Ambiente de testes: se o cadastro foi concluído, você já pode entrar. O e-mail ainda não foi verificado.":"Confira seu e-mail para confirmar o cadastro."});
   });
-  group.MapPost("/resend",async(EmailInput input,UserManager<AppUser> users,AuthService auth,IEmailDelivery email)=>
+  group.MapPost("/resend",async(Actor actor,UserManager<AppUser> users,AuthService auth,IEmailDelivery email)=>
   {
    if(!email.Ready)throw new ApiError(503,"O envio de e-mails ainda não foi configurado. Entre em contato com a equipe.");
-   var user=await users.FindByEmailAsync(input.Email);
-   if(user is not null&&!user.EmailConfirmed&&user.Active)await auth.ConfirmEmail(user);
-   return Results.Ok(new{message="Se houver uma confirmação pendente, enviaremos as instruções."});
-  });
+   var user=(await users.FindByIdAsync(actor.Id))!;
+   if(user.EmailConfirmed)throw new ApiError(409,"Seu e-mail já está confirmado.");
+   await auth.ConfirmEmail(user);
+   return Results.Ok(new{message="Enviamos um novo link para o e-mail cadastrado."});
+  }).RequireAuthorization();
   group.MapPost("/login",async(LoginInput input,AuthService auth,HttpContext c,IAntiforgery anti)=>
-  {await anti.ValidateRequestAsync(c);var result=await auth.Login(input.Login,input.Password);c.Response.Cookies.Append(Secrets.Cookie,result.Token,Secrets.CookieOptions(c,result.Expiry));return Results.Ok(await auth.Profile(result.User));});
+  {await anti.ValidateRequestAsync(c);var result=await auth.Login(input.Login,input.Password,accountOnlyAllowed:true);c.Response.Cookies.Append(Secrets.Cookie,result.Token,Secrets.CookieOptions(c,result.Expiry));return Results.Ok(await auth.Profile(result.User));});
   group.MapPost("/token",async(LoginInput input,AuthService auth)=>{var result=await auth.Login(input.Login,input.Password);return Results.Ok(new{accessToken=result.Token,expiresAt=result.Expiry,profile=await auth.Profile(result.User)});});
   group.MapPost("/recover",async(EmailInput input,AuthService auth)=>{await auth.Recover(input.Email);return Results.Ok(new{message="Se o e-mail estiver cadastrado e confirmado, enviaremos as instruções."});});
   group.MapPost("/reset",async(TokenInput input,UserManager<AppUser> users)=>{var user=await users.FindByIdAsync(input.UserId)??throw new ApiError(400,AuthService.InvalidLink);AuthService.Check(await users.ResetPasswordAsync(user,input.Token,input.Password));return Results.Ok(new{message="Senha alterada. Entre novamente."});});
@@ -177,6 +183,22 @@ public static class AuthRoutes
    return Results.Ok(new{message="E-mail confirmado. Você já pode entrar."});
   });
   group.MapGet("/me",async(Actor actor,UserManager<AppUser> users,AuthService auth)=>Results.Ok(await auth.Profile((await users.FindByIdAsync(actor.Id))!))).RequireAuthorization().RequireRateLimiting("account");
+  group.MapPut("/booking-username",async(BookingUsernameInput input,Actor actor,UserManager<AppUser> users,AuthService auth,OrbeDb db)=>{
+   var name=RecurringRoutes.NormalizeUsername(input.Username)??throw new ApiError(400,"Use de 3 a 32 caracteres: letras sem acentos, números, ponto, hífen ou sublinhado.");
+   var user=(await users.FindByIdAsync(actor.Id))!;
+   if(!user.EmailConfirmed)throw new ApiError(403,"Confirme seu e-mail primeiro.");
+   await using var transaction=await db.Database.BeginTransactionAsync();
+   await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"AspNetUsers\" WHERE \"Id\"={user.Id} FOR UPDATE");
+   await db.Entry(user).ReloadAsync();
+   if(user.BookingUsername is not null&&user.BookingUsername!=name)
+    throw new ApiError(409,"Seu nome de usuário já foi definido.");
+   user.BookingUsername=name;
+   try{await db.SaveChangesAsync();}
+   catch(DbUpdateException e)when(e.InnerException is Npgsql.PostgresException {SqlState:"23505",ConstraintName:"IX_AspNetUsers_BookingUsername"})
+   {throw new ApiError(409,"Este nome de usuário já está em uso.");}
+   await transaction.CommitAsync();
+   return Results.Ok(await auth.Profile(user));
+  }).RequireAuthorization(p=>p.RequireRole(Roles.Client));
   group.MapPut("/me",async(ProfileInput input,Actor actor,UserManager<AppUser> users,AuthService auth)=>
   {if(string.IsNullOrWhiteSpace(input.FullName)||input.FullName.Length>150||input.Phone is null||input.Phone.Length>30||input.BirthDate>DateOnly.FromDateTime(DateTime.UtcNow)||actor.Client&&(input.BirthDate is null||input.BirthDate.Value.Year<1900||new string(input.Phone.Where(char.IsDigit).ToArray()).Length<8))throw new ApiError(400,"Confira seus dados.");var user=(await users.FindByIdAsync(actor.Id))!;user.FullName=input.FullName.Trim();user.PhoneNumber=input.Phone;user.BirthDate=input.BirthDate;AuthService.Check(await users.UpdateAsync(user));return Results.Ok(await auth.Profile(user));}).RequireAuthorization();
   group.MapPost("/password",async(PasswordInput input,Actor actor,UserManager<AppUser> users)=>{var user=(await users.FindByIdAsync(actor.Id))!;AuthService.Check(await users.ChangePasswordAsync(user,input.CurrentPassword,input.NewPassword));return Results.Ok(new{message="Senha alterada. Entre novamente."});}).RequireAuthorization();

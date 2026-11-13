@@ -14,3 +14,6 @@
 @media(max-width:850px){.login-scene{grid-template-columns:1fr;min-height:0;border-radius:22px}.login-story{padding:28px 26px}.login-story h1{font-size:32px;margin:18px 0 12px;letter-spacing:-1px}.login-lead{font-size:13px;margin:0}.login-journey,.login-signature{display:none}.login-box{padding:28px 26px;border-left:0;border-top:1px solid var(--line)}.login-brand{display:none}.login-box h2{font-size:24px}.login-box h2+p{margin-bottom:24px}.login-register{margin-top:18px;padding-top:18px}}
 @media(max-width:600px){.login-story{display:none}.login-box{border-top:0;padding:28px 24px}.login-box .eyebrow{color:var(--mint)}}
 .notice-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;margin-left:7px;border-radius:999px;background:#dc4560;color:white;font-size:11px;font-weight:700}.notice-unread{border-color:var(--purple)}.notice-card h3{margin:0}.notice-card .row{flex-wrap:wrap}
+
+.login-box .login-recover{display:inline-flex;align-items:center;margin-top:8px;padding:8px 12px;font-size:13px;min-height:44px}
+.support-link{display:inline-flex;align-items:center;min-height:44px;padding:8px 14px;border:1px solid var(--line);border-radius:12px;color:var(--purple)}

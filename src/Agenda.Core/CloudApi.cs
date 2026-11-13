@@ -12,7 +12,8 @@ public sealed record CloudInfo(string Name,bool PublicBookingOpen,string TimeZon
 public sealed record CloudEmployee(string Id,string DisplayName,bool Enabled,Guid Version){public string Caption=>DisplayName+(Enabled?"":" · inativo");}
 public sealed record CloudItem(string Id,string? EmployeeId,string? ClientId,string? ServiceId,string Title,string Kind,string Status,DateTimeOffset Start,DateTimeOffset End,string? LegacyClient,string? ClientName,string? Notes,long ExpectedCents,int DurationMinutes,Guid Version,bool PriceFrom=false);
 public sealed record CloudMoney(string Id,string? EmployeeId,string? AppointmentId,string Description,string Kind,DateOnly Date,long Cents,Guid Version);
-public sealed record CloudNotice(Guid Id,string AppointmentId,string Kind,DateTimeOffset OccurrenceStart,DateTimeOffset DeliverAt,DateTimeOffset? ReadAt,string Subject,string? Person);
+public sealed record CloudNotice(Guid Id,string AppointmentId,string Kind,DateTimeOffset OccurrenceStart,DateTimeOffset DeliverAt,DateTimeOffset? ReadAt,string Subject,string? Person,string? ClientPhone=null);
+public sealed record CloudSupport(string? WhatsApp,string? Email);
 public sealed record CloudInbox(CloudNotice[] Items,int UnreadCount,int Total);
 public sealed class CloudApi:IDisposable
 {

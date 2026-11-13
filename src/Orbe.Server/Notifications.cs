@@ -18,9 +18,10 @@ public sealed class NotificationInbox(OrbeDb db,Actor actor,TimeProvider clock)
 {
  // Materialize due events on the server, not on individual devices. Tombstones
  // and the unique occurrence key make polling/retries/deletion idempotent.
- public async Task Materialize()
+ public Task Materialize()=>Materialize(actor.Id,actor.Owner);
+ internal async Task Materialize(string user,bool owner)
  {
-  var now=clock.GetUtcNow();var user=actor.Id;var owner=actor.Owner;
+  var now=clock.GetUtcNow();
   await db.Database.ExecuteSqlInterpolatedAsync($"""
    INSERT INTO "Notifications" ("Id","UserId","AppointmentId","Kind","OccurrenceStart","DeliverAt")
    SELECT gen_random_uuid(),{user},a."Id",event.kind,a."Start",event.due
@@ -43,7 +44,8 @@ public sealed class NotificationInbox(OrbeDb db,Actor actor,TimeProvider clock)
   var items=await (from n in visible join a in db.Appointments on n.AppointmentId equals a.Id
    orderby n.DeliverAt descending,n.Id descending
    select new{n.Id,n.AppointmentId,n.Kind,n.OccurrenceStart,n.DeliverAt,n.ReadAt,subject=a.Title,
-    person=actor.Client?db.Employees.Where(e=>e.Id==a.EmployeeId).Select(e=>e.DisplayName).FirstOrDefault():db.Users.Where(u=>u.Id==a.ClientId).Select(u=>u.FullName).FirstOrDefault()??a.LegacyClient})
+    person=actor.Client?db.Employees.Where(e=>e.Id==a.EmployeeId).Select(e=>e.DisplayName).FirstOrDefault():db.Users.Where(u=>u.Id==a.ClientId).Select(u=>u.FullName).FirstOrDefault()??a.LegacyClient,
+    clientPhone=actor.Client?null:db.Users.Where(u=>u.Id==a.ClientId).Select(u=>u.PhoneNumber).FirstOrDefault()})
    .Skip(offset).Take(limit).ToArrayAsync();
   return new{items,unreadCount=unread,total};
  }

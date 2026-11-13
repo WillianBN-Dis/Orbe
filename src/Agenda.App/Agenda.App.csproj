@@ -9,7 +9,7 @@
     <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
     <ApplicationTitle>Orbe</ApplicationTitle>
     <ApplicationId>br.com.agendafinanceira.app</ApplicationId>
-    <ApplicationDisplayVersion>2.0.3</ApplicationDisplayVersion><ApplicationVersion>20016</ApplicationVersion>
+    <ApplicationDisplayVersion>2.0.4</ApplicationDisplayVersion><ApplicationVersion>20017</ApplicationVersion>
     <WindowsPackageType>None</WindowsPackageType>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
@@ -18,10 +18,10 @@
   <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
     <!-- Avoid missing JNI callbacks (MauiApplication.n_onCreate) in standalone Release APKs. -->
     <AndroidEnableMarshalMethods>false</AndroidEnableMarshalMethods>
-    <ApplicationDisplayVersion>2.0.3</ApplicationDisplayVersion><ApplicationVersion>20016</ApplicationVersion>
+    <ApplicationDisplayVersion>2.0.4</ApplicationDisplayVersion><ApplicationVersion>20017</ApplicationVersion>
   </PropertyGroup>
   <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
-    <ApplicationVersion>20016</ApplicationVersion>
+    <ApplicationVersion>20017</ApplicationVersion>
   </PropertyGroup>
   <ItemGroup>
     <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#10172E" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'windows'" />
@@ -38,5 +38,18 @@
   </ItemGroup>
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
     <ProjectReference Include="../../tools/Orbe.Import/Orbe.Import.csproj" />
+  </ItemGroup>
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' And Exists('$(OrbeFirebaseConfig)')">
+    <DefineConstants>$(DefineConstants);ORBE_FIREBASE</DefineConstants>
+    <SupportedOSPlatformVersion>23.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' And Exists('$(OrbeFirebaseConfig)')">
+    <PackageReference Include="Xamarin.Firebase.Messaging" Version="125.1.3" />
+    <PackageReference Include="Xamarin.AndroidX.Fragment.Ktx" Version="1.9.0" />
+    <PackageReference Include="Xamarin.AndroidX.Lifecycle.LiveData" Version="2.11.0.1" />
+    <PackageReference Include="Xamarin.AndroidX.Lifecycle.LiveData.Core.Ktx" Version="2.11.0.1" />
+    <PackageReference Include="Xamarin.AndroidX.Lifecycle.Process" Version="2.11.0.1" />
+    <PackageReference Include="Xamarin.AndroidX.Collection.Ktx" Version="1.6.0.1" />
+    <GoogleServicesJson Include="$(OrbeFirebaseConfig)" />
   </ItemGroup>
 </Project>

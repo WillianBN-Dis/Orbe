@@ -48,6 +48,9 @@ public sealed partial class DashboardPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();compact=Width<860;lastWidth=Width;
+        InboxActivation.Requested-=OpenInboxFromSystem;
+        InboxActivation.Requested+=OpenInboxFromSystem;
+        if(InboxActivation.Consume())tab="Notificações";
 #if DEBUG
         if(Environment.GetCommandLineArgs().Contains("--layout-check"))
         {
@@ -70,10 +73,20 @@ public sealed partial class DashboardPage : ContentPage
                 selected=DateOnly.FromDateTime(client.Local(DateTimeOffset.UtcNow));calendarMonth=new(selected.Year,selected.Month,1);loaded=true;
             }
             await Reload();await LoadNotifications(false);BuildShell();StartLiveUpdates();
+#if ORBE_FIREBASE
+            AndroidPush.Connect(client);
+#endif
         });
         if(loaded){BuildShell();StartLiveUpdates();}
     }
-    protected override void OnDisappearing(){activePage=false;liveTimer?.Stop();if(observedWindow is not null){observedWindow.Resumed-=ResumeUpdates;observedWindow.Stopped-=PauseUpdates;observedWindow=null;}base.OnDisappearing();}
+    protected override void OnDisappearing(){InboxActivation.Requested-=OpenInboxFromSystem;activePage=false;liveTimer?.Stop();if(observedWindow is not null){observedWindow.Resumed-=ResumeUpdates;observedWindow.Stopped-=PauseUpdates;observedWindow=null;}base.OnDisappearing();}
+    private void OpenInboxFromSystem()
+    {
+        if(!InboxActivation.Consume())return;
+        if(!loaded){tab="Notificações";return;}
+        if(tab=="Notificações")_=LoadNotifications();
+        else _=SwitchTab("Notificações");
+    }
     private void StartLiveUpdates()
     {
         activePage=true;liveTimer??=Dispatcher.CreateTimer();liveTimer.IsRepeating=true;liveTimer.Interval=TimeSpan.FromSeconds(15);
@@ -152,7 +165,10 @@ public sealed partial class DashboardPage : ContentPage
         var subtitle=tab switch{"Agenda"=>"Abra espaço para o que importa.","Financeiro"=>"Acompanhe o que entra, o que sai e o que fica.",_=>"Seu perfil, sua disponibilidade e seus acessos."};
         var heading=Stack(6,Text(title,compact?28:32,Ink,true),Text(subtitle,13,Muted));
         var action=tab=="Agenda"?Button("+  Novo agendamento",()=>OpenAppointment(),primary:true):tab=="Financeiro"?Button("+  Novo lançamento",()=>OpenEntry(),primary:true):Button("Atualizar dados",Refresh);
-        body.Add(compact?Stack(16,heading,action):Between(heading,action));
+        View actions=tab=="Agenda"
+            ? compact?Stack(8,action,Button("Agendamento fixo",OpenRecurring)):Row(10,action,Button("Agendamento fixo",OpenRecurring))
+            : action;
+        body.Add(compact?Stack(16,heading,actions):Between(heading,actions));
         if((!HasData||people.Length==0)&&tab!="Conta")body.Add(Welcome());
         if(tab=="Agenda")RenderAgenda();else if(tab=="Financeiro")RenderFinance();else RenderAccount();
         body.Add(Row(8,spinner,status));body.Add(new BoxView{HeightRequest=18,Color=Colors.Transparent});

@@ -26,13 +26,16 @@ builder.Services.AddAuthentication("Orbe").AddScheme<AuthenticationSchemeOptions
 builder.Services.AddAuthorization();builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<NotificationInbox>();builder.Services.AddSingleton(TimeProvider.System);builder.Services.AddScoped<Actor>();builder.Services.AddScoped<AuthService>();builder.Services.AddScoped<Scheduling>();builder.Services.AddScoped<Importing>();builder.Services.AddScoped<IEmailDelivery,SmtpEmail>();
 builder.Services.AddHttpClient<IConnectionProbe,ConnectionProbe>().ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
+builder.Services.AddHttpClient();
+if(!string.IsNullOrWhiteSpace(builder.Configuration["Push:ServiceAccountJson"]))
+ builder.Services.AddHostedService<PushWorker>();
 builder.Services.AddAntiforgery(o=>{o.HeaderName="X-CSRF-TOKEN";o.Cookie.SameSite=SameSiteMode.Strict;o.Cookie.HttpOnly=true;});
 builder.Services.AddRateLimiter(o=>
  {
   o.RejectionStatusCode=429;
   o.AddPolicy("auth",c=>RateLimitPartition.GetFixedWindowLimiter(c.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new(){PermitLimit=builder.Configuration.GetValue("Limits:AuthPerMinute",20),Window=TimeSpan.FromMinutes(1),QueueLimit=0}));
-  o.AddPolicy("account",c=>RateLimitPartition.GetFixedWindowLimiter(c.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new(){PermitLimit=120,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));
-  o.GlobalLimiter=PartitionedRateLimiter.Create<HttpContext,string>(c=>RateLimitPartition.GetFixedWindowLimiter(c.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new(){PermitLimit=240,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));
+ o.AddPolicy("account",c=>RateLimitPartition.GetFixedWindowLimiter(c.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new(){PermitLimit=120,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));
+  o.GlobalLimiter=PartitionedRateLimiter.Create<HttpContext,string>(c=>RateLimitPartition.GetFixedWindowLimiter(c.Connection.RemoteIpAddress?.ToString()??"unknown",_=>new(){PermitLimit=builder.Configuration.GetValue("Limits:GlobalPerMinute",240),Window=TimeSpan.FromMinutes(1),QueueLimit=0}));
  });
 builder.WebHost.ConfigureKestrel(o=>
 {
@@ -60,7 +63,16 @@ app.Use(async(c,next)=>
   {c.Response.StatusCode=400;await c.Response.WriteAsJsonAsync(new{message="Valores ou vínculos inválidos. Atualize os dados."});}
   catch(Exception e){app.Logger.LogError("Falha de requisição {Type}; referência {Trace}",e.GetType().Name,c.TraceIdentifier);c.Response.StatusCode=500;await c.Response.WriteAsJsonAsync(new{message="Não foi possível concluir agora. Tente novamente mais tarde.",reference=c.TraceIdentifier});}
  });
-app.UseDefaultFiles();app.UseStaticFiles();app.UseRateLimiter();app.UseAuthentication();app.UseAuthorization();
+app.UseDefaultFiles();app.UseStaticFiles();app.UseRateLimiter();app.UseAuthentication();
+app.Use(async(c,next)=>{
+ if(c.User.HasClaim(SessionAuth.PendingEmail,"true")&&c.Request.Path.StartsWithSegments("/api")&&
+    !c.Request.Path.StartsWithSegments("/api/v1/public")&&
+    (c.Request.Path.Value?.ToLowerInvariant() is not ("/api/v1/auth/me" or "/api/v1/auth/csrf" or "/api/v1/auth/logout" or "/api/v1/auth/resend" or "/api/v1/auth/confirm" or "/api/v1/support")||
+     c.Request.Path.Equals("/api/v1/auth/me",StringComparison.OrdinalIgnoreCase)&&!HttpMethods.IsGet(c.Request.Method)))
+  throw new ApiError(403,"Confirme seu e-mail para liberar os agendamentos.");
+ await next();
+});
+app.UseAuthorization();
 app.Use(async(c,next)=>{if(c.Request.Path.StartsWithSegments("/api")&&c.Request.Method is not ("GET" or "HEAD" or "OPTIONS")&&c.Request.Cookies.ContainsKey(Secrets.Cookie)&&!c.Request.Headers.Authorization.ToString().StartsWith("Bearer ",StringComparison.OrdinalIgnoreCase))await c.RequestServices.GetRequiredService<IAntiforgery>().ValidateRequestAsync(c);await next();});
 app.MapGet("/health",async(OrbeDb db,HttpContext context)=>
 {
@@ -72,7 +84,7 @@ app.MapGet("/health",async(OrbeDb db,HttpContext context)=>
  }
  return Results.Json(new{service="Orbe",status=ready?"ready":"unavailable",revision=app.Configuration["Deployment:Revision"]??"development"},statusCode:ready?200:503);
 });
-NotificationInbox.Map(app);app.MapAuth();app.MapOrbe();app.MapImports();app.MapSharedConnection();
+NotificationInbox.Map(app);app.MapAuth();app.MapOrbe();app.MapImports();app.MapSharedConnection();app.MapSupport();app.MapPush();
 app.MapFallback(async c=>{if(c.Request.Path.StartsWithSegments("/api")){c.Response.StatusCode=404;await c.Response.WriteAsJsonAsync(new{message="Recurso não encontrado."});}else{c.Response.ContentType="text/html; charset=utf-8";await c.Response.SendFileAsync(Path.Combine(app.Environment.WebRootPath,"index.html"));}});
 if(!builder.Configuration.GetValue<bool>("Database:SkipInitialize"))await Bootstrap.Initialize(app.Services,app.Configuration);
 app.Run();

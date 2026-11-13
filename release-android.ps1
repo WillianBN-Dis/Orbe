@@ -1,4 +1,4 @@
-param([string]$Version='2.0.3', [int]$VersionCode=20016, [string]$OutputName='')
+param([string]$Version='2.0.4', [int]$VersionCode=20017, [string]$OutputName='', [string]$FirebaseConfig='')
 $ErrorActionPreference='Stop'
 if($Version -notmatch '^\d+\.\d+\.\d+$' -or $VersionCode -lt 1){throw 'Informe versão semântica e código Android positivo.'}
 if(!$OutputName){$OutputName="Orbe-$Version-build$VersionCode.apk"}
@@ -8,6 +8,8 @@ if(!(Test-Path -LiteralPath $dotnet)){$dotnet=(Get-Command dotnet -ErrorAction S
 $java=Join-Path $env:LOCALAPPDATA 'AgendaDev\jdk'
 $sdk=Join-Path $env:LOCALAPPDATA 'AgendaDev\android-sdk'
 $signing=Join-Path $env:LOCALAPPDATA 'OrbeDev\signing'
+$firebaseArgs=@()
+if($FirebaseConfig){$firebaseArgs=@("-p:OrbeFirebaseConfig=$((Resolve-Path -LiteralPath $FirebaseConfig).Path)")}
 New-Item -ItemType Directory -Force $signing | Out-Null
 $key=Join-Path $signing 'orbe-release.keystore';$protected=Join-Path $signing 'password.dpapi'
 try {
@@ -24,11 +26,11 @@ try {
  }
  Push-Location $PSScriptRoot
  try {
-  & $dotnet restore src/Agenda.App -p:AgendaTargetFramework=net10.0-android "-p:AndroidSdkDirectory=$sdk" "-p:JavaSdkDirectory=$java"
+  & $dotnet restore src/Agenda.App -p:AgendaTargetFramework=net10.0-android "-p:AndroidSdkDirectory=$sdk" "-p:JavaSdkDirectory=$java" @firebaseArgs
   if($LASTEXITCODE -ne 0){throw 'Restauração Android falhou.'}
   & $dotnet clean src/Agenda.App -f net10.0-android -p:AgendaTargetFramework=net10.0-android -c Release "-p:AndroidSdkDirectory=$sdk" "-p:JavaSdkDirectory=$java"
   if($LASTEXITCODE -ne 0){throw 'Limpeza Android falhou.'}
-  & $dotnet publish src/Agenda.App -f net10.0-android -p:AgendaTargetFramework=net10.0-android -c Release -p:AndroidPackageFormats=apk -p:EmbedAssembliesIntoApk=true -p:PublishTrimmed=false -p:RunAOTCompilation=false "-p:AndroidSdkDirectory=$sdk" "-p:JavaSdkDirectory=$java" -p:AndroidKeyStore=true "-p:AndroidSigningKeyStore=$key" -p:AndroidSigningKeyAlias=orbe -p:AndroidSigningStorePass=env:ORBE_ANDROID_SIGNING_PASSWORD -p:AndroidSigningKeyPass=env:ORBE_ANDROID_SIGNING_PASSWORD "-p:ApplicationDisplayVersion=$Version" "-p:ApplicationVersion=$VersionCode"
+  & $dotnet publish src/Agenda.App -f net10.0-android -p:AgendaTargetFramework=net10.0-android -c Release -p:AndroidPackageFormats=apk -p:EmbedAssembliesIntoApk=true -p:PublishTrimmed=false -p:RunAOTCompilation=false "-p:AndroidSdkDirectory=$sdk" "-p:JavaSdkDirectory=$java" -p:AndroidKeyStore=true "-p:AndroidSigningKeyStore=$key" -p:AndroidSigningKeyAlias=orbe -p:AndroidSigningStorePass=env:ORBE_ANDROID_SIGNING_PASSWORD -p:AndroidSigningKeyPass=env:ORBE_ANDROID_SIGNING_PASSWORD "-p:ApplicationDisplayVersion=$Version" "-p:ApplicationVersion=$VersionCode" @firebaseArgs
   if($LASTEXITCODE -ne 0){throw 'Publicação Android falhou.'}
   New-Item -ItemType Directory -Force dist | Out-Null
   $apk=Get-ChildItem src/Agenda.App/bin/Release/net10.0-android/publish -Filter '*-Signed.apk' | Select-Object -First 1

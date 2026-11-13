@@ -8,7 +8,12 @@ internal static class CloudSessionStore
  public const string TokenKey="orbe-cloud-token",UrlKey="orbe-cloud-url";
  public static void Show(Page page,Page next){var window=page.Window??Application.Current!.Windows[0];window.Page=App.Navigation(next);}
  public static async Task End(Page page,CloudApi api)
- {try{await api.Post<System.Text.Json.JsonElement>("auth/logout",new{});}catch(CloudException){}finally{SecureStorage.Default.Remove(TokenKey);api.Dispose();Show(page,new LoginPage());}}
+ {
+#if ORBE_FIREBASE
+  await AndroidPush.Disconnect();
+#endif
+  try{await api.Post<System.Text.Json.JsonElement>("auth/logout",new{});}catch(CloudException){}finally{SecureStorage.Default.Remove(TokenKey);api.Dispose();Show(page,new LoginPage());}
+ }
 }
 public sealed partial class LoginPage:ContentPage
 {

@@ -72,6 +72,11 @@ function Package([bool]$DatabaseReady){
  if($PublicWebUrl){$secret.Email=@{PublicUrl=$PublicWebUrl}}
  if($state.TrustedProxyAddresses){$secret.Proxy=@{Addresses=@($state.TrustedProxyAddresses)}}
  if($vault.Smtp){$secret.Smtp=$vault.Smtp}
+ $pushFile=Join-Path $vaultFolder 'firebase-service-account.dpapi'
+ if(Test-Path -LiteralPath $pushFile){
+  $pushSecure=ConvertTo-SecureString ([IO.File]::ReadAllText($pushFile).Trim())
+  $secret.Push=@{ServiceAccountJson=[Net.NetworkCredential]::new('', $pushSecure).Password}
+ }
  $smtpFile=Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'OrbeDev/smtp.dpapi'
  if(Test-Path -LiteralPath $smtpFile){
   $smtpSecure=ConvertTo-SecureString ([IO.File]::ReadAllText($smtpFile).Trim())

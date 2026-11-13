@@ -89,12 +89,48 @@ internal static class ChecksMain
    var address=name+"@example.test";
    await Send(anonymous,HttpMethod.Post,"/api/v1/auth/register",new{fullName=name,email=address,phone="11999990000",birthDate="2000-01-01",password=Password,role="Owner",employeeId=e1},202);
    await Send(anonymous,HttpMethod.Post,"/api/v1/auth/token",new{login=address,password=Password},403);
+   if(name=="cliente1")
+   {
+    using var browser=factory.CreateClient();
+    await Send(browser,HttpMethod.Post,"/api/v1/auth/resend",new{},401);
+    async Task Csrf(){
+     browser.DefaultRequestHeaders.Remove("X-CSRF-TOKEN");
+     browser.DefaultRequestHeaders.Add("X-CSRF-TOKEN",(await Get(browser,"/api/v1/auth/csrf")).GetProperty("token").GetString());
+    }
+    await Csrf();
+    await Send(browser,HttpMethod.Post,"/api/v1/auth/login",new{login=address,password=Password});
+    await Csrf();
+    await Send(browser,HttpMethod.Get,"/api/v1/bookings/mine",expected:403);
+    await Send(browser,HttpMethod.Get,"/api/v1/notifications",expected:403);
+    await Send(browser,HttpMethod.Post,"/api/v1/auth/resend",new{email="other@example.test"});
+    Check(factory.Mail.Items.Last().To==address,"Reenvio autenticado usa somente o e-mail da sessão com acesso restrito");
+   }
    var mail=factory.Mail.Items.Last(x=>x.To==address);var url=new Uri(mail.Body[(mail.Body.IndexOf("http",StringComparison.Ordinal))..]);
    Check(url.Host=="agendaorbe.com.br","Confirmação usa domínio público próprio sem alterar descoberta da API");
    await Send(anonymous,HttpMethod.Post,"/api/v1/auth/confirm"+url.Query,new{});
    var client=await Login(address);var me=await Get(client,"/api/v1/auth/me");Check(me.GetProperty("roles").EnumerateArray().Single().GetString()=="Client","Confirmação de e-mail e papel Client fixado no servidor: "+name);return client;
   }
   var client1=await Client("cliente1");var client2=await Client("cliente2");
+  await Send(owner,HttpMethod.Put,"/api/v1/support",new{whatsApp="5511999990000",email="support@example.test"});
+  await Send(staff1,HttpMethod.Put,"/api/v1/support",new{whatsApp="5511999990001"},403);
+  Check((await Get(client1,"/api/v1/support")).GetProperty("whatsApp").GetString()=="5511999990000","Contato de suporte é compartilhado e somente Owner pode editar");
+  await Send(client1,HttpMethod.Put,"/api/v1/auth/booking-username",new{username="Cliente.QA"});
+  await Send(client2,HttpMethod.Put,"/api/v1/auth/booking-username",new{username="cliente.qa"},409);
+  var lookup=await Get(staff1,$"/api/v1/team/recurring/client?employeeId={e1}&username=CLIENTE.QA");
+  Check(lookup.GetProperty("fullName").GetString()=="cliente1"&&!lookup.TryGetProperty("email",out _),"Busca por usuário único ignora capitalização e protege o e-mail");
+  var recurring=new{seriesId=Guid.NewGuid(),employeeId=e1,title="Série de teste",kind="Atendimento",clientUsername="cliente.qa",
+   notes="Sintético",firstDate="2026-12-02",startTime="10:00:00",endTime="11:00:00",everyWeeks=2,count=3,expectedCents=1000};
+  await Send(staff1,HttpMethod.Post,"/api/v1/team/recurring",recurring);
+  await Send(staff1,HttpMethod.Post,"/api/v1/team/recurring",recurring);
+  var recurringBookings=await Get(client1,"/api/v1/bookings/mine");
+  Check(recurringBookings.EnumerateArray().Count(x=>x.GetProperty("title").GetString()=="Série de teste")==3,"Série quinzenal chega à cliente sem duplicar na repetição");
+  var recurringNotices=await Get(client1,"/api/v1/notifications");
+  Check(recurringNotices.GetProperty("items").EnumerateArray().Any(x=>x.GetProperty("subject").GetString()=="Série de teste"&&x.GetProperty("clientPhone").ValueKind==JsonValueKind.Null),"Cliente recebe a notificação da série sem telefone de terceiros");
+  var staffNotices=await Get(staff1,"/api/v1/notifications");
+  Check(staffNotices.GetProperty("items").EnumerateArray().Any(x=>x.GetProperty("subject").GetString()=="Série de teste"&&x.GetProperty("clientPhone").GetString()=="11999990000"),"Equipe autorizada vê o WhatsApp associado à notificação");
+  await Send(staff1,HttpMethod.Post,"/api/v1/team/recurring",recurring with{seriesId=Guid.NewGuid()},409);
+  foreach(var item in recurringBookings.EnumerateArray())
+   await Send(staff1,HttpMethod.Delete,$"/api/v1/team/appointments/{Id(item)}",Version(item),204);
   await Send(client1,HttpMethod.Put,"/api/v1/owner/connection",new{version=Guid.NewGuid(),apiUrl="http://localhost"},403);Check(true,"Cliente não altera conexão central");
   await Send(client1,HttpMethod.Get,"/api/v1/team/entries",expected:403);await Send(client1,HttpMethod.Get,"/api/v1/owner/employees",expected:403);Check(true,"Cliente não acessa equipe ou financeiro");
   object Reservation(string employee,DateTimeOffset start)=>new{employeeId=employee,serviceId,start};
@@ -206,7 +242,7 @@ internal static class ChecksMain
   foreach(var address in new[]{"preview@example.test","security-missing@example.test"})
   {
    await Send(anonymous,HttpMethod.Post,"/api/v1/auth/register",new{fullName="Cliente Teste",email=address,phone="11999999999",birthDate="2000-01-01",password="short"},400);
-   await Send(anonymous,HttpMethod.Post,"/api/v1/auth/resend",new{email=address},503);
+   await Send(anonymous,HttpMethod.Post,"/api/v1/auth/resend",new{email=address},401);
   }
   Check(true,"Cadastro inválido e reenvio indisponível não revelam se o e-mail existe");
   var previewClient=await Login("preview@example.test");var previewMe=await Get(previewClient,"/api/v1/auth/me");
@@ -234,7 +270,7 @@ internal sealed class OrbeFactory(string connection,int authLimit=1000):WebAppli
  {
   builder.UseEnvironment("Testing");
   builder.UseContentRoot(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../../src/Orbe.Server")));
-  builder.ConfigureAppConfiguration((_,c)=>c.AddInMemoryCollection(new Dictionary<string,string?>{{"ConnectionStrings:Orbe",connection},{"Owner:Email","owner@example.test"},{"Owner:Password","SyntheticPassword123"},{"PublicUrl","http://localhost"},{"Email:PublicUrl","https://agendaorbe.com.br"},{"Limits:AuthPerMinute",authLimit.ToString()}}));
+  builder.ConfigureAppConfiguration((_,c)=>c.AddInMemoryCollection(new Dictionary<string,string?>{{"ConnectionStrings:Orbe",connection},{"Owner:Email","owner@example.test"},{"Owner:Password","SyntheticPassword123"},{"PublicUrl","http://localhost"},{"Email:PublicUrl","https://agendaorbe.com.br"},{"Limits:AuthPerMinute",authLimit.ToString()},{"Limits:GlobalPerMinute","1000"}}));
   builder.ConfigureServices(s=>{s.RemoveAll<TimeProvider>();s.AddSingleton<TimeProvider>(Clock);s.RemoveAll<IEmailDelivery>();s.AddSingleton<IEmailDelivery>(Mail);s.RemoveAll<IConnectionProbe>();s.AddSingleton<IConnectionProbe>(Probe);});
  }
 }

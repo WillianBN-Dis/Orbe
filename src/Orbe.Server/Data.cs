@@ -10,6 +10,7 @@ public static class Roles { public const string Owner="Owner", Staff="Staff", Cl
 public sealed class AppUser : IdentityUser
 {
  public string FullName {get;set;}="";
+ public string? BookingUsername {get;set;}
  public DateOnly? BirthDate {get;set;}
  public bool Active {get;set;}=true;
 }
@@ -55,6 +56,7 @@ public sealed class DayOverride
 }
 public sealed class ScheduleItem
 {
+ public Guid? SeriesId {get;set;}
  public DateTimeOffset? RecordedAt {get;set;}
  public bool PriceFrom {get;set;}
  public string Id {get;set;}=Guid.NewGuid().ToString("N");
@@ -89,6 +91,8 @@ public sealed class BusinessSettings
 {
  public Guid InstanceId {get;set;}=Guid.NewGuid();
  public string? ApiBaseUrl {get;set;}
+ public string? SupportWhatsApp {get;set;}
+ public string? SupportEmail {get;set;}
  public int Id {get;set;}=1;
  public string Name {get;set;}="Orbe";
  public bool ImportCompleted {get;set;}
@@ -140,6 +144,13 @@ public sealed class OrbeDb(DbContextOptions<OrbeDb> options) : IdentityDbContext
  protected override void OnModelCreating(ModelBuilder b)
  {
   base.OnModelCreating(b);
+  b.Entity<PushDevice>().ToTable("PushDevices").HasKey(x=>x.Token);
+  b.Entity<PushDevice>().HasOne<LoginSession>().WithMany().HasForeignKey(x=>x.SessionHash).OnDelete(DeleteBehavior.Cascade);
+  b.Entity<PushReceipt>().ToTable("PushReceipts").HasKey(x=>new{x.Token,x.NoticeId});
+  b.Entity<PushReceipt>().HasOne<PushDevice>().WithMany().HasForeignKey(x=>x.Token).OnDelete(DeleteBehavior.Cascade);
+  b.Entity<PushReceipt>().HasOne<InboxNotification>().WithMany().HasForeignKey(x=>x.NoticeId).OnDelete(DeleteBehavior.Cascade);
+  b.Entity<AppUser>().Property(x=>x.BookingUsername).HasMaxLength(32);
+  b.Entity<AppUser>().HasIndex(x=>x.BookingUsername).IsUnique();
   b.Entity<InboxNotification>().HasIndex(x=>new{x.UserId,x.AppointmentId,x.Kind,x.OccurrenceStart}).IsUnique();
   b.Entity<InboxNotification>().HasIndex(x=>new{x.UserId,x.DeliverAt});
   b.Entity<InboxNotification>().Property(x=>x.Kind).HasMaxLength(16);
@@ -161,6 +172,7 @@ public sealed class OrbeDb(DbContextOptions<OrbeDb> options) : IdentityDbContext
   b.Entity<ScheduleItem>().HasOne<Service>().WithMany().HasForeignKey(x=>x.ServiceId).OnDelete(DeleteBehavior.Restrict);
   b.Entity<ScheduleItem>().HasIndex(x=>new{x.EmployeeId,x.Start,x.End});
   b.Entity<ScheduleItem>().HasIndex(x=>x.ClientId);
+  b.Entity<ScheduleItem>().HasIndex(x=>new{x.EmployeeId,x.SeriesId});
   b.Entity<FinancialEntry>().HasOne(x=>x.Appointment).WithMany().HasForeignKey(x=>x.AppointmentId).OnDelete(DeleteBehavior.Cascade);
   b.Entity<FinancialEntry>().HasOne<Employee>().WithMany().HasForeignKey(x=>x.EmployeeId).OnDelete(DeleteBehavior.Restrict);
   b.Entity<LoginSession>().HasKey(x=>x.TokenHash);

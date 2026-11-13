@@ -54,7 +54,12 @@ public sealed partial class DashboardPage
    if(!string.IsNullOrWhiteSpace(notice.Person))content.Add(Text(notice.Person,13,Muted));
    content.Add(Text($"Atendimento: {client.Local(notice.OccurrenceStart):dd/MM/yyyy 'às' HH:mm}",14,Ink));
    content.Add(Text($"Aviso de {client.Local(notice.DeliverAt):dd/MM/yyyy HH:mm}",11,Dim));
-   var actions=Row(8);if(notice.ReadAt is null)actions.Add(Button("Marcar como lida",()=>Guard(()=>NoticeAction(notice,false))));actions.Add(Button("Excluir",()=>Guard(()=>NoticeAction(notice,true)),quiet:true));content.Add(actions);body.Add(Card(content,20,stroke:notice.ReadAt is null?Violet:Line));
+   var actions=Stack(8);
+   if(WhatsAppUri(notice.ClientPhone,true) is {} whatsapp)
+    actions.Add(Button("WhatsApp da cliente",()=>Guard(async()=>await Launcher.Default.OpenAsync(whatsapp)),quiet:true));
+   if(notice.ReadAt is null)actions.Add(Button("Marcar como lida",()=>Guard(()=>NoticeAction(notice,false))));
+   actions.Add(Button("Excluir",()=>Guard(()=>NoticeAction(notice,true)),quiet:true));
+   content.Add(actions);body.Add(Card(content,20,stroke:notice.ReadAt is null?Violet:Line));
   }
   if(inbox.Items.Length<inbox.Total)body.Add(Button("Carregar mais avisos",async()=>{notificationLimit+=50;await LoadNotifications();}));
  }
