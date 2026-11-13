@@ -49,12 +49,21 @@ public sealed partial class DashboardPage
   if(inbox.Items.Length==0){body.Add(Card(Stack(16,Icon("bell",Violet,40),Text("Tudo em dia por aqui",22,Ink,true),Text("Novos agendamentos e lembretes de 1 dia e 1 hora antes aparecerão aqui.",14,Muted)),28));return;}
   foreach(var notice in inbox.Items)
   {
-   var title=notice.Kind switch{"Day"=>"Lembrete · 1 dia antes","Hour"=>"Lembrete · 1 hora antes",_=>"Agendamento confirmado"};
+   var title=notice.Kind switch{"Day"=>"Lembrete · 1 dia antes","Hour"=>"Lembrete · 1 hora antes","Review"=>"Agendamento fixo precisa ser remarcado",_=>"Agendamento confirmado"};
    var content=Stack(12,Between(Text(title,16,Ink,true),Pill(notice.ReadAt is null?"NOVA":"LIDA",notice.ReadAt is null?Coral:Muted)),Text(notice.Subject,18,Ink,true));
    if(!string.IsNullOrWhiteSpace(notice.Person))content.Add(Text(notice.Person,13,Muted));
    content.Add(Text($"Atendimento: {client.Local(notice.OccurrenceStart):dd/MM/yyyy 'às' HH:mm}",14,Ink));
    content.Add(Text($"Aviso de {client.Local(notice.DeliverAt):dd/MM/yyyy HH:mm}",11,Dim));
    var actions=Stack(8);
+   if(notice.Kind=="Review"&&notice.EmployeeId is {} employee)
+   {
+    actions.Add(Button("Remarcar ocorrência",()=>Guard(async()=>{
+     var scope=new CloudAgendaRepository(client,employee);
+     var pending=await scope.PendingAppointment(notice.AppointmentId);
+     if(pending is null){await LoadNotifications();return;}
+     await OpenAppointment(pending,scope);
+    }),primary:true));
+   }
    if(WhatsAppUri(notice.ClientPhone,true) is {} whatsapp)
     actions.Add(Button("WhatsApp da cliente",()=>Guard(async()=>await Launcher.Default.OpenAsync(whatsapp)),quiet:true));
    if(notice.ReadAt is null)actions.Add(Button("Marcar como lida",()=>Guard(()=>NoticeAction(notice,false))));

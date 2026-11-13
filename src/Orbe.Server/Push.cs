@@ -79,7 +79,7 @@ public sealed class PushWorker(IServiceScopeFactory scopes,IConfiguration config
     var earliest=device.RegisteredAt>now.AddDays(-2)?device.RegisteredAt:now.AddDays(-2);
     var due=await (from n in db.Notifications join a in db.Appointments on n.AppointmentId equals a.Id
      where n.UserId==device.Id&&n.DeliverAt>=earliest&&n.DeliverAt<=now&&n.DeletedAt==null&&n.ReadAt==null&&
-      a.Status=="Confirmed"&&a.Start==n.OccurrenceStart&&(n.Kind=="Booking"||a.Start>now)&&
+      (n.Kind=="Review"?a.Status=="Pending":a.Status=="Confirmed")&&a.Start==n.OccurrenceStart&&(n.Kind=="Booking"||n.Kind=="Review"||a.Start>now)&&
       (device.Owner||db.Employees.Any(e=>e.Id==a.EmployeeId&&e.UserId==device.Id&&e.Enabled))&&
       !db.Set<PushReceipt>().Any(r=>r.Token==device.Token&&r.NoticeId==n.Id)
      orderby n.DeliverAt,n.Id select new{n.Id,n.Kind}).Take(50).ToArrayAsync(cancellation);
@@ -88,7 +88,7 @@ public sealed class PushWorker(IServiceScopeFactory scopes,IConfiguration config
      using var request=new HttpRequestMessage(HttpMethod.Post,endpoint);
      request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",await credential.UnderlyingCredential.GetAccessTokenForRequestAsync(cancellationToken:cancellation));
      request.Content=JsonContent.Create(new{message=new{token=device.Token,
-      notification=new{title="Orbe",body=notice.Kind=="Booking"?"Você tem um novo agendamento.":"Você tem um lembrete de agendamento."},
+      notification=new{title="Orbe",body=notice.Kind switch{"Booking"=>"Você tem um novo agendamento.","Review"=>"Um agendamento fixo precisa ser remarcado.",_=>"Você tem um lembrete de agendamento."}},
       data=new{orbe_notifications="1",notice_id=notice.Id.ToString()},
       android=new{priority="HIGH",notification=new{tag=notice.Id.ToString(),channel_id="orbe-inbox"}}}});
      using var response=await http.SendAsync(request,cancellation);

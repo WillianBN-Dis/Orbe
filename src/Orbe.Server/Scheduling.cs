@@ -17,7 +17,7 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
  private async Task Lock(string employee)=>await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Employees\" WHERE \"Id\"={employee} FOR UPDATE");
  public async Task<BusinessSettings> Settings()=>await db.Settings.SingleAsync();
  private static void Version(Guid expected,Guid actual){if(expected!=actual)throw new ApiError(409,"Os dados mudaram. Atualize antes de continuar.");}
- private async Task<(WeeklyWindow[] Week,DateSchedule[] Days)> Hours(string employee)
+ internal async Task<(WeeklyWindow[] Week,DateSchedule[] Days)> Hours(string employee)
  {
   var weekly=await db.WeekWindows.Where(x=>x.EmployeeId==employee).ToArrayAsync();
   var days=await db.DayOverrides.Where(x=>x.EmployeeId==employee).ToArrayAsync();
@@ -28,7 +28,7 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
   var id=await actor.Employee(employee,true);var person=await db.Employees.SingleAsync(x=>x.Id==id);var hours=await Hours(id);
   return new{employeeId=id,person.Version,weekly=hours.Week,exceptions=hours.Days};
  }
- private static bool Fits(DateTimeOffset start,DateTimeOffset end,BookingPolicy policy,WeeklyWindow[] week,DateSchedule[] days)
+ internal static bool Fits(DateTimeOffset start,DateTimeOffset end,BookingPolicy policy,WeeklyWindow[] week,DateSchedule[] days)
  {
   var zone=TimeZoneInfo.FindSystemTimeZoneById(policy.TimeZoneId);
   var local=TimeZoneInfo.ConvertTime(start,zone).DateTime;var until=TimeZoneInfo.ConvertTime(end,zone).DateTime;
@@ -114,7 +114,7 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
  public async Task<ScheduleItem> Accessible(string id,bool teamOnly=false)
  {
   var item=await db.Appointments.SingleOrDefaultAsync(x=>x.Id==id)??throw new ApiError(404,"Agendamento não encontrado.");
-  if(actor.Client&&!teamOnly){if(item.ClientId!=actor.Id)throw new ApiError(404,"Agendamento não encontrado.");}
+  if(actor.Client&&!teamOnly){if(item.ClientId!=actor.Id||item.Status=="Pending")throw new ApiError(404,"Agendamento não encontrado.");}
   else{actor.RequireTeam();if(!actor.Owner)await actor.Employee(item.EmployeeId??"unassigned");}
   return item;
  }

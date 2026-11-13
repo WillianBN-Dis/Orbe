@@ -131,6 +131,23 @@ internal static class ChecksMain
   await Send(staff1,HttpMethod.Post,"/api/v1/team/recurring",recurring with{seriesId=Guid.NewGuid()},409);
   foreach(var item in recurringBookings.EnumerateArray())
    await Send(staff1,HttpMethod.Delete,$"/api/v1/team/appointments/{Id(item)}",Version(item),204);
+  var daily=await Send(staff1,HttpMethod.Post,"/api/v1/team/recurring",new{
+   recurring.employeeId,recurring.title,recurring.kind,recurring.clientUsername,recurring.notes,recurring.startTime,recurring.endTime,
+   recurring.expectedCents,seriesId=Guid.NewGuid(),firstDate="2026-12-07",everyDays=15,count=2,notifyUnavailable=true});
+  Check(daily.GetProperty("pending").GetInt32()==1,"Intervalo de 15 dias coloca a terça fora da jornada em revisão");
+  var review=(await Get(staff1,"/api/v1/notifications")).GetProperty("items").EnumerateArray().Single(x=>x.GetProperty("kind").GetString()=="Review");
+  var pendingId=review.GetProperty("appointmentId").GetString();
+  Check(review.GetProperty("occurrenceStart").GetDateTimeOffset()==new DateTimeOffset(2026,12,22,13,0,0,TimeSpan.Zero),"A ocorrência mantém o horário local após 15 dias");
+  Check(!(await Get(client1,"/api/v1/bookings/mine")).EnumerateArray().Any(x=>Id(x)==pendingId),"Cliente só vê a ocorrência depois da remarcação");
+  var pendingOccurrence=(await Get(staff1,"/api/v1/team/appointments")).EnumerateArray().Single(x=>Id(x)==pendingId);
+  var move=new{recurring.employeeId,recurring.title,recurring.notes,recurring.expectedCents,
+   version=pendingOccurrence.GetProperty("version").GetGuid(),clientId=pendingOccurrence.GetProperty("clientId").GetString(),
+   start="2026-12-21T13:00:00Z",end="2026-12-21T14:00:00Z"};
+  await Send(staff1,HttpMethod.Put,$"/api/v1/team/appointments/{pendingId}",move with{start="2026-12-22T13:00:00Z",end="2026-12-22T14:00:00Z"},409);
+  await Send(staff1,HttpMethod.Put,$"/api/v1/team/appointments/{pendingId}",move);
+  Check((await Get(client1,"/api/v1/bookings/mine")).EnumerateArray().Any(x=>Id(x)==pendingId&&x.GetProperty("status").GetString()=="Confirmed"),"Remarcação dentro da jornada confirma a ocorrência para a cliente");
+  foreach(var item in (await Get(client1,"/api/v1/bookings/mine")).EnumerateArray())
+   await Send(staff1,HttpMethod.Delete,$"/api/v1/team/appointments/{Id(item)}",Version(item),204);
   await Send(client1,HttpMethod.Put,"/api/v1/owner/connection",new{version=Guid.NewGuid(),apiUrl="http://localhost"},403);Check(true,"Cliente não altera conexão central");
   await Send(client1,HttpMethod.Get,"/api/v1/team/entries",expected:403);await Send(client1,HttpMethod.Get,"/api/v1/owner/employees",expected:403);Check(true,"Cliente não acessa equipe ou financeiro");
   object Reservation(string employee,DateTimeOffset start)=>new{employeeId=employee,serviceId,start};

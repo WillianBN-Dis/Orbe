@@ -5,10 +5,11 @@ namespace Agenda.App;
 
 public sealed partial class DashboardPage
 {
-    private Task OpenAppointment(Stored<Appointment>? original=null)
+    private Task OpenAppointment(Stored<Appointment>? original=null,CloudAgendaRepository? reviewRepository=null)
     {
-        if(repository is null||repository.EmployeeId is null)return NeedConnection();
-        if(original is null&&people.Any(x=>x.Id==repository.EmployeeId&&!x.Enabled))return DisplayAlertAsync("Profissional inativo","Você pode consultar e ajustar o histórico. Reative o profissional antes de criar novos atendimentos.","Entendi");
+        var destination=reviewRepository??repository;
+        if(destination is null||destination.EmployeeId is null)return NeedConnection();
+        if(original is null&&people.Any(x=>x.Id==destination.EmployeeId&&!x.Enabled))return DisplayAlertAsync("Profissional inativo","Você pode consultar e ajustar o histórico. Reative o profissional antes de criar novos atendimentos.","Entendi");
         var a=original?.Value;var eventId=a?.Id??Guid.NewGuid().ToString("N");
         var title=Input("Ex.: Atendimento individual",a?.Title);var person=Input("Nome da pessoa ou cliente",a?.Client);
         var notes=new Editor{Text=a?.Notes,Placeholder="Algum detalhe importante para este compromisso?",AutoSize=EditorAutoSizeOption.TextChanges,MinimumHeightRequest=90,TextColor=Ink,PlaceholderColor=Dim,FontSize=14};
@@ -26,14 +27,13 @@ public sealed partial class DashboardPage
             Text("Quando acontece?",18,Ink,true),Columns(!compact,Field("Data de início",from),Field("Horário de início",fromTime)),
             Columns(!compact,Field("Data de término",until),Field("Horário de término",untilTime)),Rule(),
             Field("Valor previsto · R$",amount,"Previsão para este evento. O recebimento é registrado separadamente."),Field("Observações · opcional",notes)};
-        return OpenForm(a is null?"Novo agendamento":"Editar agendamento","Reserve um momento na sua rotina.","calendar",fields,async()=>
+        return OpenForm(reviewRepository is not null?"Remarcar ocorrência":a is null?"Novo agendamento":"Editar agendamento","Reserve um momento na sua rotina.","calendar",fields,async()=>
         {
-            if(repository is null){await NeedConnection();return false;}
             var value=new Appointment(eventId,title.Text??"",(EventKind)kind.SelectedIndex,(from.Date??DateTime.Today).Date+(fromTime.Time??TimeSpan.Zero),
                 (until.Date??DateTime.Today).Date+(untilTime.Time??TimeSpan.Zero),person.Text,notes.Text,Finance.ParseCents(amount.Text??"0"));value.Validate();
-            if(appointments.Any(x=>x.Value.Id!=value.Id&&x.Value.Start<value.End&&x.Value.End>value.Start)&&
+            if(reviewRepository is null&&appointments.Any(x=>x.Value.Id!=value.Id&&x.Value.Start<value.End&&x.Value.End>value.Start)&&
                 !await DisplayAlertAsync("Já existe um evento neste horário","Você pode manter os dois compromissos. Deseja salvar mesmo assim?","Salvar mesmo assim","Revisar horário"))return false;
-            await repository.Save(value,original?.Snapshot);return true;
+            await destination.Save(value,original?.Snapshot);return true;
         });
     }
     private Task OpenEntry(Appointment? appointment=null)

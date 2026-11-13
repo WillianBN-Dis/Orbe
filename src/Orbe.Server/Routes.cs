@@ -54,11 +54,21 @@ public static class Routes
   team.MapPut("/appointments/{id}",async(string id,TeamAppointmentInput input,Actor actor,OrbeDb db,Scheduling s,TimeProvider clock)=>
   {
    var item=await s.Accessible(id,true);Text(input.Title,200,"o título");
-   if(item.Kind!="Atendimento"||item.Status!="Confirmed"||item.EmployeeId!=await actor.Employee(input.EmployeeId,true)||input.End<=input.Start||input.End-input.Start>TimeSpan.FromDays(1)||input.ExpectedCents<0||input.Version!=item.Version||input.ClientId!=item.ClientId)throw new ApiError(409,"Atualize o agendamento antes de editar. Funcionário e conta da cliente são preservados.");
-   await using var tx=await db.Database.BeginTransactionAsync();await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Employees\" WHERE \"Id\"={item.EmployeeId} FOR UPDATE");await db.Entry(item).ReloadAsync();if(input.Version!=item.Version)throw new ApiError(409,"Agendamento alterado por outra sessão.");
+   if(item.Kind!="Atendimento"||item.Status is not ("Confirmed" or "Pending")||item.EmployeeId!=await actor.Employee(input.EmployeeId,true)||input.End<=input.Start||input.End-input.Start>TimeSpan.FromDays(1)||input.ExpectedCents<0||input.Version!=item.Version||input.ClientId!=item.ClientId)throw new ApiError(409,"Atualize o agendamento antes de editar. Funcionário e conta da cliente são preservados.");
+   await using var tx=await db.Database.BeginTransactionAsync();
+   if(item.ClientId is not null)await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"AspNetUsers\" WHERE \"Id\"={item.ClientId} FOR UPDATE");
+   await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Employees\" WHERE \"Id\"={item.EmployeeId} FOR UPDATE");await db.Entry(item).ReloadAsync();if(input.Version!=item.Version)throw new ApiError(409,"Agendamento alterado por outra sessão.");
+   if(item.Status=="Pending")
+   {
+    var hours=await s.Hours(item.EmployeeId!);
+    if(input.Start<=clock.GetUtcNow()||!Scheduling.Fits(input.Start,input.End,(await s.Settings()).Policy(),hours.Week,hours.Days)||
+       await db.Appointments.AnyAsync(x=>x.Id!=id&&x.Status=="Confirmed"&&(x.EmployeeId==item.EmployeeId||item.ClientId!=null&&x.ClientId==item.ClientId)&&x.Start<input.End&&x.End>input.Start))
+     throw new ApiError(409,"Escolha um horário futuro, livre e dentro da jornada.");
+    item.Status="Confirmed";item.RecordedAt=clock.GetUtcNow();
+   }
    if(item.Start!=input.Start)item.RecordedAt=clock.GetUtcNow();item.Title=input.Title.Trim();item.Start=input.Start.ToUniversalTime();item.End=input.End.ToUniversalTime();item.Notes=input.Notes;item.LegacyClient=input.LegacyClient;item.ExpectedCents=input.ExpectedCents;item.DurationMinutes=(int)(input.End-input.Start).TotalMinutes;item.Version=Guid.NewGuid();await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(item);
   });
-  api.MapGet("/bookings/mine",async(Actor actor,OrbeDb db,int? offset)=>{if(!actor.Client)throw new ApiError(403,"Acesso para clientes.");return Results.Ok(await db.Appointments.Where(x=>x.ClientId==actor.Id).OrderByDescending(x=>x.Start).ThenBy(x=>x.Id).Skip(Math.Max(0,offset??0)).Take(100).Select(x=>new{x.Id,x.Title,x.Status,x.Start,x.End,x.ExpectedCents,x.PriceFrom,x.Version,x.ServiceId,x.EmployeeId,employeeName=db.Employees.Where(e=>e.Id==x.EmployeeId).Select(e=>e.DisplayName).FirstOrDefault()}).ToArrayAsync());}).RequireAuthorization();
+  api.MapGet("/bookings/mine",async(Actor actor,OrbeDb db,int? offset)=>{if(!actor.Client)throw new ApiError(403,"Acesso para clientes.");return Results.Ok(await db.Appointments.Where(x=>x.ClientId==actor.Id&&x.Status!="Pending").OrderByDescending(x=>x.Start).ThenBy(x=>x.Id).Skip(Math.Max(0,offset??0)).Take(100).Select(x=>new{x.Id,x.Title,x.Status,x.Start,x.End,x.ExpectedCents,x.PriceFrom,x.Version,x.ServiceId,x.EmployeeId,employeeName=db.Employees.Where(e=>e.Id==x.EmployeeId).Select(e=>e.DisplayName).FirstOrDefault()}).ToArrayAsync());}).RequireAuthorization();
   api.MapPost("/bookings",async(ReservationInput input,HttpContext c,Scheduling s)=>Results.Ok(await s.Reserve(input,c.Request.Headers["Idempotency-Key"].ToString()))).RequireAuthorization();
   api.MapPost("/bookings/{id}/cancel",async(string id,[FromBody] VersionInput input,Scheduling s)=>{await s.Cancel(id,input);return Results.NoContent();}).RequireAuthorization();
   api.MapPost("/bookings/{id}/move",async(string id,MoveInput input,Scheduling s)=>Results.Ok(await s.Move(id,input))).RequireAuthorization();

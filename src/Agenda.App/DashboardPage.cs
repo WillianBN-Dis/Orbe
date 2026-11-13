@@ -188,6 +188,6 @@ public sealed partial class DashboardPage : ContentPage
     {
         if(repository is null)return;var nextAppointments=await repository.Appointments();var nextEntries=await repository.Entries();appointments=nextAppointments;entries=nextEntries;dataLoaded=true;connectionProblem=false;status.Text=$"Atualizado às {client.Local(DateTimeOffset.UtcNow):HH:mm}";
     }
-    private Task Refresh()=>Guard(async()=>{await Reload();BuildShell();});
+    private Task Refresh()=>Guard(async()=>{await Reload();await LoadNotifications(false);BuildShell();});
     private Task NeedConnection()=>DisplayAlertAsync("Escolha um profissional","Na seção Conta, selecione o profissional cuja agenda deseja organizar.","Entendi");
 }
