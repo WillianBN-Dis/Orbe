@@ -1,7 +1,7 @@
 {
-  "version": "2.0.4",
-  "build": 20017,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.4/Orbe-Setup-2.0.4.exe",
-  "sha256": "7e48dd5585b82f8028ba0472679bcd489619a197f05dfba1a77d13425fa0c712",
-  "notes": "Agendamentos fixos, suporte e confirmação de e-mail em Minha conta."
+  "version": "2.0.5",
+  "build": 20018,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.5/Orbe-Setup-2.0.5.exe",
+  "sha256": "af739fa0982eda405c710f6cc50285a2b82610586dbc072331f2f6fa7041d7d3",
+  "notes": "Agendamentos fixos a cada N dias e avisos para remarcar horários indisponíveis."
 }
