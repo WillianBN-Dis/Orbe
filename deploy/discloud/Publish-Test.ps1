@@ -77,7 +77,8 @@ function Package([bool]$DatabaseReady){
   $pushSecure=ConvertTo-SecureString ([IO.File]::ReadAllText($pushFile).Trim())
   $secret.Push=@{ServiceAccountJson=[Net.NetworkCredential]::new('', $pushSecure).Password}
  }
- $smtpFile=Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'OrbeDev/smtp.dpapi'
+ $smtpFile=Join-Path $vaultFolder 'smtp.dpapi'
+ if(!(Test-Path -LiteralPath $smtpFile)){$smtpFile=Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'OrbeDev/smtp.dpapi'}
  if(Test-Path -LiteralPath $smtpFile){
   $smtpSecure=ConvertTo-SecureString ([IO.File]::ReadAllText($smtpFile).Trim())
   $secret.Smtp=[Net.NetworkCredential]::new('', $smtpSecure).Password | ConvertFrom-Json
