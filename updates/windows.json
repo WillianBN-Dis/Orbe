@@ -1,7 +1,7 @@
 {
-  "version": "2.0.3",
-  "build": 20016,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.3/Orbe-Setup-2.0.3.exe",
-  "sha256": "fd1706ef293375c57fce6f3be1f542f90293e273b5092f19c06b5b84315bca3d",
-  "notes": "Orbe 2.0.3: confirmação e recuperação por e-mail, consulta automática de atualizações ao abrir e atualização manual no login e em Conta."
+  "version": "2.0.4",
+  "build": 20017,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.4/Orbe-Setup-2.0.4.exe",
+  "sha256": "7e48dd5585b82f8028ba0472679bcd489619a197f05dfba1a77d13425fa0c712",
+  "notes": "Agendamentos fixos, suporte e confirmação de e-mail em Minha conta."
 }
