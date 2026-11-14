@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Orbe.Server;
 public sealed record EmployeeInput(string UserName,string Email,string FullName,string Password);
-public sealed record EmployeeChange(Guid Version,string DisplayName,bool Enabled,string[] Services);
+public sealed record EmployeeChange(Guid Version,string DisplayName,bool Enabled,string[]? Services=null);
 public sealed record ServiceInput(string Name,int DurationMinutes,long PriceCents,bool Enabled,Guid? Version,bool? PriceFrom=null,string? CategoryId=null);
 public sealed record PolicyInput(Guid Version,string Name,bool ImportCompleted,bool PublicBookingOpen,int SlotMinutes,int LeadMinutes,int HorizonDays,int CancellationHours,string TimeZoneId);
 public sealed record ResetStaffInput(string Password);
@@ -121,13 +121,13 @@ public static class Routes
   });
   owner.MapPut("/employees/{id}",async(string id,EmployeeChange input,Actor actor,UserManager<AppUser> users,OrbeDb db)=>
   {
-   Text(input.DisplayName,150,"o nome");if(input.Services is null||input.Services.Length>200||input.Services.Distinct().Count()!=input.Services.Length)throw new ApiError(400,"Lista de serviços inválida.");
+   Text(input.DisplayName,150,"o nome");if(input.Services is {} requested&&(requested.Length>200||requested.Distinct().Count()!=requested.Length))throw new ApiError(400,"Lista de serviços inválida.");
    await using var tx=await db.Database.BeginTransactionAsync();await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Employees\" WHERE \"Id\"={id} FOR UPDATE");
    var employee=await db.Employees.SingleOrDefaultAsync(x=>x.Id==id)??throw new ApiError(404,"Funcionário não encontrado.");if(employee.Version!=input.Version)throw new ApiError(409,"Funcionário alterado. Atualize a lista.");
-   if(await db.Services.CountAsync(x=>input.Services.Contains(x.Id))!=input.Services.Length)throw new ApiError(400,"Serviço inválido.");
+   if(input.Services is {} ids&&await db.Services.CountAsync(x=>ids.Contains(x.Id))!=ids.Length)throw new ApiError(400,"Serviço inválido.");
    employee.DisplayName=input.DisplayName.Trim();employee.Enabled=input.Enabled;employee.Version=Guid.NewGuid();
    if(employee.Administrator&&!input.Enabled)throw new ApiError(409,"O administrador da empresa precisa permanecer ativo.");
-   var linked=await db.EmployeeServices.Where(x=>x.EmployeeId==id).ToArrayAsync();db.EmployeeServices.RemoveRange(linked.Where(x=>!input.Services.Contains(x.ServiceId)));db.EmployeeServices.AddRange(input.Services.Except(linked.Select(x=>x.ServiceId)).Select(s=>new EmployeeService{EmployeeId=id,ServiceId=s}));await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(new{employee.Id,employee.Version});
+   if(input.Services is {} services){var linked=await db.EmployeeServices.Where(x=>x.EmployeeId==id).ToArrayAsync();db.EmployeeServices.RemoveRange(linked.Where(x=>!services.Contains(x.ServiceId)));db.EmployeeServices.AddRange(services.Except(linked.Select(x=>x.ServiceId)).Select(s=>new EmployeeService{EmployeeId=id,ServiceId=s}));}await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(new{employee.Id,employee.Version});
   });
   owner.MapPost("/employees/{id}/password",async(string id,ResetStaffInput input,OrbeDb db,UserManager<AppUser> users)=>{if(db.BusinessId!=1)throw new ApiError(403,"A senha pertence à conta pessoal.");var employee=await db.Employees.SingleOrDefaultAsync(x=>x.Id==id)??throw new ApiError(404,"Funcionário não encontrado.");var user=(await users.FindByIdAsync(employee.UserId))!;if(await users.IsInRoleAsync(user,Roles.Owner)||await db.Employees.IgnoreQueryFilters().AnyAsync(e=>e.UserId==user.Id&&e.BusinessId!=1))throw new ApiError(403,"Use a recuperação de senha da própria conta.");AuthService.Check(await users.ResetPasswordAsync(user,await users.GeneratePasswordResetTokenAsync(user),input.Password));return Results.Ok(new{message="Senha redefinida; sessões anteriores encerradas."});});
   owner.MapGet("/services",async(OrbeDb db)=>Results.Ok(await db.Services.OrderBy(x=>x.Name).ToArrayAsync()));

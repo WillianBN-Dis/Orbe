@@ -71,16 +71,20 @@ public static class Businesses
    var b=new BusinessSettings{Id=0,Name=input.Name.Trim(),Slug=slug,ImportCompleted=true};
    db.Settings.Add(b);await db.SaveChangesAsync();
    db.BusinessId=b.Id;
-   db.Employees.Add(new(){UserId=owner.Id,DisplayName=owner.FullName,Administrator=true});
+   var administrator=new Employee{UserId=owner.Id,DisplayName=owner.FullName,Administrator=true};
+   db.Employees.Add(administrator);
+   await MembershipCatalog.Copy(db,administrator,b.Id);
    await db.SaveChangesAsync();await tx.CommitAsync();
    return Results.Ok(new{b.Name,b.Slug});
   }).RequireAuthorization();
   api.MapPost("/owner/memberships",async(MembershipInput input,OrbeDb db,UserManager<AppUser> users)=>{
    var user=await users.FindByNameAsync(input.Username)??await users.FindByEmailAsync(input.Username);
    if(user is null||!user.Active||!user.EmailConfirmed)throw new ApiError(400,"Selecione uma conta ativa e confirmada.");
+   await using var tx=await db.Database.BeginTransactionAsync();
+   await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Settings\" WHERE \"Id\"={db.BusinessId} FOR UPDATE");
    if(await db.Employees.AnyAsync(x=>x.UserId==user.Id))throw new ApiError(409,"A conta já faz parte da empresa.");
    var employee=new Employee{UserId=user.Id,DisplayName=user.FullName,Administrator=input.Administrator&&db.BusinessId!=1};
-   db.Employees.Add(employee);await db.SaveChangesAsync();
+   db.Employees.Add(employee);await MembershipCatalog.Copy(db,employee,db.BusinessId);await db.SaveChangesAsync();await tx.CommitAsync();
    return Results.Ok(new{employee.Id,employee.DisplayName});
   }).RequireAuthorization(p=>p.RequireRole(Roles.Owner));
  }

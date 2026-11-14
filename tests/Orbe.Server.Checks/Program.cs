@@ -117,12 +117,16 @@ internal static class ChecksMain
   var secondEmployees=await Get(staff1,"/api/v1/owner/employees");
   var secondEmployee=Id(secondEmployees.EnumerateArray().Single());
   Check(secondEmployee!=e1,"A mesma conta tem um vínculo independente na segunda empresa");
+  var inherited=await Get(staff1,"/api/v1/public/services?employeeId="+secondEmployee);
+  Check(inherited.GetArrayLength()==1&&Id(inherited[0])!=serviceId,"Novo vínculo copia o catálogo para a empresa com IDs próprios");
+  await Send(staff1,HttpMethod.Put,$"/api/v1/owner/employees/{secondEmployee}",new{displayName="Profissional Um QA",enabled=true,version=secondEmployees[0].GetProperty("version").GetGuid()});
+  Check((await Get(staff1,"/api/v1/team/services?employeeId="+secondEmployee)).GetArrayLength()==1,"Editar profissional sem a lista preserva o catálogo");
   await Send(staff1,HttpMethod.Get,"/api/v1/team/hours?employeeId="+e1,expected:400);
   await Send(staff1,HttpMethod.Get,"/api/v1/owner/connection",expected:404);
   var category=await Send(staff1,HttpMethod.Post,"/api/v1/team/categories",new{name="Cabelo"});
   var secondaryService=await Send(staff1,HttpMethod.Post,"/api/v1/team/services?employeeId="+secondEmployee,new{name="Corte QA",durationMinutes=30,priceCents=2000,enabled=true,categoryId=Id(category)});
   var secondCatalog=await Get(staff1,"/api/v1/public/services?employeeId="+secondEmployee);
-  Check(secondCatalog.EnumerateArray().Single().GetProperty("categoryName").GetString()=="Cabelo","Catálogo público usa a categoria da empresa selecionada");
+  Check(secondCatalog.EnumerateArray().Single(x=>Id(x)==Id(secondaryService)).GetProperty("categoryName").GetString()=="Cabelo","Catálogo público usa a categoria da empresa selecionada");
   staff1.DefaultRequestHeaders.Remove("X-Orbe-Business");
   await Send(staff1,HttpMethod.Post,"/api/v1/team/services?employeeId="+e1,new{name="Inválido",durationMinutes=30,priceCents=100,enabled=true,categoryId=Id(category)},400);
   Check(!(await Get(anonymous,"/api/v1/public/employees")).EnumerateArray().Any(x=>Id(x)==secondEmployee),"Equipe de outra empresa fica fora do catálogo padrão");

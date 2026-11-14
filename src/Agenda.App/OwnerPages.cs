@@ -10,7 +10,7 @@ internal static partial class AccountPages
   var page=new CloudFormPage(api,"Equipe e acessos"){ReloadOnReturn=true};
   page.Load=async()=>
   {
-   var rows=await api.Get<JsonElement>("owner/employees");var me=await api.Me();page.Fields.Clear();page.Fields.Add(Text("Sua equipe, seus acessos",24,Ink,true));page.Fields.Add(Text("O administrador da empresa cria acessos e atribui serviços. Cada profissional configura a própria disponibilidade.",13,Muted));page.Fields.Add(Button("+ Funcionário",async()=>await page.Navigation.PushAsync(NewEmployee(api)),primary:true));
+   var rows=await api.Get<JsonElement>("owner/employees");var me=await api.Me();page.Fields.Clear();page.Fields.Add(Text("Sua equipe, seus acessos",24,Ink,true));page.Fields.Add(Text("O administrador da empresa gerencia os acessos. Cada profissional configura a própria disponibilidade.",13,Muted));page.Fields.Add(Button("+ Funcionário",async()=>await page.Navigation.PushAsync(NewEmployee(api)),primary:true));
    page.Fields.Add(Button("Adicionar conta existente",()=>page.Run(async()=>{
     var username=await page.DisplayPromptAsync("Adicionar profissional","Informe o usuário ou e-mail da conta confirmada.");
     if(string.IsNullOrWhiteSpace(username))return;
@@ -30,10 +30,9 @@ internal static partial class AccountPages
  {
   var page=new CloudFormPage(api,"Configurar profissional");page.Load=async()=>
   {
-   var catalog=await api.Get<JsonElement>("owner/services");var assigned=person.GetProperty("services").EnumerateArray().Select(x=>x.GetString()).ToHashSet();Entry name=Input("Nome público",S(person,"displayName"));var enabled=new Switch{IsToggled=B(person,"enabled")};var checks=new List<(string Id,CheckBox Check)>();
-   page.Fields.Add(Stack(14,Text(S(person,"userName"),23,Ink,true),Field("Nome exibido às clientes",name),Between(Text("Profissional ativo",13,Muted),enabled),Text("Serviços que realiza",18,Ink,true)));
-   foreach(var service in catalog.EnumerateArray()){var check=new CheckBox{IsChecked=assigned.Contains(S(service,"id")),Color=Violet};checks.Add((S(service,"id"),check));page.Fields.Add(Row(10,check,Text(S(service,"name"),13,Ink)));}
-   page.Fields.Add(Text("Desativar o acesso não cancela reservas existentes. Confira a agenda antes de reorganizar os atendimentos.",12,Muted));page.Fields.Add(Button("Salvar profissional",()=>page.Run(async()=>{await api.Put<JsonElement>("owner/employees/"+S(person,"id"),new{version=S(person,"version"),displayName=Required(name,"o nome"),enabled=enabled.IsToggled,services=checks.Where(x=>x.Check.IsChecked).Select(x=>x.Id).ToArray()});await Back(page);}),primary:true));
+   Entry name=Input("Nome público",S(person,"displayName"));var enabled=new Switch{IsToggled=B(person,"enabled")};
+   page.Fields.Add(Stack(14,Text(S(person,"userName"),23,Ink,true),Field("Nome exibido às clientes",name),Between(Text("Profissional ativo",13,Muted),enabled)));
+   page.Fields.Add(Text("Desativar o acesso não cancela reservas existentes. Confira a agenda antes de reorganizar os atendimentos.",12,Muted));page.Fields.Add(Button("Salvar profissional",()=>page.Run(async()=>{await api.Put<JsonElement>("owner/employees/"+S(person,"id"),new{version=S(person,"version"),displayName=Required(name,"o nome"),enabled=enabled.IsToggled});await Back(page);}),primary:true));
    if((api.Business is null or "orbe")&&S(person,"userName")!="WillianBN")page.Fields.Add(Button("Redefinir senha",async()=>await page.Navigation.PushAsync(ResetEmployee(api,S(person,"id")))));
   };return page;
  }
