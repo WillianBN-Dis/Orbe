@@ -1,7 +1,7 @@
 {
-  "version": "2.0.5",
-  "build": 20018,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.5/Orbe-2.0.5.apk",
-  "sha256": "988f11e31a2a3cc5859fc8298a23a6d9c467824d05e765e64a4f2c5e09afc112",
-  "notes": "Agendamentos fixos a cada N dias e avisos para remarcar horários indisponíveis."
+  "version": "2.0.6",
+  "build": 20019,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.6/Orbe-2.0.6.apk",
+  "sha256": "1dff6355cc741fb44f76419d0342401af1f23f3ff1789ac6e3981fff7f70ff23",
+  "notes": "Link e busca por empresa, categorias de serviços, filtro de agendamentos e aviso de cancelamento à profissional."
 }

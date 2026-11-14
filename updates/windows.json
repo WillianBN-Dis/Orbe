@@ -1,7 +1,7 @@
 {
-  "version": "2.0.5",
-  "build": 20018,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.5/Orbe-Setup-2.0.5.exe",
-  "sha256": "af739fa0982eda405c710f6cc50285a2b82610586dbc072331f2f6fa7041d7d3",
-  "notes": "Agendamentos fixos a cada N dias e avisos para remarcar horários indisponíveis."
+  "version": "2.0.6",
+  "build": 20019,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.6/Orbe-Setup-2.0.6.exe",
+  "sha256": "8c6ea2248a9f1e54ee912c14defbbd81c4bb6fded248cf2ef20f89b5814ddc22",
+  "notes": "Link e busca por empresa, categorias de serviços, filtro de agendamentos e aviso de cancelamento à profissional."
 }
