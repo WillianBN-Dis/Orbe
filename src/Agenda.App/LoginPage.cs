@@ -15,6 +15,7 @@ internal static class CloudSessionStore
   try{await api.Post<System.Text.Json.JsonElement>("auth/logout",new{});}catch(CloudException){}finally{SecureStorage.Default.Remove(TokenKey);api.Dispose();Show(page,new LoginPage());}
  }
 }
+internal sealed record CloudBusiness(string Slug,string Name);
 public sealed partial class LoginPage:ContentPage
 {
  private readonly Entry user=Input("Seu usuário ou e-mail"),password=Input("Sua senha");
@@ -95,6 +96,10 @@ public sealed partial class LoginPage:ContentPage
    if(restore){api.AccessToken=token;profile=await api.Me();}
    else{var session=await api.Login(user.Text!.Trim(),password.Text!);api.AccessToken=session.AccessToken;profile=session.Profile;password.Text="";}
    if(!profile.Team){await api.Post<System.Text.Json.JsonElement>("auth/logout",new{});SecureStorage.Default.Remove(CloudSessionStore.TokenKey);message.Text="Sua conta é de cliente. Use Entrar como cliente para acessar o site.";return;}
+   var companies=await api.Get<CloudBusiness[]>("businesses/mine");
+   var previous=Preferences.Default.Get("orbe-business-"+profile.Id,"");
+   var company=companies.FirstOrDefault(x=>x.Slug==previous)??companies.FirstOrDefault(x=>x.Slug=="orbe")??companies.FirstOrDefault();
+   if(company is not null){api.Business=company.Slug;profile=await api.Me();}
    await api.ConfigureZone();await SecureStorage.Default.SetAsync(CloudSessionStore.TokenKey,api.AccessToken!);Preferences.Default.Set(CloudSessionStore.UrlKey,api.BaseUrl);
    CloudSessionStore.Show(this,new DashboardPage(api,profile));api=null;
   }

@@ -313,6 +313,10 @@ namespace Orbe.Server.Migrations
                     b.Property<int>("SlotMinutes")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("SupportEmail")
                         .HasColumnType("text");
 
@@ -328,6 +332,9 @@ namespace Orbe.Server.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
 
                     b.ToTable("Settings");
                 });
@@ -354,6 +361,12 @@ namespace Orbe.Server.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("text");
 
+                    b.Property<bool>("Administrator")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("BusinessId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasColumnType("text");
@@ -371,7 +384,9 @@ namespace Orbe.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId")
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("BusinessId", "UserId")
                         .IsUnique();
 
                     b.ToTable("Employees");
@@ -383,6 +398,9 @@ namespace Orbe.Server.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("ServiceId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CategoryId")
                         .HasColumnType("text");
 
                     b.Property<int?>("DurationMinutes")
@@ -408,6 +426,8 @@ namespace Orbe.Server.Migrations
 
                     b.HasKey("EmployeeId", "ServiceId");
 
+                    b.HasIndex("CategoryId");
+
                     b.HasIndex("ServiceId");
 
                     b.ToTable("EmployeeServices");
@@ -420,6 +440,9 @@ namespace Orbe.Server.Migrations
 
                     b.Property<string>("AppointmentId")
                         .HasColumnType("text");
+
+                    b.Property<int>("BusinessId")
+                        .HasColumnType("integer");
 
                     b.Property<long>("Cents")
                         .HasColumnType("bigint");
@@ -578,8 +601,14 @@ namespace Orbe.Server.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("text");
 
+                    b.Property<int>("BusinessId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("ClientId")
                         .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ClientReservedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("DurationMinutes")
                         .HasColumnType("integer");
@@ -648,6 +677,9 @@ namespace Orbe.Server.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("text");
 
+                    b.Property<int>("BusinessId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("DurationMinutes")
                         .HasColumnType("integer");
 
@@ -671,6 +703,30 @@ namespace Orbe.Server.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Services");
+                });
+
+            modelBuilder.Entity("Orbe.Server.ServiceCategory", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<int>("BusinessId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BusinessId", "NormalizedName")
+                        .IsUnique();
+
+                    b.ToTable("Categories");
                 });
 
             modelBuilder.Entity("Orbe.Server.WeekWindow", b =>
@@ -774,6 +830,11 @@ namespace Orbe.Server.Migrations
 
             modelBuilder.Entity("Orbe.Server.EmployeeService", b =>
                 {
+                    b.HasOne("Orbe.Server.ServiceCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Orbe.Server.Employee", null)
                         .WithMany()
                         .HasForeignKey("EmployeeId")

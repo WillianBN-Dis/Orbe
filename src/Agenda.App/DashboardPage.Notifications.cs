@@ -49,7 +49,7 @@ public sealed partial class DashboardPage
   if(inbox.Items.Length==0){body.Add(Card(Stack(16,Icon("bell",Violet,40),Text("Tudo em dia por aqui",22,Ink,true),Text("Novos agendamentos e lembretes de 1 dia e 1 hora antes aparecerão aqui.",14,Muted)),28));return;}
   foreach(var notice in inbox.Items)
   {
-   var title=notice.Kind switch{"Day"=>"Lembrete · 1 dia antes","Hour"=>"Lembrete · 1 hora antes","Review"=>"Agendamento fixo precisa ser remarcado",_=>"Agendamento confirmado"};
+   var title=notice.Kind switch{"Day"=>"Lembrete · 1 dia antes","Hour"=>"Lembrete · 1 hora antes","Review"=>"Agendamento fixo precisa ser remarcado","Cancellation"=>"Agendamento cancelado pela cliente",_=>"Agendamento confirmado"};
    var content=Stack(12,Between(Text(title,16,Ink,true),Pill(notice.ReadAt is null?"NOVA":"LIDA",notice.ReadAt is null?Coral:Muted)),Text(notice.Subject,18,Ink,true));
    if(!string.IsNullOrWhiteSpace(notice.Person))content.Add(Text(notice.Person,13,Muted));
    content.Add(Text($"Atendimento: {client.Local(notice.OccurrenceStart):dd/MM/yyyy 'às' HH:mm}",14,Ink));

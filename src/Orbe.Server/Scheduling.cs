@@ -101,20 +101,24 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
   await using var tx=await db.Database.BeginTransactionAsync();
   // The client lock also serializes identical keys sent to different employees.
   await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"AspNetUsers\" WHERE \"Id\"={client} FOR UPDATE");await Lock(input.EmployeeId);
+  if(!await db.Employees.AnyAsync(e=>e.Id==input.EmployeeId&&e.Enabled))
+   throw new ApiError(404,"Profissional não encontrado nesta empresa.");
   var prior=await db.BookingRequests.SingleOrDefaultAsync(x=>x.UserId==client&&x.Key==key);
   if(prior is not null)
   {if(prior.RequestHash!=hash)throw new ApiError(409,"Esta confirmação já foi usada para outra reserva.");return await db.Appointments.SingleOrDefaultAsync(x=>x.Id==prior.AppointmentId)??throw new ApiError(410,"Esta reserva já foi excluída.");}
   if(!(await Settings()).PublicBookingOpen)throw new ApiError(409,"As reservas online ainda não estão abertas.");
   var service=await Offer(input.EmployeeId,input.ServiceId);await CheckSlot(input.EmployeeId,service,start);
   var end=start.AddMinutes(service.DurationMinutes);
-  if(await db.Appointments.AnyAsync(x=>x.ClientId==client&&x.Status=="Confirmed"&&x.Start<end&&x.End>start))throw new ApiError(409,"Você já tem um atendimento neste período.");
-  var result=new ScheduleItem{RecordedAt=clock.GetUtcNow(),PriceFrom=service.PriceFrom,EmployeeId=input.EmployeeId,ClientId=client,ServiceId=service.Id,Title=service.Name,Start=start,End=end,ExpectedCents=service.PriceCents,DurationMinutes=service.DurationMinutes};
+  if(await db.Appointments.IgnoreQueryFilters().AnyAsync(x=>x.ClientId==client&&x.Status=="Confirmed"&&x.Start<end&&x.End>start))throw new ApiError(409,"Você já tem um atendimento neste período.");
+  var confirmedAt=clock.GetUtcNow();
+  var result=new ScheduleItem{RecordedAt=confirmedAt,ClientReservedAt=confirmedAt,PriceFrom=service.PriceFrom,EmployeeId=input.EmployeeId,ClientId=client,ServiceId=service.Id,Title=service.Name,Start=start,End=end,ExpectedCents=service.PriceCents,DurationMinutes=service.DurationMinutes};
   db.Appointments.Add(result);db.BookingRequests.Add(new(){UserId=client,Key=key,RequestHash=hash,AppointmentId=result.Id});await db.SaveChangesAsync();await tx.CommitAsync();return result;
  }
  public async Task<ScheduleItem> Accessible(string id,bool teamOnly=false)
  {
   var item=await db.Appointments.SingleOrDefaultAsync(x=>x.Id==id)??throw new ApiError(404,"Agendamento não encontrado.");
-  if(actor.Client&&!teamOnly){if(item.ClientId!=actor.Id||item.Status=="Pending")throw new ApiError(404,"Agendamento não encontrado.");}
+  if(actor.Client&&!teamOnly&&item.ClientId==actor.Id){if(item.Status=="Pending")throw new ApiError(404,"Agendamento não encontrado.");}
+  else if(actor.Client&&!teamOnly&&!actor.Owner&&!actor.User.IsInRole(Roles.Staff))throw new ApiError(404,"Agendamento não encontrado.");
   else{actor.RequireTeam();if(!actor.Owner)await actor.Employee(item.EmployeeId??"unassigned");}
   return item;
  }
@@ -123,8 +127,25 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
   var item=await Accessible(id);await using var tx=await db.Database.BeginTransactionAsync();
   if(item.EmployeeId is not null)await Lock(item.EmployeeId);await db.Entry(item).ReloadAsync();Version(input.Version,item.Version);
   if(item.Status!="Confirmed")throw new ApiError(409,"Este agendamento já foi cancelado.");
-  if(actor.Client&&!Availability.CanClientChange(item.Start,clock.GetUtcNow(),(await Settings()).Policy()))throw new ApiError(409,"O prazo para alteração online terminou. Entre em contato com a equipe.");
+  var now=clock.GetUtcNow();
+  if(actor.Client&&item.ClientId==actor.Id)
+  {
+   var deadline=CancellationDeadline(item,(await Settings()).TimeZoneId);
+   if(deadline is null||now>deadline||now>=item.Start)
+    throw new ApiError(409,"O prazo para cancelar online terminou. Entre em contato com a equipe.");
+   if(item.EmployeeId is not null&&await db.Employees.Where(e=>e.Id==item.EmployeeId).Select(e=>e.UserId).SingleOrDefaultAsync() is {} professional)
+    db.Notifications.Add(new(){UserId=professional,AppointmentId=item.Id,Kind="Cancellation",OccurrenceStart=item.Start,DeliverAt=now});
+  }
   item.Status="Cancelled";item.Version=Guid.NewGuid();await db.SaveChangesAsync();await tx.CommitAsync();
+ }
+ internal static DateTimeOffset? CancellationDeadline(ScheduleItem item,string timeZone)
+ {
+  if((item.ClientReservedAt??item.RecordedAt) is not {} confirmation)return null;
+  var zone=TimeZoneInfo.FindSystemTimeZoneById(timeZone);
+  var date=DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(confirmation,zone).DateTime);
+  var startDate=DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(item.Start,zone).DateTime);
+  var deadline=confirmation.AddHours(startDate.DayNumber==date.DayNumber+1?2:24);
+  return deadline<item.Start?deadline:item.Start;
  }
  public async Task<ScheduleItem> Move(string id,MoveInput input)
  {
@@ -133,13 +154,13 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
   if(item.ClientId is not null)await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"AspNetUsers\" WHERE \"Id\"={item.ClientId} FOR UPDATE");
   await Lock(item.EmployeeId);await db.Entry(item).ReloadAsync();Version(input.Version,item.Version);
   if(item.Status!="Confirmed")throw new ApiError(409,"Agendamento cancelado não pode ser remarcado.");
-  if(actor.Client&&!Availability.CanClientChange(item.Start,clock.GetUtcNow(),(await Settings()).Policy()))throw new ApiError(409,"O prazo para remarcação terminou. Entre em contato com a equipe.");
+  if(actor.Client&&item.ClientId==actor.Id&&!Availability.CanClientChange(item.Start,clock.GetUtcNow(),(await Settings()).Policy()))throw new ApiError(409,"O prazo para remarcação terminou. Entre em contato com a equipe.");
   var service=await Offer(item.EmployeeId,item.ServiceId);
   // Existing duration and price remain snapshots of the original reservation.
   var snapshot=new Service{Id=service.Id,DurationMinutes=item.DurationMinutes,PriceCents=item.ExpectedCents};
   var start=input.Start.ToUniversalTime();var end=start.AddMinutes(item.DurationMinutes);await CheckSlot(item.EmployeeId,snapshot,start,item.Id);
-  if(item.ClientId is not null&&await db.Appointments.AnyAsync(x=>x.Id!=id&&x.ClientId==item.ClientId&&x.Status=="Confirmed"&&x.Start<end&&x.End>start))throw new ApiError(409,"Já existe outro atendimento da cliente neste período.");
-  if(item.Start!=start)item.RecordedAt=clock.GetUtcNow();item.Start=start;item.End=end;item.Version=Guid.NewGuid();await db.SaveChangesAsync();await tx.CommitAsync();return item;
+  if(item.ClientId is not null&&await db.Appointments.IgnoreQueryFilters().AnyAsync(x=>x.Id!=id&&x.ClientId==item.ClientId&&x.Status=="Confirmed"&&x.Start<end&&x.End>start))throw new ApiError(409,"Já existe outro atendimento da cliente neste período.");
+  if(item.Start!=start){item.ClientReservedAt??=item.RecordedAt;item.RecordedAt=clock.GetUtcNow();}item.Start=start;item.End=end;item.Version=Guid.NewGuid();await db.SaveChangesAsync();await tx.CommitAsync();return item;
  }
  public async Task Delete(string id,VersionInput input)
  {

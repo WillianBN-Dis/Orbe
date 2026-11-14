@@ -22,6 +22,7 @@ public sealed class CloudApi:IDisposable
  private static readonly JsonSerializerOptions Json=new(JsonSerializerDefaults.Web);
  public string BaseUrl {get;}
  public string? AccessToken {get;set;}
+ public string? Business {get;set;}
  public TimeZoneInfo BusinessZone {get;set;}=TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
  public CloudApi(string url,HttpMessageHandler? handler=null)
  {
@@ -32,6 +33,7 @@ public sealed class CloudApi:IDisposable
  {
   using var request=new HttpRequestMessage(method,"api/v1/"+path.TrimStart('/'));
   if(AccessToken is not null)request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",AccessToken);
+  if(!string.IsNullOrEmpty(Business))request.Headers.Add("X-Orbe-Business",Business);
   if(body is not null)request.Content=JsonContent.Create(body,options:Json);
   try
   {

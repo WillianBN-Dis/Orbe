@@ -7,6 +7,7 @@ using Orbe.Cloud.Core;
 namespace Orbe.Server;
 
 public static class Roles { public const string Owner="Owner", Staff="Staff", Client="Client"; }
+public interface IBusinessRecord { int BusinessId {get;set;} }
 public sealed class AppUser : IdentityUser
 {
  public string FullName {get;set;}="";
@@ -14,8 +15,10 @@ public sealed class AppUser : IdentityUser
  public DateOnly? BirthDate {get;set;}
  public bool Active {get;set;}=true;
 }
-public sealed class Employee
+public sealed class Employee : IBusinessRecord
 {
+ public int BusinessId {get;set;}
+ public bool Administrator {get;set;}
  public string Id {get;set;}=Guid.NewGuid().ToString("N");
  public string UserId {get;set;}="";
  public AppUser User {get;set;}=null!;
@@ -23,8 +26,9 @@ public sealed class Employee
  public bool Enabled {get;set;}=true;
  public Guid Version {get;set;}=Guid.NewGuid();
 }
-public sealed class Service
+public sealed class Service : IBusinessRecord
 {
+ public int BusinessId {get;set;}
  public string Id {get;set;}=Guid.NewGuid().ToString("N");
  public string Name {get;set;}="";
  public int DurationMinutes {get;set;}=60;
@@ -35,10 +39,18 @@ public sealed class Service
 }
 public sealed class EmployeeService
 {
+ public string? CategoryId {get;set;}
  public string EmployeeId {get;set;}=""; public string ServiceId {get;set;}="";
  // Null inherits the legacy catalog. Overrides isolate each professional without rewriting history.
  public string? Name {get;set;} public int? DurationMinutes {get;set;} public long? PriceCents {get;set;} public bool? PriceFrom {get;set;}
  public bool? Enabled {get;set;} public Guid Version {get;set;}=Guid.NewGuid();
+}
+public sealed class ServiceCategory : IBusinessRecord
+{
+ public string Id {get;set;}=Guid.NewGuid().ToString("N");
+ public int BusinessId {get;set;}
+ public string Name {get;set;}="";
+ public string NormalizedName {get;set;}="";
 }
 public sealed class WeekWindow
 {
@@ -54,10 +66,12 @@ public sealed class DayOverride
  public DateOnly Date {get;set;}
  public string WindowsJson {get;set;}="[]";
 }
-public sealed class ScheduleItem
+public sealed class ScheduleItem : IBusinessRecord
 {
+ public int BusinessId {get;set;}
  public Guid? SeriesId {get;set;}
  public DateTimeOffset? RecordedAt {get;set;}
+ public DateTimeOffset? ClientReservedAt {get;set;}
  public bool PriceFrom {get;set;}
  public string Id {get;set;}=Guid.NewGuid().ToString("N");
  public string? EmployeeId {get;set;}
@@ -74,8 +88,9 @@ public sealed class ScheduleItem
  public int DurationMinutes {get;set;}
  public Guid Version {get;set;}=Guid.NewGuid();
 }
-public sealed class FinancialEntry
+public sealed class FinancialEntry : IBusinessRecord
 {
+ public int BusinessId {get;set;}
  public string Id {get;set;}=Guid.NewGuid().ToString("N");
  public string? EmployeeId {get;set;}
  public string? AppointmentId {get;set;}
@@ -94,6 +109,7 @@ public sealed class BusinessSettings
  public string? SupportWhatsApp {get;set;}
  public string? SupportEmail {get;set;}
  public int Id {get;set;}=1;
+ public string Slug {get;set;}="orbe";
  public string Name {get;set;}="Orbe";
  public bool ImportCompleted {get;set;}
  public bool PublicBookingOpen {get;set;}
@@ -128,10 +144,18 @@ public sealed class ImportBatch
 }
 public sealed class OrbeDb(DbContextOptions<OrbeDb> options) : IdentityDbContext<AppUser>(options), IDataProtectionKeyContext
 {
+ public int BusinessId {get;set;}=1;
+ public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess,CancellationToken cancellationToken=default)
+ {
+  foreach(var entry in ChangeTracker.Entries<IBusinessRecord>().Where(e=>e.State==EntityState.Added))
+   entry.Entity.BusinessId=BusinessId;
+  return base.SaveChangesAsync(acceptAllChangesOnSuccess,cancellationToken);
+ }
  public DbSet<InboxNotification> Notifications=>Set<InboxNotification>();
  public DbSet<DataProtectionKey> DataProtectionKeys {get;set;}
  public DbSet<Employee> Employees=>Set<Employee>();
  public DbSet<Service> Services=>Set<Service>();
+ public DbSet<ServiceCategory> Categories=>Set<ServiceCategory>();
  public DbSet<EmployeeService> EmployeeServices=>Set<EmployeeService>();
  public DbSet<WeekWindow> WeekWindows=>Set<WeekWindow>();
  public DbSet<DayOverride> DayOverrides=>Set<DayOverride>();
@@ -144,6 +168,18 @@ public sealed class OrbeDb(DbContextOptions<OrbeDb> options) : IdentityDbContext
  protected override void OnModelCreating(ModelBuilder b)
  {
   base.OnModelCreating(b);
+  b.Entity<BusinessSettings>().HasIndex(x=>x.Slug).IsUnique();
+  b.Entity<BusinessSettings>().HasQueryFilter(x=>x.Id==BusinessId);
+  b.Entity<Employee>().HasQueryFilter(x=>x.BusinessId==BusinessId);
+  b.Entity<Service>().HasQueryFilter(x=>x.BusinessId==BusinessId);
+  b.Entity<ServiceCategory>().HasQueryFilter(x=>x.BusinessId==BusinessId);
+  b.Entity<ServiceCategory>().HasIndex(x=>new{x.BusinessId,x.NormalizedName}).IsUnique();
+  b.Entity<EmployeeService>().HasOne<ServiceCategory>().WithMany().HasForeignKey(x=>x.CategoryId).OnDelete(DeleteBehavior.SetNull);
+  b.Entity<ScheduleItem>().HasQueryFilter(x=>x.BusinessId==BusinessId);
+  b.Entity<FinancialEntry>().HasQueryFilter(x=>x.BusinessId==BusinessId);
+  b.Entity<EmployeeService>().HasQueryFilter(x=>Employees.Any(e=>e.Id==x.EmployeeId));
+  b.Entity<WeekWindow>().HasQueryFilter(x=>Employees.Any(e=>e.Id==x.EmployeeId));
+  b.Entity<DayOverride>().HasQueryFilter(x=>Employees.Any(e=>e.Id==x.EmployeeId));
   b.Entity<PushDevice>().ToTable("PushDevices").HasKey(x=>x.Token);
   b.Entity<PushDevice>().HasOne<LoginSession>().WithMany().HasForeignKey(x=>x.SessionHash).OnDelete(DeleteBehavior.Cascade);
   b.Entity<PushReceipt>().ToTable("PushReceipts").HasKey(x=>new{x.Token,x.NoticeId});
@@ -157,7 +193,7 @@ public sealed class OrbeDb(DbContextOptions<OrbeDb> options) : IdentityDbContext
   b.Entity<InboxNotification>().HasOne<AppUser>().WithMany().HasForeignKey(x=>x.UserId).OnDelete(DeleteBehavior.Cascade);
   b.Entity<InboxNotification>().HasOne<ScheduleItem>().WithMany().HasForeignKey(x=>x.AppointmentId).OnDelete(DeleteBehavior.Cascade);
   b.Entity<BusinessSettings>().Property(x=>x.InstanceId).HasDefaultValueSql("gen_random_uuid()");
-  b.Entity<Employee>().HasIndex(x=>x.UserId).IsUnique();
+  b.Entity<Employee>().HasIndex(x=>new{x.BusinessId,x.UserId}).IsUnique();
   b.Entity<Employee>().HasOne(x=>x.User).WithMany().HasForeignKey(x=>x.UserId).OnDelete(DeleteBehavior.Restrict);
   b.Entity<EmployeeService>().HasKey(x=>new{x.EmployeeId,x.ServiceId});
   b.Entity<EmployeeService>().Property(x=>x.Version).HasDefaultValueSql("gen_random_uuid()");

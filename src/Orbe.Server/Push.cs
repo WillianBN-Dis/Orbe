@@ -73,14 +73,19 @@ public sealed class PushWorker(IServiceScopeFactory scopes,IConfiguration config
   using var http=clients.CreateClient();
   foreach(var user in active.GroupBy(x=>new{x.Id,x.Owner}))
   {
-   await inbox.Materialize(user.Key.Id,user.Key.Owner);
+   var businessIds=await db.Employees.IgnoreQueryFilters().Where(e=>e.UserId==user.Key.Id&&e.Enabled).Select(e=>e.BusinessId).Distinct().ToArrayAsync(cancellation);
+   foreach(var businessId in businessIds.Append(1).Distinct())
+   {
+   db.BusinessId=businessId;
+   var businessOwner=businessId==1&&user.Key.Owner||await db.Employees.AnyAsync(e=>e.UserId==user.Key.Id&&e.Enabled&&e.Administrator,cancellation);
+   await inbox.Materialize(user.Key.Id,businessOwner);
    foreach(var device in user)
    {
     var earliest=device.RegisteredAt>now.AddDays(-2)?device.RegisteredAt:now.AddDays(-2);
     var due=await (from n in db.Notifications join a in db.Appointments on n.AppointmentId equals a.Id
      where n.UserId==device.Id&&n.DeliverAt>=earliest&&n.DeliverAt<=now&&n.DeletedAt==null&&n.ReadAt==null&&
-      (n.Kind=="Review"?a.Status=="Pending":a.Status=="Confirmed")&&a.Start==n.OccurrenceStart&&(n.Kind=="Booking"||n.Kind=="Review"||a.Start>now)&&
-      (device.Owner||db.Employees.Any(e=>e.Id==a.EmployeeId&&e.UserId==device.Id&&e.Enabled))&&
+      (n.Kind=="Review"?a.Status=="Pending":n.Kind=="Cancellation"?a.Status=="Cancelled":a.Status=="Confirmed")&&a.Start==n.OccurrenceStart&&(n.Kind=="Booking"||n.Kind=="Review"||n.Kind=="Cancellation"||a.Start>now)&&
+      (businessOwner||db.Employees.Any(e=>e.Id==a.EmployeeId&&e.UserId==device.Id&&e.Enabled))&&
       !db.Set<PushReceipt>().Any(r=>r.Token==device.Token&&r.NoticeId==n.Id)
      orderby n.DeliverAt,n.Id select new{n.Id,n.Kind}).Take(50).ToArrayAsync(cancellation);
     foreach(var notice in due)
@@ -88,7 +93,7 @@ public sealed class PushWorker(IServiceScopeFactory scopes,IConfiguration config
      using var request=new HttpRequestMessage(HttpMethod.Post,endpoint);
      request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",await credential.UnderlyingCredential.GetAccessTokenForRequestAsync(cancellationToken:cancellation));
      request.Content=JsonContent.Create(new{message=new{token=device.Token,
-      notification=new{title="Orbe",body=notice.Kind switch{"Booking"=>"Você tem um novo agendamento.","Review"=>"Um agendamento fixo precisa ser remarcado.",_=>"Você tem um lembrete de agendamento."}},
+      notification=new{title="Orbe",body=notice.Kind switch{"Booking"=>"Você tem um novo agendamento.","Review"=>"Um agendamento fixo precisa ser remarcado.","Cancellation"=>"Uma cliente cancelou um agendamento.",_=>"Você tem um lembrete de agendamento."}},
       data=new{orbe_notifications="1",notice_id=notice.Id.ToString()},
       android=new{priority="HIGH",notification=new{tag=notice.Id.ToString(),channel_id="orbe-inbox"}}}});
      using var response=await http.SendAsync(request,cancellation);
@@ -111,6 +116,7 @@ public sealed class PushWorker(IServiceScopeFactory scopes,IConfiguration config
      }
      else{log.LogWarning("Firebase respondeu com status {Status}.",response.StatusCode);break;}
     }
+   }
    }
   }
  }

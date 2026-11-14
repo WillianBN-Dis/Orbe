@@ -27,8 +27,8 @@ public sealed class NotificationInbox(OrbeDb db,Actor actor,TimeProvider clock)
    SELECT gen_random_uuid(),{user},a."Id",event.kind,a."Start",event.due
    FROM "Appointments" a LEFT JOIN "Employees" e ON e."Id"=a."EmployeeId"
    CROSS JOIN LATERAL (VALUES ('Booking',a."RecordedAt"),('Day',a."Start"-INTERVAL '24 hours'),('Hour',a."Start"-INTERVAL '1 hour'),('Review',a."RecordedAt")) event(kind,due)
-   WHERE a."Kind"='Atendimento'
-    AND ((a."Status"='Pending' AND event.kind='Review' AND ({owner} OR e."UserId"={user}))
+   WHERE a."Kind"='Atendimento' AND a."BusinessId"={db.BusinessId}
+    AND ((a."Status"='Pending' AND event.kind='Review' AND ({owner} OR (e."UserId"={user} AND e."Enabled")))
       OR (a."Status"='Confirmed' AND event.kind<>'Review' AND ({owner} OR e."UserId"={user} OR a."ClientId"={user})))
     AND event.due IS NOT NULL AND event.due<={now}
     AND (event.kind IN ('Booking','Review') OR (a."Start">{now} AND (a."RecordedAt" IS NULL OR a."RecordedAt"<=event.due)))
@@ -37,8 +37,8 @@ public sealed class NotificationInbox(OrbeDb db,Actor actor,TimeProvider clock)
  }
  private IQueryable<InboxNotification> Visible()=>db.Notifications.Where(n=>n.UserId==actor.Id&&n.DeletedAt==null&&n.DeliverAt<=clock.GetUtcNow()&&
   db.Appointments.Any(a=>a.Id==n.AppointmentId&&a.Kind=="Atendimento"&&a.Start==n.OccurrenceStart&&
-   (n.Kind=="Review"?a.Status=="Pending"&&!actor.Client:a.Status=="Confirmed")&&
-   (actor.Owner||n.Kind!="Review"&&a.ClientId==actor.Id||db.Employees.Any(e=>e.Id==a.EmployeeId&&e.UserId==actor.Id))));
+   (n.Kind=="Review"?a.Status=="Pending"&&(!actor.Client||a.ClientId!=actor.Id):n.Kind=="Cancellation"?a.Status=="Cancelled"&&(!actor.Client||a.ClientId!=actor.Id):a.Status=="Confirmed")&&
+   (actor.Owner||n.Kind!="Review"&&n.Kind!="Cancellation"&&a.ClientId==actor.Id||db.Employees.Any(e=>e.Id==a.EmployeeId&&e.UserId==actor.Id&&e.Enabled))));
  public async Task<object> List(int offset,int limit)
  {
   if(offset<0||offset>100000||limit is <1 or >100)throw new ApiError(400,"Página inválida.");
@@ -46,20 +46,20 @@ public sealed class NotificationInbox(OrbeDb db,Actor actor,TimeProvider clock)
   var items=await (from n in visible join a in db.Appointments on n.AppointmentId equals a.Id
    orderby n.DeliverAt descending,n.Id descending
    select new{n.Id,n.AppointmentId,n.Kind,n.OccurrenceStart,n.DeliverAt,n.ReadAt,a.EmployeeId,subject=a.Title,
-    person=actor.Client?db.Employees.Where(e=>e.Id==a.EmployeeId).Select(e=>e.DisplayName).FirstOrDefault():db.Users.Where(u=>u.Id==a.ClientId).Select(u=>u.FullName).FirstOrDefault()??a.LegacyClient,
-    clientPhone=actor.Client?null:db.Users.Where(u=>u.Id==a.ClientId).Select(u=>u.PhoneNumber).FirstOrDefault()})
+    person=actor.Client&&a.ClientId==actor.Id?db.Employees.Where(e=>e.Id==a.EmployeeId).Select(e=>e.DisplayName).FirstOrDefault():db.Users.Where(u=>u.Id==a.ClientId).Select(u=>u.FullName).FirstOrDefault()??a.LegacyClient,
+    clientPhone=actor.Client&&a.ClientId==actor.Id?null:db.Users.Where(u=>u.Id==a.ClientId).Select(u=>u.PhoneNumber).FirstOrDefault()})
    .Skip(offset).Take(limit).ToArrayAsync();
   return new{items,unreadCount=unread,total};
  }
  public async Task Read(Guid id)
  {
   // Repeated read/delete from another device is safe; someone else's ID never matches.
-  if(!await db.Notifications.AnyAsync(n=>n.Id==id&&n.UserId==actor.Id))throw new ApiError(404,"Notificação não encontrada.");
+  if(!await db.Notifications.AnyAsync(n=>n.Id==id&&n.UserId==actor.Id&&db.Appointments.Any(a=>a.Id==n.AppointmentId)))throw new ApiError(404,"Notificação não encontrada.");
   await Visible().Where(n=>n.Id==id&&n.ReadAt==null).ExecuteUpdateAsync(s=>s.SetProperty(n=>n.ReadAt,clock.GetUtcNow()));
  }
  public async Task Delete(Guid id)
  {
-  var updated=await db.Notifications.Where(n=>n.Id==id&&n.UserId==actor.Id).ExecuteUpdateAsync(s=>s.SetProperty(n=>n.DeletedAt,clock.GetUtcNow()));
+  var updated=await db.Notifications.Where(n=>n.Id==id&&n.UserId==actor.Id&&db.Appointments.Any(a=>a.Id==n.AppointmentId)).ExecuteUpdateAsync(s=>s.SetProperty(n=>n.DeletedAt,clock.GetUtcNow()));
   if(updated==0)throw new ApiError(404,"Notificação não encontrada.");
  }
  public static void Map(WebApplication app)

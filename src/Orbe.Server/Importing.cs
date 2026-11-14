@@ -34,7 +34,7 @@ public sealed class Importing(OrbeDb db,TimeProvider clock)
  {
   await using var tx=await db.Database.BeginTransactionAsync();
   await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(582106)");
-  await db.Database.ExecuteSqlRawAsync("SELECT 1 FROM \"Settings\" WHERE \"Id\"=1 FOR UPDATE");
+  await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Settings\" WHERE \"Id\"={db.BusinessId} FOR UPDATE");
   var settings=await db.Settings.SingleAsync();var zone=TimeZoneInfo.FindSystemTimeZoneById(settings.TimeZoneId);Validate(input,zone);var hash=Hash(input);
   if(await db.Imports.AnyAsync(x=>x.Hash==hash))return new{hash,alreadyImported=true};
   if(settings.PublicBookingOpen)throw new ApiError(409,"Feche as reservas públicas antes de importar dados.");

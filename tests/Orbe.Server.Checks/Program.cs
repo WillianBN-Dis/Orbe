@@ -111,6 +111,43 @@ internal static class ChecksMain
    var client=await Login(address);var me=await Get(client,"/api/v1/auth/me");Check(me.GetProperty("roles").EnumerateArray().Single().GetString()=="Client","Confirmação de e-mail e papel Client fixado no servidor: "+name);return client;
   }
   var client1=await Client("cliente1");var client2=await Client("cliente2");
+  await Send(staff1,HttpMethod.Post,"/api/v1/platform/businesses",new{name="Estúdio QA",slug="studio-qa",ownerUsername="staff1"},403);
+  await Send(owner,HttpMethod.Post,"/api/v1/platform/businesses",new{name="Estúdio QA",slug="studio-qa",ownerUsername="staff1"});
+  staff1.DefaultRequestHeaders.Add("X-Orbe-Business","studio-qa");
+  var secondEmployees=await Get(staff1,"/api/v1/owner/employees");
+  var secondEmployee=Id(secondEmployees.EnumerateArray().Single());
+  Check(secondEmployee!=e1,"A mesma conta tem um vínculo independente na segunda empresa");
+  await Send(staff1,HttpMethod.Get,"/api/v1/team/hours?employeeId="+e1,expected:400);
+  await Send(staff1,HttpMethod.Get,"/api/v1/owner/connection",expected:404);
+  var category=await Send(staff1,HttpMethod.Post,"/api/v1/team/categories",new{name="Cabelo"});
+  var secondaryService=await Send(staff1,HttpMethod.Post,"/api/v1/team/services?employeeId="+secondEmployee,new{name="Corte QA",durationMinutes=30,priceCents=2000,enabled=true,categoryId=Id(category)});
+  var secondCatalog=await Get(staff1,"/api/v1/public/services?employeeId="+secondEmployee);
+  Check(secondCatalog.EnumerateArray().Single().GetProperty("categoryName").GetString()=="Cabelo","Catálogo público usa a categoria da empresa selecionada");
+  staff1.DefaultRequestHeaders.Remove("X-Orbe-Business");
+  await Send(staff1,HttpMethod.Post,"/api/v1/team/services?employeeId="+e1,new{name="Inválido",durationMinutes=30,priceCents=100,enabled=true,categoryId=Id(category)},400);
+  Check(!(await Get(anonymous,"/api/v1/public/employees")).EnumerateArray().Any(x=>Id(x)==secondEmployee),"Equipe de outra empresa fica fora do catálogo padrão");
+  Check((await Get(staff1,"/api/v1/businesses/mine")).GetArrayLength()==2,"O mesmo login lista os dois espaços de trabalho");
+  staff1.DefaultRequestHeaders.Add("X-Orbe-Business","studio-qa");
+  await SetHours(staff1,secondEmployee,week);
+  var secondSettings=await Get(staff1,"/api/v1/owner/settings");
+  await Send(staff1,HttpMethod.Put,"/api/v1/owner/settings",new{version=secondSettings.GetProperty("version").GetGuid(),name="Estúdio QA",
+   importCompleted=true,publicBookingOpen=true,slotMinutes=15,leadMinutes=120,horizonDays=60,cancellationHours=24,timeZoneId="America/Sao_Paulo"});
+  staff1.DefaultRequestHeaders.Remove("X-Orbe-Business");
+  client1.DefaultRequestHeaders.Add("X-Orbe-Business","studio-qa");
+  factory.Clock.Now=At(12).AddDays(-1);
+  var nextDay=await Send(client1,HttpMethod.Post,"/api/v1/bookings",new{employeeId=secondEmployee,serviceId=Id(secondaryService),start=At(9)},key:"next-day-studio");
+  Check((await Get(client1,"/api/v1/bookings/mine?business=studio-qa")).EnumerateArray().Single().GetProperty("businessName").GetString()=="Estúdio QA","Filtro lista apenas as reservas da empresa escolhida");
+  Check((await Get(client2,"/api/v1/bookings/mine?business=studio-qa")).GetArrayLength()==0,"Filtro de empresa não expõe reservas de outra cliente");
+  factory.Clock.Now=At(14).AddDays(-1).AddSeconds(1);
+  await Send(client1,HttpMethod.Post,$"/api/v1/bookings/{Id(nextDay)}/cancel",Version(nextDay),409);
+  factory.Clock.Now=At(14).AddDays(-1);
+  await Send(client1,HttpMethod.Post,$"/api/v1/bookings/{Id(nextDay)}/cancel",Version(nextDay),204);
+  client1.DefaultRequestHeaders.Remove("X-Orbe-Business");
+  staff1.DefaultRequestHeaders.Add("X-Orbe-Business","studio-qa");
+  Check((await Get(staff1,"/api/v1/notifications")).GetProperty("items").EnumerateArray().Any(x=>x.GetProperty("kind").GetString()=="Cancellation"),"Atendimento de amanhã aceita cancelamento até duas horas e avisa a profissional");
+  await Send(staff1,HttpMethod.Delete,$"/api/v1/team/appointments/{Id(nextDay)}",new{version=(await Get(client1,"/api/v1/bookings/mine?business=studio-qa")).EnumerateArray().Single().GetProperty("version").GetGuid()},204);
+  staff1.DefaultRequestHeaders.Remove("X-Orbe-Business");
+  factory.Clock.Now=At(6);
   await Send(owner,HttpMethod.Put,"/api/v1/support",new{whatsApp="5511999990000",email="support@example.test"});
   await Send(staff1,HttpMethod.Put,"/api/v1/support",new{whatsApp="5511999990001"},403);
   Check((await Get(client1,"/api/v1/support")).GetProperty("whatsApp").GetString()=="5511999990000","Contato de suporte é compartilhado e somente Owner pode editar");
@@ -178,8 +215,9 @@ internal static class ChecksMain
   await Send(client1,HttpMethod.Post,$"/api/v1/bookings/{Id(later)}/move",new{version=later.GetProperty("version").GetString(),start=At(11).AddDays(7)},409);
   var retained=(await Get(client1,"/api/v1/bookings/mine")).EnumerateArray().Single(x=>Id(x)==Id(later));Check(retained.GetProperty("start").GetDateTimeOffset()==At(10).AddDays(7),"Remarcação que falha preserva horário antigo");
   var beforeCancel=await Send(staff1,HttpMethod.Post,"/api/v1/team/entries",new{employeeId=e1,appointmentId=Id(later),description="Já recebido",kind="Receita",date="2026-11-02",cents=10000});
-  factory.Clock.Now=At(10).AddDays(6).AddSeconds(1);await Send(client1,HttpMethod.Post,$"/api/v1/bookings/{Id(later)}/cancel",Version(later),409);Check(true,"Cancelamento recusa prazo menor que 24 horas");
-  factory.Clock.Now=At(10).AddDays(6);await Send(client1,HttpMethod.Post,$"/api/v1/bookings/{Id(later)}/cancel",Version(later),204);
+  factory.Clock.Now=later.GetProperty("clientReservedAt").GetDateTimeOffset().AddHours(24).AddSeconds(1);await Send(client1,HttpMethod.Post,$"/api/v1/bookings/{Id(later)}/cancel",Version(later),409);Check(true,"Cancelamento recusa prazo menor que 24 horas");
+  factory.Clock.Now=later.GetProperty("clientReservedAt").GetDateTimeOffset().AddHours(24);await Send(client1,HttpMethod.Post,$"/api/v1/bookings/{Id(later)}/cancel",Version(later),204);
+  Check((await Get(staff1,"/api/v1/notifications")).GetProperty("items").EnumerateArray().Any(x=>x.GetProperty("kind").GetString()=="Cancellation"&&x.GetProperty("appointmentId").GetString()==Id(later)),"Profissional recebe aviso do cancelamento da cliente");
   Check((await Get(staff1,"/api/v1/team/entries")).EnumerateArray().Any(x=>Id(x)==Id(beforeCancel)),"Cancelamento no limite exato libera reserva e preserva valores registrados");
   factory.Clock.Now=At(6);
   await Send(staff2,HttpMethod.Post,"/api/v1/team/blocks",new{employeeId=e2,title="Folga privada",kind="Folga",start=At(0),end=At(0).AddDays(1),notes="private-reason"});
@@ -191,7 +229,7 @@ internal static class ChecksMain
   }
   var browser=factory.CreateClient();var csrf=await Get(browser,"/api/v1/auth/csrf");browser.DefaultRequestHeaders.Add("X-CSRF-TOKEN",csrf.GetProperty("token").GetString());await Send(browser,HttpMethod.Post,"/api/v1/auth/login",new{login="staff1",password=Password});browser.DefaultRequestHeaders.Remove("X-CSRF-TOKEN");await Send(browser,HttpMethod.Put,"/api/v1/auth/me",new{fullName="Forjado",phone="11999990000"},400);Check(true,"Sessão do navegador exige proteção CSRF para alterar dados");
   var inactiveAppointment=await Send(owner,HttpMethod.Post,"/api/v1/team/appointments",new{employeeId=e2,title="Histórico de profissional inativo",start=At(14).AddDays(21),end=At(15).AddDays(21),expectedCents=0});
-  var employees=await Get(owner,"/api/v1/owner/employees");var latest=employees.EnumerateArray().Single(x=>Id(x)==e2);await SetEmployee(e2,latest,false);await Send(staff2,HttpMethod.Get,"/api/v1/auth/me",expected:401);Check(true,"Desativar funcionário invalida acesso já emitido");
+  var employees=await Get(owner,"/api/v1/owner/employees");var latest=employees.EnumerateArray().Single(x=>Id(x)==e2);await SetEmployee(e2,latest,false);await Send(staff2,HttpMethod.Get,"/api/v1/team/appointments",expected:403);Check(true,"Desativar vínculo bloqueia agenda sem revogar a conta pessoal");
   await SetHours(owner,e2,week);Check(true,"Owner ajusta jornada de profissional inativo sem reabrir seu acesso");
   await Send(owner,HttpMethod.Put,"/api/v1/team/appointments/"+Id(inactiveAppointment),new{employeeId=e2,title="Histórico ajustado",start=At(14).AddDays(21),end=At(15).AddDays(21),expectedCents=0,version=inactiveAppointment.GetProperty("version").GetString()});Check(true,"Owner pode editar atendimento existente de profissional desativado");
   await Send(owner,HttpMethod.Post,"/api/v1/team/entries",new{employeeId=e2,appointmentId=Id(inactiveAppointment),description="Recebimento após desativação",kind="Receita",date="2026-11-02",cents=500});Check(true,"Owner registra financeiro histórico sem reativar conta desativada");

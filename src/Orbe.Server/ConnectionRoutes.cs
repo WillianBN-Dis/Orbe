@@ -31,6 +31,7 @@ public static class ConnectionRoutes
   app.MapGet("/api/v1/public/connection",async(OrbeDb db)=>Results.Ok(Info(await db.Settings.AsNoTracking().SingleAsync())));
   app.MapPut("/api/v1/owner/connection",async(SharedConnectionInput input,OrbeDb db,IConnectionProbe probe,HttpContext context)=>
   {
+   if(db.BusinessId!=1)throw new ApiError(403,"Configuração exclusiva do Orbe.");
    var setting=await db.Settings.SingleAsync();if(setting.Version!=input.Version)throw new ApiError(409,"Configuração alterada. Atualize antes de salvar.");
    string url;try{url=ConnectionAddress.Normalize(input.ApiUrl,testing);}catch(ArgumentException e){throw new ApiError(400,e.Message);}
    var current=Info(setting);

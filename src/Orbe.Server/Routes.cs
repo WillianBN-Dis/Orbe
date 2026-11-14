@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Orbe.Server;
 public sealed record EmployeeInput(string UserName,string Email,string FullName,string Password);
 public sealed record EmployeeChange(Guid Version,string DisplayName,bool Enabled,string[] Services);
-public sealed record ServiceInput(string Name,int DurationMinutes,long PriceCents,bool Enabled,Guid? Version,bool? PriceFrom=null);
+public sealed record ServiceInput(string Name,int DurationMinutes,long PriceCents,bool Enabled,Guid? Version,bool? PriceFrom=null,string? CategoryId=null);
 public sealed record PolicyInput(Guid Version,string Name,bool ImportCompleted,bool PublicBookingOpen,int SlotMinutes,int LeadMinutes,int HorizonDays,int CancellationHours,string TimeZoneId);
 public sealed record ResetStaffInput(string Password);
 
@@ -19,7 +19,7 @@ public static class Routes
   api.MapGet("/public/info",async(OrbeDb db,IEmailDelivery email,IConfiguration config)=>{var s=await db.Settings.SingleAsync();return Results.Ok(new{s.Name,s.PublicBookingOpen,s.TimeZoneId,s.CancellationHours,emailReady=email.Ready,testMode=config.GetValue<bool>("Preview:AllowUnverifiedClients")});});
   api.MapGet("/public/services",async(string? employeeId,OrbeDb db)=>{
    if(employeeId is null)return Results.Ok(await db.Services.Where(x=>x.Enabled).OrderBy(x=>x.Name).Select(x=>new{x.Id,x.Name,x.DurationMinutes,x.PriceCents,x.PriceFrom}).ToArrayAsync());
-   return Results.Ok(await (from link in db.EmployeeServices join service in db.Services on link.ServiceId equals service.Id join person in db.Employees on link.EmployeeId equals person.Id where person.Id==employeeId&&person.Enabled&&person.User.Active&&(link.Enabled??service.Enabled) orderby link.Name??service.Name select new{service.Id,Name=link.Name??service.Name,DurationMinutes=link.DurationMinutes??service.DurationMinutes,PriceCents=link.PriceCents??service.PriceCents,PriceFrom=link.PriceFrom??service.PriceFrom}).ToArrayAsync());
+   return Results.Ok(await (from link in db.EmployeeServices join service in db.Services on link.ServiceId equals service.Id join person in db.Employees on link.EmployeeId equals person.Id where person.Id==employeeId&&person.Enabled&&person.User.Active&&(link.Enabled??service.Enabled) orderby link.Name??service.Name select new{service.Id,link.CategoryId,CategoryName=db.Categories.Where(c=>c.Id==link.CategoryId).Select(c=>c.Name).FirstOrDefault(),Name=link.Name??service.Name,DurationMinutes=link.DurationMinutes??service.DurationMinutes,PriceCents=link.PriceCents??service.PriceCents,PriceFrom=link.PriceFrom??service.PriceFrom}).ToArrayAsync());
   });
   api.MapGet("/public/employees",async(string? serviceId,OrbeDb db)=>Results.Ok(await db.Employees.Where(x=>x.Enabled&&x.User.Active&&(serviceId==null||db.EmployeeServices.Any(e=>e.EmployeeId==x.Id&&e.ServiceId==serviceId))).OrderBy(x=>x.DisplayName).Select(x=>new{x.Id,x.DisplayName}).ToArrayAsync()));
   api.MapGet("/public/availability",async(string employeeId,string serviceId,DateOnly from,int? days,Scheduling scheduling)=>Results.Ok(await scheduling.AvailabilityFor(employeeId,serviceId,from,days??1)));
@@ -62,13 +62,26 @@ public static class Routes
    {
     var hours=await s.Hours(item.EmployeeId!);
     if(input.Start<=clock.GetUtcNow()||!Scheduling.Fits(input.Start,input.End,(await s.Settings()).Policy(),hours.Week,hours.Days)||
-       await db.Appointments.AnyAsync(x=>x.Id!=id&&x.Status=="Confirmed"&&(x.EmployeeId==item.EmployeeId||item.ClientId!=null&&x.ClientId==item.ClientId)&&x.Start<input.End&&x.End>input.Start))
+       await db.Appointments.IgnoreQueryFilters().AnyAsync(x=>x.Id!=id&&x.Status=="Confirmed"&&(x.EmployeeId==item.EmployeeId||item.ClientId!=null&&x.ClientId==item.ClientId)&&x.Start<input.End&&x.End>input.Start))
      throw new ApiError(409,"Escolha um horário futuro, livre e dentro da jornada.");
     item.Status="Confirmed";item.RecordedAt=clock.GetUtcNow();
    }
-   if(item.Start!=input.Start)item.RecordedAt=clock.GetUtcNow();item.Title=input.Title.Trim();item.Start=input.Start.ToUniversalTime();item.End=input.End.ToUniversalTime();item.Notes=input.Notes;item.LegacyClient=input.LegacyClient;item.ExpectedCents=input.ExpectedCents;item.DurationMinutes=(int)(input.End-input.Start).TotalMinutes;item.Version=Guid.NewGuid();await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(item);
+   if(item.Start!=input.Start){item.ClientReservedAt??=item.RecordedAt;item.RecordedAt=clock.GetUtcNow();}item.Title=input.Title.Trim();item.Start=input.Start.ToUniversalTime();item.End=input.End.ToUniversalTime();item.Notes=input.Notes;item.LegacyClient=input.LegacyClient;item.ExpectedCents=input.ExpectedCents;item.DurationMinutes=(int)(input.End-input.Start).TotalMinutes;item.Version=Guid.NewGuid();await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(item);
   });
-  api.MapGet("/bookings/mine",async(Actor actor,OrbeDb db,int? offset)=>{if(!actor.Client)throw new ApiError(403,"Acesso para clientes.");return Results.Ok(await db.Appointments.Where(x=>x.ClientId==actor.Id&&x.Status!="Pending").OrderByDescending(x=>x.Start).ThenBy(x=>x.Id).Skip(Math.Max(0,offset??0)).Take(100).Select(x=>new{x.Id,x.Title,x.Status,x.Start,x.End,x.ExpectedCents,x.PriceFrom,x.Version,x.ServiceId,x.EmployeeId,employeeName=db.Employees.Where(e=>e.Id==x.EmployeeId).Select(e=>e.DisplayName).FirstOrDefault()}).ToArrayAsync());}).RequireAuthorization();
+  api.MapGet("/bookings/mine",async(Actor actor,OrbeDb db,int? offset,string? business,TimeProvider clock)=>{
+   if(!actor.Client)throw new ApiError(403,"Acesso para clientes.");
+   var rows=await (from a in db.Appointments.IgnoreQueryFilters()
+    join b in db.Settings.IgnoreQueryFilters() on a.BusinessId equals b.Id
+    where a.ClientId==actor.Id&&a.Status!="Pending"&&(business==null||b.Slug==business)
+    orderby a.Start descending,a.Id
+    select new{item=a,b.Slug,b.Name,b.TimeZoneId,employeeName=db.Employees.IgnoreQueryFilters().Where(e=>e.Id==a.EmployeeId&&e.BusinessId==b.Id).Select(e=>e.DisplayName).FirstOrDefault()})
+    .Skip(Math.Max(0,offset??0)).Take(100).ToArrayAsync();
+   return Results.Ok(rows.Select(x=>new{x.item.Id,x.item.Title,x.item.Status,x.item.Start,x.item.End,x.item.ExpectedCents,x.item.PriceFrom,x.item.Version,x.item.ServiceId,x.item.EmployeeId,x.employeeName,business=x.Slug,businessName=x.Name,x.TimeZoneId,cancelUntil=Scheduling.CancellationDeadline(x.item,x.TimeZoneId),canCancel=x.item.Status=="Confirmed"&&clock.GetUtcNow()<x.item.Start&&clock.GetUtcNow()<=Scheduling.CancellationDeadline(x.item,x.TimeZoneId)}));
+  }).RequireAuthorization();
+  api.MapGet("/bookings/businesses",async(Actor actor,OrbeDb db)=>{
+   if(!actor.Client)throw new ApiError(403,"Acesso para clientes.");
+   return await db.Settings.IgnoreQueryFilters().Where(b=>db.Appointments.IgnoreQueryFilters().Any(a=>a.BusinessId==b.Id&&a.ClientId==actor.Id&&a.Status!="Pending")).OrderBy(b=>b.Name).Select(b=>new{b.Slug,b.Name}).ToArrayAsync();
+  }).RequireAuthorization();
   api.MapPost("/bookings",async(ReservationInput input,HttpContext c,Scheduling s)=>Results.Ok(await s.Reserve(input,c.Request.Headers["Idempotency-Key"].ToString()))).RequireAuthorization();
   api.MapPost("/bookings/{id}/cancel",async(string id,[FromBody] VersionInput input,Scheduling s)=>{await s.Cancel(id,input);return Results.NoContent();}).RequireAuthorization();
   api.MapPost("/bookings/{id}/move",async(string id,MoveInput input,Scheduling s)=>Results.Ok(await s.Move(id,input))).RequireAuthorization();
@@ -101,7 +114,7 @@ public static class Routes
    Text(input.UserName,64,"o usuário");Text(input.FullName,150,"o nome");if(!new EmailAddressAttribute().IsValid(input.Email))throw new ApiError(400,"Informe um e-mail válido.");
    await using var tx=await db.Database.BeginTransactionAsync();
    var user=await users.FindByNameAsync(input.UserName);
-   if(user is null){user=new(){UserName=input.UserName,Email=input.Email,EmailConfirmed=true,FullName=input.FullName.Trim(),LockoutEnabled=true};AuthService.Check(await users.CreateAsync(user,input.Password));AuthService.Check(await users.AddToRoleAsync(user,Roles.Staff));}
+   if(user is null){user=new(){UserName=input.UserName,Email=input.Email,EmailConfirmed=true,FullName=input.FullName.Trim(),LockoutEnabled=true};AuthService.Check(await users.CreateAsync(user,input.Password));if(db.BusinessId==1)AuthService.Check(await users.AddToRoleAsync(user,Roles.Staff));}
    else if(user.Id!=actor.Id||!actor.Owner)throw new ApiError(400,"Este usuário já existe.");
    if(await db.Employees.AnyAsync(x=>x.UserId==user.Id))throw new ApiError(409,"Usuário já cadastrado como profissional.");
    var row=new Employee{UserId=user.Id,DisplayName=input.FullName.Trim()};db.Employees.Add(row);await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(new{row.Id,row.DisplayName,row.Enabled,row.Version});
@@ -113,10 +126,10 @@ public static class Routes
    var employee=await db.Employees.SingleOrDefaultAsync(x=>x.Id==id)??throw new ApiError(404,"Funcionário não encontrado.");if(employee.Version!=input.Version)throw new ApiError(409,"Funcionário alterado. Atualize a lista.");
    if(await db.Services.CountAsync(x=>input.Services.Contains(x.Id))!=input.Services.Length)throw new ApiError(400,"Serviço inválido.");
    employee.DisplayName=input.DisplayName.Trim();employee.Enabled=input.Enabled;employee.Version=Guid.NewGuid();
-   var user=(await users.FindByIdAsync(employee.UserId))!;if(!await users.IsInRoleAsync(user,Roles.Owner)){user.Active=input.Enabled;AuthService.Check(await users.UpdateAsync(user));if(!input.Enabled)await users.UpdateSecurityStampAsync(user);}
+   if(employee.Administrator&&!input.Enabled)throw new ApiError(409,"O administrador da empresa precisa permanecer ativo.");
    var linked=await db.EmployeeServices.Where(x=>x.EmployeeId==id).ToArrayAsync();db.EmployeeServices.RemoveRange(linked.Where(x=>!input.Services.Contains(x.ServiceId)));db.EmployeeServices.AddRange(input.Services.Except(linked.Select(x=>x.ServiceId)).Select(s=>new EmployeeService{EmployeeId=id,ServiceId=s}));await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(new{employee.Id,employee.Version});
   });
-  owner.MapPost("/employees/{id}/password",async(string id,ResetStaffInput input,OrbeDb db,UserManager<AppUser> users)=>{var employee=await db.Employees.SingleOrDefaultAsync(x=>x.Id==id)??throw new ApiError(404,"Funcionário não encontrado.");var user=(await users.FindByIdAsync(employee.UserId))!;if(await users.IsInRoleAsync(user,Roles.Owner))throw new ApiError(403,"Use a troca de senha da própria conta.");AuthService.Check(await users.ResetPasswordAsync(user,await users.GeneratePasswordResetTokenAsync(user),input.Password));return Results.Ok(new{message="Senha redefinida; sessões anteriores encerradas."});});
+  owner.MapPost("/employees/{id}/password",async(string id,ResetStaffInput input,OrbeDb db,UserManager<AppUser> users)=>{if(db.BusinessId!=1)throw new ApiError(403,"A senha pertence à conta pessoal.");var employee=await db.Employees.SingleOrDefaultAsync(x=>x.Id==id)??throw new ApiError(404,"Funcionário não encontrado.");var user=(await users.FindByIdAsync(employee.UserId))!;if(await users.IsInRoleAsync(user,Roles.Owner)||await db.Employees.IgnoreQueryFilters().AnyAsync(e=>e.UserId==user.Id&&e.BusinessId!=1))throw new ApiError(403,"Use a recuperação de senha da própria conta.");AuthService.Check(await users.ResetPasswordAsync(user,await users.GeneratePasswordResetTokenAsync(user),input.Password));return Results.Ok(new{message="Senha redefinida; sessões anteriores encerradas."});});
   owner.MapGet("/services",async(OrbeDb db)=>Results.Ok(await db.Services.OrderBy(x=>x.Name).ToArrayAsync()));
   owner.MapPost("/services",async(ServiceInput input,OrbeDb db)=>{ValidateService(input);var row=new Service{Name=input.Name.Trim(),DurationMinutes=input.DurationMinutes,PriceCents=input.PriceCents,PriceFrom=input.PriceFrom??false,Enabled=input.Enabled};db.Services.Add(row);await db.SaveChangesAsync();return Results.Ok(row);});
   owner.MapPut("/services/{id}",async(string id,ServiceInput input,OrbeDb db)=>{ValidateService(input);var row=await db.Services.SingleOrDefaultAsync(x=>x.Id==id)??throw new ApiError(404,"Serviço não encontrado.");if(row.Version!=input.Version)throw new ApiError(409,"Serviço alterado. Atualize a lista.");row.Name=input.Name.Trim();row.DurationMinutes=input.DurationMinutes;row.PriceCents=input.PriceCents;row.PriceFrom=input.PriceFrom??row.PriceFrom;row.Enabled=input.Enabled;row.Version=Guid.NewGuid();await db.SaveChangesAsync();return Results.Ok(row);});

@@ -16,9 +16,22 @@ public sealed partial class DashboardPage
   else scope.Add(Text(people.FirstOrDefault(x=>x.Id==profile.EmployeeId)?.DisplayName??profile.FullName,14,Muted));
   var personal=Stack(16,Text(profile.FullName,22,Ink,true),Text(profile.Email,13,Muted),Pill(profile.Owner?"ADMINISTRADOR":"PROFISSIONAL",Violet),Rule(),Button("Editar meu cadastro",async()=>await Navigation.PushAsync(AccountPages.Profile(client,profile))),Button("Jornadas, folgas e compromissos",async()=>await Navigation.PushAsync(AccountPages.Hours(client,profile,current))),Button("Abrir meu espaço no site",()=>Guard(async()=>await Launcher.Default.OpenAsync(new Uri(CloudRouting.PortalUrl+"/equipe"))),quiet:true));
   var management=Stack(16,scope);
+  management.Add(Button("Trocar empresa",()=>Guard(async()=>{
+   var businesses=await client.Get<BusinessChoice[]>("businesses/mine");
+   if(businesses.Length==0){await DisplayAlertAsync("Empresas","Nenhum vínculo está ativo.","Entendi");return;}
+   var names=businesses.Select(x=>x.Name+" · "+x.Slug).ToArray();
+   var chosen=await DisplayActionSheetAsync("Selecione a empresa","Cancelar",null,names);
+   var index=Array.IndexOf(names,chosen);
+   if(index<0)return;
+   var next=new CloudApi(client.BaseUrl){AccessToken=client.AccessToken,Business=businesses[index].Slug};
+   var account=await next.Me();
+   Preferences.Default.Set("orbe-business-"+account.Id,businesses[index].Slug);
+   client.Dispose();
+   CloudSessionStore.Show(this,new DashboardPage(next,account));
+  })));
   management.Add(Button("Suporte",()=>Guard(OpenSupport)));
   if(!profile.Owner)management.Add(Button("Meus serviços",async()=>await Navigation.PushAsync(AccountPages.Services(client))));
-  if(profile.Owner)management.Add(Button("Configurar conexão",async()=>await Navigation.PushAsync(AccountPages.Connection(client))));
+  if(profile.Owner&&client.Business is null or "orbe")management.Add(Button("Configurar conexão",async()=>await Navigation.PushAsync(AccountPages.Connection(client))));
   if(profile.Owner)
   {
    management.Add(Rule());management.Add(Text("Seu negócio",20,Ink,true));
@@ -33,4 +46,5 @@ public sealed partial class DashboardPage
   var personalCard=Card(personal);personalCard.VerticalOptions=LayoutOptions.Start;var managementCard=Card(management);managementCard.VerticalOptions=LayoutOptions.Start;
   body.Add(Columns(Wide,personalCard,managementCard,1,1.5));
  }
+ private sealed record BusinessChoice(string Name,string Slug);
 }

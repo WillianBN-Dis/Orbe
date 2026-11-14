@@ -77,7 +77,16 @@ public sealed class SmtpEmail(IConfiguration config):IEmailDelivery
 public sealed class AuthService(OrbeDb db,UserManager<AppUser> users,IEmailDelivery email,IConfiguration config,TimeProvider clock)
 {
  internal const string InvalidLink="O link ou código é inválido ou expirou. Solicite um novo.";
- public async Task<object> Profile(AppUser u)=>new{u.Id,u.FullName,u.Email,phone=u.PhoneNumber,u.BirthDate,u.EmailConfirmed,u.BookingUsername,roles=await users.GetRolesAsync(u),employeeId=await db.Employees.Where(x=>x.UserId==u.Id&&x.Enabled).Select(x=>x.Id).SingleOrDefaultAsync()};
+ public async Task<object> Profile(AppUser u)=>new{u.Id,u.FullName,u.Email,phone=u.PhoneNumber,u.BirthDate,u.EmailConfirmed,u.BookingUsername,roles=await ProfileRoles(u),employeeId=await db.Employees.Where(x=>x.UserId==u.Id&&x.Enabled).Select(x=>x.Id).SingleOrDefaultAsync()};
+ private async Task<string[]> ProfileRoles(AppUser user)
+ {
+  var roles=await users.GetRolesAsync(user);
+  var member=await db.Employees.SingleOrDefaultAsync(x=>x.UserId==user.Id&&x.Enabled);
+  if(db.BusinessId!=1)roles=roles.Where(r=>r==Roles.Client).ToList();
+  if(member is not null)roles.Add(member.Administrator?Roles.Owner:Roles.Staff);
+  else if(await db.Employees.IgnoreQueryFilters().AnyAsync(x=>x.UserId==user.Id&&x.Enabled))roles.Add(Roles.Staff);
+  return roles.Distinct().ToArray();
+ }
  public static void Check(IdentityResult result)
  {
   if(result.Succeeded)return;
