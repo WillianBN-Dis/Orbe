@@ -1,7 +1,7 @@
 {
-  "version": "2.0.6",
-  "build": 20019,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.6/Orbe-Setup-2.0.6.exe",
-  "sha256": "8c6ea2248a9f1e54ee912c14defbbd81c4bb6fded248cf2ef20f89b5814ddc22",
-  "notes": "Link e busca por empresa, categorias de serviços, filtro de agendamentos e aviso de cancelamento à profissional."
+  "version": "2.0.6.8249",
+  "build": 20020,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.6.8249/Orbe-Setup-2.0.6.8249.exe",
+  "sha256": "14eb2dfe89bde395b23e199e0706a1a2e7385990cb22301b05113f864765a7e0",
+  "notes": "Correção da cópia automática de catálogos e da lista administrativa de serviços."
 }

@@ -1,7 +1,7 @@
 {
-  "version": "2.0.6",
-  "build": 20019,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.6/Orbe-2.0.6.apk",
-  "sha256": "1dff6355cc741fb44f76419d0342401af1f23f3ff1789ac6e3981fff7f70ff23",
-  "notes": "Link e busca por empresa, categorias de serviços, filtro de agendamentos e aviso de cancelamento à profissional."
+  "version": "2.0.6.8249",
+  "build": 20020,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.6.8249/Orbe-2.0.6.8249.apk",
+  "sha256": "8ed79639132495e47d1bfd363c999962bcbb8da8b18879327a9c320a01f31ea2",
+  "notes": "Correção da cópia automática de catálogos e da lista administrativa de serviços."
 }
