@@ -47,6 +47,7 @@ public sealed class EmployeeService
 }
 public sealed class ServiceCategory : IBusinessRecord
 {
+ public string? EmployeeId {get;set;}
  public string Id {get;set;}=Guid.NewGuid().ToString("N");
  public int BusinessId {get;set;}
  public string Name {get;set;}="";
@@ -173,7 +174,8 @@ public sealed class OrbeDb(DbContextOptions<OrbeDb> options) : IdentityDbContext
   b.Entity<Employee>().HasQueryFilter(x=>x.BusinessId==BusinessId);
   b.Entity<Service>().HasQueryFilter(x=>x.BusinessId==BusinessId);
   b.Entity<ServiceCategory>().HasQueryFilter(x=>x.BusinessId==BusinessId);
-  b.Entity<ServiceCategory>().HasIndex(x=>new{x.BusinessId,x.NormalizedName}).IsUnique();
+  b.Entity<ServiceCategory>().HasIndex(x=>new{x.EmployeeId,x.NormalizedName}).IsUnique();
+  b.Entity<ServiceCategory>().HasOne<Employee>().WithMany().HasForeignKey(x=>x.EmployeeId).OnDelete(DeleteBehavior.Cascade);
   b.Entity<EmployeeService>().HasOne<ServiceCategory>().WithMany().HasForeignKey(x=>x.CategoryId).OnDelete(DeleteBehavior.SetNull);
   b.Entity<ScheduleItem>().HasQueryFilter(x=>x.BusinessId==BusinessId);
   b.Entity<FinancialEntry>().HasQueryFilter(x=>x.BusinessId==BusinessId);

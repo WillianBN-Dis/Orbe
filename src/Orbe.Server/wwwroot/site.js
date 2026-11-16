@@ -144,8 +144,11 @@ async function employees(host){const people=await api('/owner/employees');host.a
 async function services(host){
  const people=await api('/team/employees');if(!people.length){host.append(p('Cadastre um profissional na área Equipe para começar.'));return;}
  let employee=isOwner()?(people.some(x=>x.id===teamEmployee)?teamEmployee:people[0].id):people[0].id;
- const categories=await api('/team/categories');const content=stack();if(isOwner()){host.append(button('+ Categoria',()=>{const name=field('Nome da categoria');modal('Nova categoria',form([name.root],'Salvar categoria',async()=>{await api('/team/categories',{method:'POST',body:{name:name.input.value}});dialog.close();await workspace('serviços');}));}));const who=select('Profissional',people.map(x=>({id:x.id,name:x.displayName})),employee);who.input.onchange=()=>{employee=who.input.value;teamEmployee=employee;load().catch(e=>toast(e.message,true));};host.append(who.root);}host.append(content);
- async function load(){const selected=employee;const catalog=await api('/team/services?employeeId='+encodeURIComponent(selected));if(selected!==employee)return;content.replaceChildren();
+ const content=stack();if(isOwner()){const who=select('Profissional',people.map(x=>({id:x.id,name:x.displayName})),employee);who.input.onchange=()=>{employee=who.input.value;teamEmployee=employee;load().catch(e=>toast(e.message,true));};host.append(who.root);}host.append(content);
+ async function load(){const selected=employee;const employeeQuery='?employeeId='+encodeURIComponent(selected);
+ const [catalog,categories]=await Promise.all([api('/team/services'+employeeQuery),api('/team/categories'+employeeQuery)]);
+ if(selected!==employee)return;content.replaceChildren();
+ content.append(button('+ Categoria',()=>{const name=field('Nome da categoria');modal('Nova categoria',form([name.root],'Salvar categoria',async()=>{await api('/team/categories'+employeeQuery,{method:'POST',body:{name:name.input.value}});dialog.close();await load();}));}));
  function edit(service=null){const name=field('Serviço','text',service?.name??''),duration=field('Duração · minutos','number',service?.durationMinutes??60),price=field('Preço · R$','text',((service?.priceCents??0)/100).toFixed(2)),enabled=el('input',{type:'checkbox',checked:service?.enabled??true});duration.input.min=1;duration.input.max=1440;
  const priceMode=select('Tipo de preço',[{id:'fixed',name:'Preço fixo'},{id:'from',name:'A partir de'}],service?.priceFrom?'from':'fixed');
  const category=select('Categoria',[{id:'',name:'Sem categoria'},...categories],service?.categoryId??'');

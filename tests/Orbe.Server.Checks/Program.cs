@@ -110,6 +110,15 @@ internal static class ChecksMain
    await Send(anonymous,HttpMethod.Post,"/api/v1/auth/confirm"+url.Query,new{});
    var client=await Login(address);var me=await Get(client,"/api/v1/auth/me");Check(me.GetProperty("roles").EnumerateArray().Single().GetString()=="Client","Confirmação de e-mail e papel Client fixado no servidor: "+name);return client;
   }
+  const string categoryPath="/api/v1/team/categories";
+  var ownCategory=await Send(staff1,HttpMethod.Post,categoryPath,new{name="Cabelo"});
+  var otherCategory=await Send(staff2,HttpMethod.Post,categoryPath,new{name="Cabelo"});
+  Check(Id(ownCategory)!=Id(otherCategory),"Profissionais da mesma empresa criam categorias independentes com o mesmo nome");
+  Check(Id((await Get(staff1,categoryPath)).EnumerateArray().Single())==Id(ownCategory),"Profissional lista somente as suas categorias");
+  Check(Id((await Get(owner,categoryPath+"?employeeId="+e2)).EnumerateArray().Single())==Id(otherCategory),"Administrador lista as categorias do profissional selecionado");
+  await Send(staff1,HttpMethod.Post,categoryPath+"?employeeId="+e2,new{name="Outra"},403);
+  await Send(staff1,HttpMethod.Get,categoryPath+"?employeeId="+e2,expected:403);
+  await Send(staff1,HttpMethod.Post,"/api/v1/team/services",new{name="Inválido",durationMinutes=30,priceCents=100,enabled=true,categoryId=Id(otherCategory)},400);
   var client1=await Client("cliente1");var client2=await Client("cliente2");
   await Send(staff1,HttpMethod.Post,"/api/v1/platform/businesses",new{name="Estúdio QA",slug="studio-qa",ownerUsername="staff1"},403);
   await Send(owner,HttpMethod.Post,"/api/v1/platform/businesses",new{name="Estúdio QA",slug="studio-qa",ownerUsername="staff1"});

@@ -4,7 +4,7 @@ namespace Orbe.Server;
 
 internal static class MembershipCatalog
 {
- internal static async Task Copy(OrbeDb db,Employee target,int business)
+ internal static async Task Copy(OrbeDb db,Employee target)
  {
   var links=db.EmployeeServices.IgnoreQueryFilters();
   if(await links.AnyAsync(x=>x.EmployeeId==target.Id))return;
@@ -21,7 +21,7 @@ internal static class MembershipCatalog
     select new{ Name=link.Name??service.Name, Duration=link.DurationMinutes??service.DurationMinutes,
      Price=link.PriceCents??service.PriceCents, From=link.PriceFrom??service.PriceFrom,
      Enabled=link.Enabled??service.Enabled, Category=db.Categories.IgnoreQueryFilters().Where(c=>c.Id==link.CategoryId).Select(c=>c.Name).FirstOrDefault() }).ToArrayAsync();
-  var categories=await db.Categories.Where(x=>x.BusinessId==business).ToDictionaryAsync(x=>x.NormalizedName);
+  var categories=await db.Categories.Where(x=>x.EmployeeId==target.Id).ToDictionaryAsync(x=>x.NormalizedName);
   foreach(var offer in catalog)
   {
    string? categoryId=null;
@@ -30,7 +30,7 @@ internal static class MembershipCatalog
     var key=name.ToUpperInvariant();
     if(!categories.TryGetValue(key,out var category))
     {
-     category=new(){Name=name,NormalizedName=key};
+     category=new(){EmployeeId=target.Id,Name=name,NormalizedName=key};
      db.Categories.Add(category);
      categories.Add(key,category);
     }

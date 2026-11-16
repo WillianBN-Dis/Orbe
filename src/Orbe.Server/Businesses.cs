@@ -73,7 +73,7 @@ public static class Businesses
    db.BusinessId=b.Id;
    var administrator=new Employee{UserId=owner.Id,DisplayName=owner.FullName,Administrator=true};
    db.Employees.Add(administrator);
-   await MembershipCatalog.Copy(db,administrator,b.Id);
+   await MembershipCatalog.Copy(db,administrator);
    await db.SaveChangesAsync();await tx.CommitAsync();
    return Results.Ok(new{b.Name,b.Slug});
   }).RequireAuthorization();
@@ -84,7 +84,7 @@ public static class Businesses
    await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Settings\" WHERE \"Id\"={db.BusinessId} FOR UPDATE");
    if(await db.Employees.AnyAsync(x=>x.UserId==user.Id))throw new ApiError(409,"A conta já faz parte da empresa.");
    var employee=new Employee{UserId=user.Id,DisplayName=user.FullName,Administrator=input.Administrator&&db.BusinessId!=1};
-   db.Employees.Add(employee);await MembershipCatalog.Copy(db,employee,db.BusinessId);await db.SaveChangesAsync();await tx.CommitAsync();
+   db.Employees.Add(employee);await MembershipCatalog.Copy(db,employee);await db.SaveChangesAsync();await tx.CommitAsync();
    return Results.Ok(new{employee.Id,employee.DisplayName});
   }).RequireAuthorization(p=>p.RequireRole(Roles.Owner));
  }

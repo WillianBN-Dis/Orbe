@@ -713,6 +713,9 @@ namespace Orbe.Server.Migrations
                     b.Property<int>("BusinessId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("EmployeeId")
+                        .HasColumnType("text");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -723,7 +726,7 @@ namespace Orbe.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BusinessId", "NormalizedName")
+                    b.HasIndex("EmployeeId", "NormalizedName")
                         .IsUnique();
 
                     b.ToTable("Categories");
@@ -927,6 +930,14 @@ namespace Orbe.Server.Migrations
                         .WithMany()
                         .HasForeignKey("ServiceId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Orbe.Server.ServiceCategory", b =>
+                {
+                    b.HasOne("Orbe.Server.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("Orbe.Server.WeekWindow", b =>
