@@ -1,7 +1,7 @@
 {
-  "version": "2.0.6.8249",
-  "build": 20020,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.6.8249/Orbe-2.0.6.8249.apk",
-  "sha256": "8ed79639132495e47d1bfd363c999962bcbb8da8b18879327a9c320a01f31ea2",
-  "notes": "Correção da cópia automática de catálogos e da lista administrativa de serviços."
+  "version": "2.0.6.8250",
+  "build": 20021,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.6.8250/Orbe-2.0.6.8250.apk",
+  "sha256": "f6b7fb9fc3e4c863ec644d4b3758a0e298a68583fd8c439a76caa49f7f4b62ae",
+  "notes": "Cada profissional pode criar e usar as próprias categorias de serviço no site e no aplicativo."
 }

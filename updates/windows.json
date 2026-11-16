@@ -1,7 +1,7 @@
 {
-  "version": "2.0.6.8249",
-  "build": 20020,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.6.8249/Orbe-Setup-2.0.6.8249.exe",
-  "sha256": "14eb2dfe89bde395b23e199e0706a1a2e7385990cb22301b05113f864765a7e0",
-  "notes": "Correção da cópia automática de catálogos e da lista administrativa de serviços."
+  "version": "2.0.6.8250",
+  "build": 20021,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.6.8250/Orbe-Setup-2.0.6.8250.exe",
+  "sha256": "fe5279add7389203e6d0fc59a8804c86565deb0af7a01a8d8afd628a9fe29944",
+  "notes": "Cada profissional pode criar e usar as próprias categorias de serviço no site e no aplicativo."
 }
