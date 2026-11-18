@@ -1,7 +1,7 @@
 {
-  "version": "2.0.7",
-  "build": 20022,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.7/Orbe-Setup-2.0.7.exe",
-  "sha256": "f3c4793d7cd661d363638f60653dc9be999a176c1ee6a6bad27041548a04a890",
-  "notes": "Calendários Dia/Mês/Ano, categorias editáveis e ingresso profissional por convite com aprovação."
+  "version": "2.0.8",
+  "build": 20023,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.8/Orbe-Setup-2.0.8.exe",
+  "sha256": "f1f610957a8b06fcfceaae4e427aafc364c834011a251729b0080c03109b97f6",
+  "notes": "Notificações individuais e seleção de várias datas para disponibilidade, folgas e compromissos."
 }

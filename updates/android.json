@@ -1,7 +1,7 @@
 {
-  "version": "2.0.7",
-  "build": 20022,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.7/Orbe-2.0.7.apk",
-  "sha256": "680eaf34a32a433926aa91ae80ee61fd9019892a99aeeabc24661e1c894748ce",
-  "notes": "Calendários Dia/Mês/Ano, categorias editáveis e ingresso profissional por convite com aprovação."
+  "version": "2.0.8",
+  "build": 20023,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.8/Orbe-2.0.8.apk",
+  "sha256": "48f5d43ee9a45caad5b377aa69d69726d1c1c7ba0bba6fd2a74df043db1bd5f1",
+  "notes": "Notificações individuais e seleção de várias datas para disponibilidade, folgas e compromissos."
 }
