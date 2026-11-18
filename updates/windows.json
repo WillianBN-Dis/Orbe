@@ -1,7 +1,7 @@
 {
-  "version": "2.0.6.8250",
-  "build": 20021,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.6.8250/Orbe-Setup-2.0.6.8250.exe",
-  "sha256": "fe5279add7389203e6d0fc59a8804c86565deb0af7a01a8d8afd628a9fe29944",
-  "notes": "Cada profissional pode criar e usar as próprias categorias de serviço no site e no aplicativo."
+  "version": "2.0.7",
+  "build": 20022,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.7/Orbe-Setup-2.0.7.exe",
+  "sha256": "f3c4793d7cd661d363638f60653dc9be999a176c1ee6a6bad27041548a04a890",
+  "notes": "Calendários Dia/Mês/Ano, categorias editáveis e ingresso profissional por convite com aprovação."
 }
