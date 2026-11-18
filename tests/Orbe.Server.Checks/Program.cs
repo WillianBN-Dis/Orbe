@@ -329,6 +329,7 @@ internal static class ChecksMain
   await ProfessionalServiceChecks.Verify(owner,anonymous,factory);
   await NotificationChecks.Verify(owner,anonymous,factory);
   await BusinessFeatureChecks.Verify(owner,anonymous,factory);
+  await AvailabilityFeatureChecks.Verify(owner,anonymous,factory);
   Console.WriteLine($"{checks} verificações HTTP/PostgreSQL passaram com dados exclusivamente sintéticos.");
  }
 }

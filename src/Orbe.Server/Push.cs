@@ -68,24 +68,24 @@ public sealed class PushWorker(IServiceScopeFactory scopes,IConfiguration config
   var devices=from d in db.Set<PushDevice>() join s in db.Sessions on d.SessionHash equals s.TokenHash
    join u in db.Users on s.UserId equals u.Id
    where s.ExpiresAt>now&&u.Active&&u.EmailConfirmed&&u.SecurityStamp==s.SecurityStamp
-   select new{d.Token,d.RegisteredAt,u.Id,Owner=db.UserRoles.Any(ur=>ur.UserId==u.Id&&db.Roles.Any(r=>r.Id==ur.RoleId&&r.Name==Roles.Owner))};
+   select new{d.Token,d.RegisteredAt,u.Id};
   var active=await devices.ToArrayAsync(cancellation);
   using var http=clients.CreateClient();
-  foreach(var user in active.GroupBy(x=>new{x.Id,x.Owner}))
+  foreach(var user in active.GroupBy(x=>x.Id))
   {
-   var businessIds=await db.Employees.IgnoreQueryFilters().Where(e=>e.UserId==user.Key.Id&&e.Enabled).Select(e=>e.BusinessId).Distinct().ToArrayAsync(cancellation);
+   var businessIds=await db.Employees.IgnoreQueryFilters().Where(e=>e.UserId==user.Key&&e.Enabled).Select(e=>e.BusinessId)
+    .Union(db.Appointments.IgnoreQueryFilters().Where(a=>a.ClientId==user.Key).Select(a=>a.BusinessId)).ToArrayAsync(cancellation);
    foreach(var businessId in businessIds.Append(1).Distinct())
    {
    db.BusinessId=businessId;
-   var businessOwner=businessId==1&&user.Key.Owner||await db.Employees.AnyAsync(e=>e.UserId==user.Key.Id&&e.Enabled&&e.Administrator,cancellation);
-   await inbox.Materialize(user.Key.Id,businessOwner);
+   await inbox.Materialize(user.Key);
    foreach(var device in user)
    {
     var earliest=device.RegisteredAt>now.AddDays(-2)?device.RegisteredAt:now.AddDays(-2);
     var due=await (from n in db.Notifications join a in db.Appointments on n.AppointmentId equals a.Id
      where n.UserId==device.Id&&n.DeliverAt>=earliest&&n.DeliverAt<=now&&n.DeletedAt==null&&n.ReadAt==null&&
       (n.Kind=="Review"?a.Status=="Pending":n.Kind=="Cancellation"?a.Status=="Cancelled":a.Status=="Confirmed")&&a.Start==n.OccurrenceStart&&(n.Kind=="Booking"||n.Kind=="Review"||n.Kind=="Cancellation"||a.Start>now)&&
-      (businessOwner||db.Employees.Any(e=>e.Id==a.EmployeeId&&e.UserId==device.Id&&e.Enabled))&&
+      (n.Kind!="Review"&&a.ClientId==device.Id||db.Employees.Any(e=>e.Id==a.EmployeeId&&e.UserId==device.Id&&e.Enabled))&&
       !db.Set<PushReceipt>().Any(r=>r.Token==device.Token&&r.NoticeId==n.Id)
      orderby n.DeliverAt,n.Id select new{n.Id,n.Kind}).Take(50).ToArrayAsync(cancellation);
     foreach(var notice in due)

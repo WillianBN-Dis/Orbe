@@ -10,7 +10,7 @@ internal static partial class AccountPages
  {
   internal object Window()=>new{startMinute=(int)(Start.Time??TimeSpan.Zero).TotalMinutes,endMinute=Midnight.IsChecked?1440:(int)(End.Time??TimeSpan.Zero).TotalMinutes};
  }
- private sealed record ScheduleDay(Picker? Weekday,DatePicker? Date,List<TimePeriod> Periods);
+ private sealed record ScheduleDay(Picker? Weekday,DatePicker? Date,List<TimePeriod> Periods,View Root);
  private static Grid TimeFields(View first,View second)
  {
   var grid=Columns(false,first,second);bool? last=null;
@@ -45,7 +45,12 @@ internal static partial class AccountPages
      if(windows is null){rows.Add(AddTimePeriod(periods,"Manhã",540,720));rows.Add(AddTimePeriod(periods,"Tarde",780,1080));}
      else if(windows.Length==0){rows.Add(AddTimePeriod(periods,"Manhã",540,720,true));rows.Add(AddTimePeriod(periods,"Tarde",780,1080,true));}
      else for(var n=0;n<windows.Length;n++){var w=windows[n];rows.Add(AddTimePeriod(periods,"Período "+(n+1),I(w,"startMinute"),I(w,"endMinute")));}
-     var record=new ScheduleDay(day,calendar,rows);var collection=special?dateRows:weekRows;var target=special?exceptions:weekly;collection.Add(record);var card=Card(content,16);target.Add(card);
+     var card=Card(content,16);var record=new ScheduleDay(day,calendar,rows,card);var collection=special?dateRows:weekRows;var target=special?exceptions:weekly;collection.Add(record);target.Add(card);
+     if(special){
+      periods.IsVisible=false;
+      content.Add(Text(string.Join(" · ",rows.Where(p=>!p.Disabled.IsChecked).Select(p=>$"{TimeOnly.FromTimeSpan(p.Start.Time??TimeSpan.Zero):HH:mm}–{TimeOnly.FromTimeSpan(p.End.Time??TimeSpan.Zero):HH:mm}")),12,Muted));
+      content.Add(Button("Editar períodos",()=>{periods.IsVisible=!periods.IsVisible;return Task.CompletedTask;},quiet:true));
+     }
      content.Add(Button("+ Outro período",()=>{rows.Add(AddTimePeriod(periods,"Período extra",1080,1200));return Task.CompletedTask;},quiet:true));
      content.Add(Button("Remover "+(special?"data":"jornada"),()=>{collection.Remove(record);target.Children.Remove(card);return Task.CompletedTask;},danger:true));
     }
@@ -54,8 +59,35 @@ internal static partial class AccountPages
     host.Add(Button("+ Jornada · manhã e tarde",()=>{AddDay(false);return Task.CompletedTask;}));host.Add(Rule());host.Add(Text("Datas especiais",21,Ink,true));host.Add(Text("Substituem a jornada semanal. Desative todos os períodos para deixar o dia inteiro indisponível.",12,Muted));host.Add(exceptions);
     foreach(var item in data.GetProperty("exceptions").EnumerateArray())AddDay(true,date:DateOnly.Parse(S(item,"date")),windows:item.GetProperty("windows").EnumerateArray().Select(x=>x.Clone()).ToArray());
     host.Add(Button("+ Data especial",()=>{AddDay(true);return Task.CompletedTask;}));
+    var bulk=new VerticalStackLayout{Spacing=14,IsVisible=false};
+    var dates=new DateSelection(api.Local(DateTimeOffset.UtcNow));
+    var periodEditor=Stack(10);
+    var bulkPeriods=new List<TimePeriod>{AddTimePeriod(periodEditor,"Manhã",540,720),AddTimePeriod(periodEditor,"Tarde",780,1080)};
+    var replace=new CheckBox{Color=Violet};
+    bulk.Add(dates.View);bulk.Add(periodEditor);
+    bulk.Add(Button("+ Outro período",()=>{bulkPeriods.Add(AddTimePeriod(periodEditor,"Período extra",1080,1200));return Task.CompletedTask;},quiet:true));
+    bulk.Add(Row(6,replace,Text("Substituir datas especiais já configuradas",12,Muted)));
+    bulk.Add(Button("Aplicar às datas selecionadas",()=>page.Run(async()=>{
+     var selectedDates=dates.Dates();
+     var existing=dateRows.Where(r=>selectedDates.Contains(DateOnly.FromDateTime(r.Date!.Date??DateTime.Today))).ToArray();
+     if(existing.Length>0&&!replace.IsChecked)throw new ArgumentException("Já existem datas especiais selecionadas. Marque Substituir ou retire essas datas.");
+     var windows=bulkPeriods.Where(p=>!p.Disabled.IsChecked).Select(p=>JsonSerializer.SerializeToElement(p.Window())).ToArray();
+     if(!await page.DisplayAlertAsync("Aplicar horários?",$"Aplicar estes períodos a {selectedDates.Length} data(s)?"+(existing.Length>0?$" {existing.Length} configuração(ões) serão substituídas.":""),"Aplicar","Voltar"))return;
+     foreach(var r in existing){dateRows.Remove(r);exceptions.Children.Remove(r.Root);}
+     foreach(var date in selectedDates)AddDay(true,date:date,windows:windows);
+     bulk.IsVisible=false;await page.DisplayAlertAsync("Datas preparadas","Confira a lista e toque em Salvar disponibilidade para gravar as alterações.","Entendi");
+    }),primary:true));
+    host.Add(Button("Selecionar várias datas especiais",()=>{bulk.IsVisible=!bulk.IsVisible;return Task.CompletedTask;}));
+    host.Add(bulk);
     host.Add(Button("Salvar disponibilidade",()=>page.Run(async()=>{
-     await api.Put<JsonElement>("team/hours?employeeId="+Uri.EscapeDataString(id),new{version=S(data,"version"),weekly=weekRows.SelectMany(d=>d.Periods.Where(p=>!p.Disabled.IsChecked).Select(p=>new{day=d.Weekday!.SelectedIndex,window=p.Window()})).ToArray(),exceptions=dateRows.Select(d=>new{date=DateOnly.FromDateTime(d.Date!.Date??DateTime.Today),windows=d.Periods.Where(p=>!p.Disabled.IsChecked).Select(p=>p.Window()).ToArray()}).ToArray()});await page.DisplayAlertAsync("Disponibilidade atualizada","Os novos horários já aparecem no site.","Entendi");await Render();
+     var requested=dateRows.Select(d=>new{date=DateOnly.FromDateTime(d.Date!.Date??DateTime.Today),windows=d.Periods.Where(p=>!p.Disabled.IsChecked).Select(p=>p.Window()).ToArray()}).ToArray();
+     if(requested.Select(d=>d.date).Distinct().Count()!=requested.Length)throw new ArgumentException("Há datas especiais repetidas. Remova a duplicação antes de salvar.");
+     await api.Put<JsonElement>("team/hours?employeeId="+Uri.EscapeDataString(id),new{version=S(data,"version"),weekly=weekRows.SelectMany(d=>d.Periods.Where(p=>!p.Disabled.IsChecked).Select(p=>new{day=d.Weekday!.SelectedIndex,window=p.Window()})).ToArray(),exceptions=requested});
+     var saved=await api.Get<JsonElement>("team/hours?employeeId="+Uri.EscapeDataString(id));
+     var actual=saved.GetProperty("exceptions").EnumerateArray().ToDictionary(d=>S(d,"date"),d=>d.GetProperty("windows"));
+     if(requested.Any(d=>!actual.TryGetValue(d.date.ToString("yyyy-MM-dd"),out var periods)||JsonSerializer.Serialize(periods)!=JsonSerializer.Serialize(d.windows)))
+      throw new ArgumentException("Os dados foram enviados, mas a conferência encontrou diferenças. Reabra a disponibilidade para conferir o que foi gravado.");
+     await Render();await page.DisplayAlertAsync("Disponibilidade salva","Datas e horários gravados para este profissional.","Entendi");
     }),primary:true));host.Add(Button("Adicionar folga ou compromisso",async()=>await page.Navigation.PushAsync(Block(api,id))));
    }
    picker.SelectedIndexChanged+=async(_,_)=>await page.Run(Render);await Render();
@@ -64,8 +96,12 @@ internal static partial class AccountPages
  internal static Page Block(CloudApi api,string employee)
  {
   var page=new CloudFormPage(api,"Folga ou compromisso");var title=Input("Ex.: Folga");var notes=new Editor{Placeholder="Observações privadas",MinimumHeightRequest=90};var kind=new Picker{ItemsSource=new[]{"Folga","Compromisso","Outro"},SelectedIndex=0};var today=api.Local(DateTimeOffset.UtcNow).Date;
-  var date=new DatePicker{Date=today,Format="dd/MM/yyyy"};var scope=new Picker{ItemsSource=new[]{"Dia inteiro","Manhã","Tarde","Escolher horários"},SelectedIndex=0};var from=new TimePicker{Time=TimeSpan.FromHours(9),Format="HH:mm"};var until=new TimePicker{Time=TimeSpan.FromHours(12),Format="HH:mm"};var times=TimeFields(Field("Início",from),Field("Fim",until));times.IsVisible=false;
+  var dates=new DateSelection(today);var batchId=Guid.NewGuid();var scope=new Picker{ItemsSource=new[]{"Dia inteiro","Manhã","Tarde","Escolher horários"},SelectedIndex=0};var from=new TimePicker{Time=TimeSpan.FromHours(9),Format="HH:mm"};var until=new TimePicker{Time=TimeSpan.FromHours(12),Format="HH:mm"};var times=TimeFields(Field("Início",from),Field("Fim",until));times.IsVisible=false;
   scope.SelectedIndexChanged+=(_,_)=>{times.IsVisible=scope.SelectedIndex!=0;if(scope.SelectedIndex==1){from.Time=TimeSpan.FromHours(9);until.Time=TimeSpan.FromHours(12);}if(scope.SelectedIndex==2){from.Time=TimeSpan.FromHours(13);until.Time=TimeSpan.FromHours(18);}};
-  page.Fields.Add(Stack(18,Text("Reserve seu tempo",24,Ink,true),Field("Título",title),Field("Tipo",kind),Field("Dia",date),Field("Período",scope),times,Field("Observações",notes),Text("Os horários de manhã e tarde são sugestões; ajuste se necessário. Conflitos com atendimentos confirmados serão recusados.",12,Muted),Button("Salvar bloqueio",()=>page.Run(async()=>{var day=(date.Date??today).Date;var all=scope.SelectedIndex==0;await api.Post<JsonElement>("team/blocks",new{employeeId=employee,title=Required(title,"o título"),kind=kind.SelectedItem,start=api.Instant(all?day:day+(from.Time??TimeSpan.Zero)),end=api.Instant(all?day.AddDays(1):day+(until.Time??TimeSpan.Zero)),notes=notes.Text});await Back(page);}),primary:true)));return page;
+  page.Fields.Add(Stack(18,Text("Reserve seu tempo",24,Ink,true),Field("Título",title),Field("Tipo",kind),dates.View,Field("Período",scope),times,Field("Observações",notes),Text("Os horários de manhã e tarde são sugestões; ajuste se necessário. Conflitos com atendimentos confirmados serão recusados.",12,Muted),Button("Salvar bloqueio",()=>page.Run(async()=>{var selectedDates=dates.Dates();var all=scope.SelectedIndex==0;
+    var name=Required(title,"o título");
+    if(!await page.DisplayAlertAsync("Confirmar bloqueios?",$"Criar {kind.SelectedItem} em {selectedDates.Length} data(s), no período selecionado?","Salvar","Voltar"))return;
+    await api.Post<JsonElement>("team/blocks/batch",new{batchId,employeeId=employee,title=name,kind=kind.SelectedItem,dates=selectedDates,allDay=all,startTime=TimeOnly.FromTimeSpan(from.Time??TimeSpan.Zero),endTime=TimeOnly.FromTimeSpan(until.Time??TimeSpan.Zero),notes=notes.Text});
+    await page.DisplayAlertAsync("Bloqueios salvos",$"{selectedDates.Length} data(s) gravada(s).","Entendi");await Back(page);}),primary:true)));return page;
  }
 }

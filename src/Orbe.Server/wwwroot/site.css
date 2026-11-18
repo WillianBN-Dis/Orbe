@@ -43,3 +43,5 @@ code{overflow-wrap:anywhere}
 .mini-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;font-size:9px;font-weight:400}
 .mini-weekday{color:var(--muted)}
 @media(max-width:850px){.calendar-year{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.date-preview{max-height:140px;overflow:auto;overflow-wrap:anywhere}

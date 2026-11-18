@@ -19,8 +19,8 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
  private static void Version(Guid expected,Guid actual){if(expected!=actual)throw new ApiError(409,"Os dados mudaram. Atualize antes de continuar.");}
  internal async Task<(WeeklyWindow[] Week,DateSchedule[] Days)> Hours(string employee)
  {
-  var weekly=await db.WeekWindows.Where(x=>x.EmployeeId==employee).ToArrayAsync();
-  var days=await db.DayOverrides.Where(x=>x.EmployeeId==employee).ToArrayAsync();
+  var weekly=await db.WeekWindows.AsNoTracking().Where(x=>x.EmployeeId==employee).ToArrayAsync();
+  var days=await db.DayOverrides.AsNoTracking().Where(x=>x.EmployeeId==employee).ToArrayAsync();
   return(weekly.Select(x=>new WeeklyWindow((DayOfWeek)x.Day,new(x.StartMinute,x.EndMinute))).ToArray(),days.Select(x=>new DateSchedule(x.Date,JsonSerializer.Deserialize<WorkingWindow[]>(x.WindowsJson)!)).ToArray());
  }
  public async Task<object> ReadHours(string? employee)
@@ -39,7 +39,7 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
  {
   if(input.Weekly is null||input.Exceptions is null||input.Weekly.Length>70||input.Exceptions.Length>366)throw new ApiError(400,"Jornada inválida ou extensa demais.");
   if(input.Exceptions.Any(x=>x is null||x.Windows is null||x.Windows.Any(w=>w is null)))throw new ApiError(400,"Jornada especial inválida.");
-  if(input.Exceptions.Select(x=>x.Date).Distinct().Count()!=input.Exceptions.Length)throw new ApiError(400,"Há datas especiais repetidas.");
+  if(input.Exceptions.Select(x=>x.Date).Distinct().Count()!=input.Exceptions.Length)throw new ApiError(400,"Há datas especiais repetidas. Mantenha uma configuração por data.");
   foreach(var row in input.Weekly)if(row is null||row.Window is null||!Enum.IsDefined(row.Day))throw new ApiError(400,"Dia da semana ou período inválido.");
   foreach(var group in input.Weekly.GroupBy(x=>x.Day).Select(x=>x.Select(y=>y.Window)).Concat(input.Exceptions.Select(x=>(IEnumerable<WorkingWindow>)x.Windows)))
   {
@@ -54,8 +54,13 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
   var person=await db.Employees.SingleAsync(x=>x.Id==id);Version(input.Version,person.Version);
   var policy=(await Settings()).Policy();var now=clock.GetUtcNow();
   var future=await db.Appointments.Where(x=>x.EmployeeId==id&&x.Status=="Confirmed"&&x.Kind=="Atendimento"&&x.End>now).ToArrayAsync();
-  var conflicts=future.Where(x=>!Fits(x.Start,x.End,policy,input.Weekly,input.Exceptions)).Select(x=>new{x.Id,x.Title,x.Start,x.End}).ToArray();
-  if(conflicts.Length>0)throw new ApiError(409,"Remarque ou cancele os atendimentos antes de alterar esta jornada.",conflicts);
+  var previous=await Hours(id);
+  var conflicts=future.Where(x=>Fits(x.Start,x.End,policy,previous.Week,previous.Days)&&!Fits(x.Start,x.End,policy,input.Weekly,input.Exceptions)).Select(x=>new{x.Id,x.Title,x.Start,x.End}).ToArray();
+  if(conflicts.Length>0){
+   var zone=TimeZoneInfo.FindSystemTimeZoneById(policy.TimeZoneId);
+   var dates=string.Join(", ",conflicts.Select(x=>TimeZoneInfo.ConvertTime(x.Start,zone).ToString("dd/MM/yyyy")).Distinct().Take(8));
+   throw new ApiError(409,"A alteração retiraria o horário de atendimentos confirmados em "+dates+". Ajuste os períodos ou remarque esses atendimentos.",conflicts);
+  }
   await db.WeekWindows.Where(x=>x.EmployeeId==id).ExecuteDeleteAsync();await db.DayOverrides.Where(x=>x.EmployeeId==id).ExecuteDeleteAsync();
   db.WeekWindows.AddRange(input.Weekly.Select(x=>new WeekWindow{EmployeeId=id,Day=(int)x.Day,StartMinute=x.Window.StartMinute,EndMinute=x.Window.EndMinute}));
   db.DayOverrides.AddRange(input.Exceptions.Select(x=>new DayOverride{EmployeeId=id,Date=x.Date,WindowsJson=JsonSerializer.Serialize(x.Windows)}));

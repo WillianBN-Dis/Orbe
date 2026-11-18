@@ -26,12 +26,11 @@ public sealed class NotificationInbox(OrbeDb db,Actor actor,TimeProvider clock)
   try{
    foreach(var business in businesses.Append(original).Distinct()){
     db.BusinessId=business;
-    var owner=business==original&&actor.Owner||await db.Employees.AnyAsync(e=>e.UserId==actor.Id&&e.Enabled&&e.Administrator);
-    await Materialize(actor.Id,owner);
+    await Materialize(actor.Id);
    }
   }finally{db.BusinessId=original;}
  }
- internal async Task Materialize(string user,bool owner)
+ internal async Task Materialize(string user)
  {
   var now=clock.GetUtcNow();
   await db.Database.ExecuteSqlInterpolatedAsync($"""
@@ -41,8 +40,8 @@ public sealed class NotificationInbox(OrbeDb db,Actor actor,TimeProvider clock)
    CROSS JOIN LATERAL (VALUES ('Booking',a."RecordedAt"),('Day',a."Start"-INTERVAL '24 hours'),('Hour',a."Start"-INTERVAL '1 hour'),('Review',a."RecordedAt")) event(kind,due)
    WHERE a."BusinessId"={db.BusinessId}
     AND (event.kind IN ('Day','Review') OR a."Kind"='Atendimento')
-    AND ((a."Status"='Pending' AND event.kind='Review' AND ({owner} OR (e."UserId"={user} AND e."Enabled")))
-      OR (a."Status"='Confirmed' AND event.kind<>'Review' AND ({owner} OR e."UserId"={user} OR a."ClientId"={user})))
+    AND ((a."Status"='Pending' AND event.kind='Review' AND (e."UserId"={user} AND e."Enabled"))
+      OR (a."Status"='Confirmed' AND event.kind<>'Review' AND ((e."UserId"={user} AND e."Enabled") OR a."ClientId"={user})))
     AND event.due IS NOT NULL AND event.due<={now}
     AND (event.kind IN ('Booking','Review') OR (a."Start">{now} AND (a."RecordedAt" IS NULL OR a."RecordedAt"<=event.due)))
    ON CONFLICT ("UserId","AppointmentId","Kind","OccurrenceStart") DO NOTHING
@@ -51,8 +50,8 @@ public sealed class NotificationInbox(OrbeDb db,Actor actor,TimeProvider clock)
  private IQueryable<InboxNotification> Visible()=>db.Notifications.Where(n=>n.UserId==actor.Id&&n.DeletedAt==null&&n.DeliverAt<=clock.GetUtcNow()&&
   db.Appointments.IgnoreQueryFilters().Any(a=>a.Id==n.AppointmentId&&a.Start==n.OccurrenceStart&&
    (n.Kind=="Review"?a.Status=="Pending"&&(!actor.Client||a.ClientId!=actor.Id):n.Kind=="Cancellation"?a.Status=="Cancelled":a.Status=="Confirmed")&&
-   (actor.Owner&&a.BusinessId==db.BusinessId||n.Kind!="Review"&&a.ClientId==actor.Id||
-    db.Employees.IgnoreQueryFilters().Any(e=>e.UserId==actor.Id&&e.BusinessId==a.BusinessId&&e.Enabled&&(e.Id==a.EmployeeId||e.Administrator)))));
+   (n.Kind!="Review"&&a.ClientId==actor.Id||
+    db.Employees.IgnoreQueryFilters().Any(e=>e.UserId==actor.Id&&e.BusinessId==a.BusinessId&&e.Enabled&&e.Id==a.EmployeeId))));
  public async Task<object> List(int offset,int limit)
  {
   if(offset<0||offset>100000||limit is <1 or >100)throw new ApiError(400,"Página inválida.");

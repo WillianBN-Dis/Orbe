@@ -12,7 +12,7 @@ internal static class DebugFormFixture
   var api=new CloudApi("http://localhost",new FixtureHandler());
   var profile=new CloudProfile("qa","Equipe QA","qa@example.test",null,null,true,["Owner"],"a");
   return Environment.GetEnvironmentVariable("ORBE_QA_FORM") switch{
-   "categories"=>AccountPages.Categories(api,"a"),"invitations"=>AccountPages.Invitations(api),"platform"=>AccountPages.PlatformInvitations(api),"services"=>AccountPages.Services(api),"block"=>AccountPages.Block(api,"a"),_=>AccountPages.Hours(api,profile,"a")
+   "categories"=>AccountPages.Categories(api,"a"),"invitations"=>AccountPages.Invitations(api),"platform"=>AccountPages.PlatformInvitations(api),"services"=>AccountPages.Services(api),"block" or "dates"=>AccountPages.Block(api,"a"),_=>AccountPages.Hours(api,profile,"a")
   };
  }
  private static IEnumerable<T> Find<T>(IVisualTreeElement root)where T:class
@@ -23,10 +23,21 @@ internal static class DebugFormFixture
   var mode=Environment.GetEnvironmentVariable("ORBE_QA_FORM")??"hours";
   if(mode=="hours"){
    Find<Button>(page).Single(x=>x.Text=="+ Jornada · manhã e tarde").SendClicked();
-   var clocks=Find<TimePicker>(page).ToArray();if(clocks.Length!=4)throw new Exception("Morning/afternoon selectors missing");
+   var clocks=Find<TimePicker>(page).Take(4).ToArray();if(clocks.Length!=4)throw new Exception("Morning/afternoon selectors missing");
    var boxes=Find<CheckBox>(page).ToArray();boxes[2].IsChecked=true;
    if(clocks[2].IsEnabled||clocks[3].IsEnabled||!clocks[0].IsEnabled)throw new Exception("Period checkbox did not isolate afternoon");
    if(clocks[0].Time!=TimeSpan.FromHours(9)||clocks[1].Time!=TimeSpan.FromHours(12))throw new Exception("Morning defaults wrong");
+  }else if(mode=="dates"){
+   var selector=Find<Picker>(page).Single(p=>p.ItemsSource?.Count==3&&p.ItemsSource[0]?.ToString()=="Um dia");
+   selector.SelectedIndex=1;
+   Find<Button>(page).Single(b=>b.Text=="14").SendClicked();
+   Find<Button>(page).Single(b=>b.Text=="16").SendClicked();
+   if(!Find<Label>(page).Any(l=>l.Text?.Contains("2 data(s) selecionada(s)")==true))throw new Exception("Multiple dates selection failed");
+   selector.SelectedIndex=2;
+   var pickers=Find<DatePicker>(page).ToArray();
+   pickers[1].Date=new DateTime(2026,12,20);pickers[2].Date=new DateTime(2026,12,31);
+   Find<CheckBox>(page).First().IsChecked=false;
+   if(!Find<Label>(page).Any(l=>l.Text?.Contains("10 data(s) selecionada(s)")==true))throw new Exception("Range weekday filter failed");
   }else if(mode=="block"){
    var period=Find<Picker>(page).Single(x=>x.ItemsSource?.Count==4);period.SelectedIndex=2;
    var clocks=Find<TimePicker>(page).ToArray();if(clocks.Length!=2||clocks[0].Time!=TimeSpan.FromHours(13)||clocks[1].Time!=TimeSpan.FromHours(18))throw new Exception("Afternoon block preset wrong");

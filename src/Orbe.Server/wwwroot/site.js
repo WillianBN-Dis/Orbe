@@ -165,9 +165,21 @@ let teamEmployee='',teamTab='agenda';
 async function workspace(tab=teamTab){if(!isTeam())return login(()=>workspace(tab));teamTab=tab;const shell=stack(el('div',{class:'title'},el('div',{},p(isOwner()?'VISÃO DO SEU NEGÓCIO':'SEU ESPAÇO DE TRABALHO','eyebrow'),el('h1',{},'Olá, '+me.fullName.split(' ')[0])),button('Minha conta',account)),el('div',{class:'tabs'},...['agenda','financeiro','disponibilidade','serviços',...(isOwner()?['equipe','configurações','importação']:[])].map(t=>button(t[0].toUpperCase()+t.slice(1),()=>workspace(t),t===tab?'active':''))));const body=el('div',{class:'stack'});shell.append(body);setView(shell);const companies=await api('/businesses/mine');if(companies.length){const company=select('Empresa',[{id:'',name:'Selecione a empresa'},...companies.map(x=>({id:x.slug,name:x.name}))],business||'orbe');shell.prepend(company.root);company.input.onchange=async()=>{if(!company.input.value)return;business=company.input.value;teamEmployee=null;noticeState={items:[],unreadCount:0,total:0};me=await api('/auth/me');info=await api('/public/info');renderNav();await workspace('agenda');};if(!companies.some(x=>x.slug===(business||'orbe'))){body.append(p('Selecione uma empresa para abrir o espaço de trabalho.'));return;}}if(['agenda','financeiro','disponibilidade'].includes(tab)){const people=(await api('/team/employees')).filter(x=>isOwner()||tab!=='disponibilidade'||x.enabled);if(!people.length){body.append(el('div',{class:'empty'},'Cadastre um profissional na área Equipe para começar.'));return;}if(!people.some(x=>x.id===teamEmployee))teamEmployee=(people.find(x=>x.enabled)??people[0]).id;const who=select('Profissional',people.map(x=>({id:x.id,name:x.displayName+(x.enabled?'':' · inativo')})),teamEmployee);who.input.onchange=()=>{teamEmployee=who.input.value;workspace(tab).catch(e=>toast(e.message,true));};body.append(who.root);}if(tab==='agenda')await teamAgenda(body);else if(tab==='financeiro')await finances(body);else if(tab==='disponibilidade')await hours(body);else if(tab==='equipe')await employees(body);else if(tab==='serviços')await services(body);else if(tab==='configurações')await settings(body);else await imports(body);}
 async function teamAgenda(host){const items=await allPages('/team/appointments?employeeId='+teamEmployee);main.dataset.live='agenda';main.dataset.signature=JSON.stringify(items);host.append(button('+ Bloquear período',()=>blockForm(),'primary'));if(!items.length)host.append(el('div',{class:'empty'},'Nenhum compromisso nesta agenda.'));for(const item of items){const actions=row();if(item.status==='Confirmed'&&item.kind==='Atendimento')actions.append(button('Recebimento',()=>moneyForm(item),'small'),button('Cancelar',()=>modal('Cancelar atendimento?',stack(p(item.title),p('O horário será liberado. Histórico e lançamentos financeiros serão preservados.'),button('Confirmar cancelamento',async()=>{await api('/bookings/'+item.id+'/cancel',{method:'POST',body:{version:item.version}});dialog.close();await workspace();},'danger'))),'quiet small'));actions.append(button('Excluir',()=>modal('Excluir agendamento e lançamentos?',stack(p(item.title),p('Todos os lançamentos vinculados também serão excluídos. Lançamentos avulsos serão mantidos.'),button('Excluir tudo vinculado',async()=>{await api('/team/appointments/'+item.id,{method:'DELETE',body:{version:item.version}});dialog.close();await workspace();},'danger'))),'danger small'));host.append(el('article',{class:'booking'},el('div',{},el('span',{class:'pill'},item.kind+' · '+(item.status==='Pending'?'Aguardando remarcação':item.status==='Confirmed'?'Confirmado':'Cancelado')),el('h3',{},item.title),p(stamp(item.start)+' — '+time(item.end),'caption'),p(item.clientName??'','caption')),actions));}}
 function blockForm(){
- const title=field('Título'),kind=select('Tipo',[{id:'Folga',name:'Folga'},{id:'Compromisso',name:'Compromisso'},{id:'Outro',name:'Outro'}],'Folga'),day=field('Dia','date',today()),scope=select('Período',[{id:'all',name:'Dia inteiro'},{id:'morning',name:'Manhã'},{id:'afternoon',name:'Tarde'},{id:'custom',name:'Escolher horários'}],'all'),from=field('Início','time','09:00'),until=field('Fim','time','12:00'),times=el('div',{class:'grid2'},from.root,until.root);
- function update(){times.hidden=scope.input.value==='all';from.input.disabled=until.input.disabled=times.hidden;if(scope.input.value==='morning'){from.input.value='09:00';until.input.value='12:00';}if(scope.input.value==='afternoon'){from.input.value='13:00';until.input.value='18:00';}}scope.input.onchange=update;update();
- modal('Folga ou compromisso',form([title.root,kind.root,day.root,scope.root,times,p('Ajuste os horários sugeridos se necessário. Conflitos com atendimentos confirmados serão recusados.','caption')],'Salvar bloqueio',async()=>{const all=scope.input.value==='all';await api('/team/blocks',{method:'POST',body:{employeeId:teamEmployee,title:title.input.value,kind:kind.input.value,start:instant(day.input.value,all?'00:00':from.input.value),end:instant(all?plus(day.input.value,1):day.input.value,all?'00:00':until.input.value)}});dialog.close();await workspace();}));
+ const dates=dateSelection(),batchId=crypto.randomUUID();
+ const title=field('Título'),kind=select('Tipo',[{id:'Folga',name:'Folga'},{id:'Compromisso',name:'Compromisso'},{id:'Outro',name:'Outro'}],'Folga');
+ const scope=select('Período',[{id:'all',name:'Dia inteiro'},{id:'morning',name:'Manhã'},{id:'afternoon',name:'Tarde'},{id:'custom',name:'Escolher horários'}],'all');
+ const from=field('Início','time','09:00'),until=field('Fim','time','12:00'),times=el('div',{class:'grid2'},from.root,until.root);
+ function update(){times.hidden=scope.input.value==='all';from.input.disabled=until.input.disabled=times.hidden;
+  if(scope.input.value==='morning'){from.input.value='09:00';until.input.value='12:00';}
+  if(scope.input.value==='afternoon'){from.input.value='13:00';until.input.value='18:00';}
+ }
+ scope.input.onchange=update;update();
+ modal('Folga ou compromisso',form([title.root,kind.root,dates.root,scope.root,times,p('Confira as datas selecionadas. Se houver conflito, nenhum bloqueio será gravado.','caption')],'Salvar bloqueios',async()=>{
+  const selected=dates.dates(),all=scope.input.value==='all';
+  if(!window.confirm('Criar '+kind.input.value+' em '+selected.length+' data(s), '+(all?'dia inteiro':from.input.value+' até '+until.input.value)+'?'))return;
+  await api('/team/blocks/batch',{method:'POST',body:{batchId,employeeId:teamEmployee,title:title.input.value,kind:kind.input.value,dates:selected,allDay:all,startTime:from.input.value+':00',endTime:until.input.value+':00'}});
+  dialog.close();toast('Bloqueios salvos em '+selected.length+' data(s).');await workspace();
+ }));
 }
 async function moneyForm(appointment=null){const id=crypto.randomUUID();const title=field('Descrição','text',appointment?.title??''),amount=field('Valor · R$','text',appointment?(appointment.expectedCents/100).toFixed(2):''),date=field('Data','date',today()),kind=select('Tipo',[{id:'Receita',name:'Recebimento'},{id:'Despesa',name:'Despesa'}],'Receita');const appointments=await allPages('/team/appointments?employeeId='+teamEmployee),link=select('Agendamento vinculado · opcional',[{id:'',name:'Sem vínculo'},...appointments.filter(x=>x.kind==='Atendimento').map(x=>({id:x.id,name:stamp(x.start)+' · '+x.title}))],appointment?.id??'');modal('Novo lançamento',form([title.root,amount.root,kind.root,date.root,link.root,p('Excluir um agendamento também exclui seus lançamentos vinculados.','caption')],'Salvar lançamento',async()=>{await api('/team/entries',{method:'POST',body:{id,employeeId:teamEmployee,appointmentId:link.input.value||null,description:title.input.value,kind:kind.input.value,date:date.input.value,cents:cents(amount.input.value)}});dialog.close();await workspace();}));}
 const weekdays=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
@@ -178,7 +190,7 @@ async function hours(host){
  const box=el('div',{class:'period-card stack'},el('div',{class:'between'},el('strong',{},label),el('label',{class:'check'},off,'Desativado')),el('div',{class:'grid2'},from.root,until.root),el('label',{class:'check caption'},midnight,'Termina à meia-noite'));parent.append(box);
  function update(){from.input.disabled=off.checked;until.input.disabled=off.checked||midnight.checked;midnight.disabled=off.checked;box.classList.toggle('period-off',off.checked);}off.onchange=midnight.onchange=update;update();items.push({from,until,off,midnight});
  }
- function addDay(special=false,value=special?today():'1',windows=null){const box=el('div',{class:'card stack'}),day=special?field('Data especial','date',value):select('Dia da semana',weekdays.map((name,i)=>({id:String(i),name})),String(value)),periods=stack(),items=[],record={day,items};const collection=special?dayRows:rows;collection.push(record);box.append(day.root,periods);
+ function addDay(special=false,value=special?today():'1',windows=null){const box=el('div',{class:'card stack'}),day=special?field('Data especial','date',value):select('Dia da semana',weekdays.map((name,i)=>({id:String(i),name})),String(value)),periods=stack(),items=[],record={day,items,box};const collection=special?dayRows:rows;collection.push(record);box.append(day.root,periods);
  if(windows===null){period(periods,items,'Manhã',540,720);period(periods,items,'Tarde',780,1080);}else if(!windows.length){period(periods,items,'Manhã',540,720,true);period(periods,items,'Tarde',780,1080,true);}else windows.forEach((w,i)=>period(periods,items,'Período '+(i+1),w.startMinute,w.endMinute));
  box.append(row(button('+ Outro período',()=>period(periods,items,'Período extra',1080,1200),'small'),button('Remover '+(special?'data':'jornada'),()=>{collection.splice(collection.indexOf(record),1);box.remove();},'danger small')));(special?exceptions:weekly).append(box);
  }
@@ -186,7 +198,28 @@ async function hours(host){
  host.append(heading('Jornada semanal'),p('Escolha o dia e os horários de manhã e tarde. Desative o período em que não atende.'),weekly,button('+ Jornada · manhã e tarde',()=>addDay()),heading('Datas especiais'),p('Substituem a jornada semanal. Desative todos os períodos para deixar a data indisponível.'),exceptions);
  for(const d of data.exceptions)addDay(true,d.date,d.windows);
  const windows=record=>record.items.filter(x=>!x.off.checked).map(x=>({startMinute:minute(x.from.input.value),endMinute:x.midnight.checked?1440:minute(x.until.input.value)}));
- host.append(button('+ Data especial',()=>addDay(true)),button('Salvar minha disponibilidade',async()=>{await api('/team/hours?employeeId='+teamEmployee,{method:'PUT',body:{version:data.version,weekly:rows.flatMap(x=>windows(x).map(window=>({day:Number(x.day.input.value),window}))),exceptions:dayRows.map(x=>({date:x.day.input.value,windows:windows(x)}))}});toast('Disponibilidade atualizada.');await workspace();},'primary'));
+ const bulk=el('details',{class:'card stack'},el('summary',{},'Selecionar várias datas especiais')),dates=dateSelection(),editor=stack(),bulkItems=[],replace=el('input',{type:'checkbox'});
+ period(editor,bulkItems,'Manhã',540,720);period(editor,bulkItems,'Tarde',780,1080);
+ bulk.append(dates.root,editor,button('+ Outro período',()=>period(editor,bulkItems,'Período extra',1080,1200),'small'),el('label',{class:'check'},replace,'Substituir datas especiais já configuradas'),
+  button('Aplicar às datas selecionadas',()=>{
+   const selected=dates.dates(),existing=dayRows.filter(r=>selected.includes(r.day.input.value));
+   if(existing.length&&!replace.checked)throw Error('Há datas especiais já configuradas. Marque Substituir ou retire essas datas.');
+   const periods=windows({items:bulkItems});
+   validatePeriods(periods);
+   if(!window.confirm('Aplicar estes horários a '+selected.length+' data(s)?'+(existing.length?' '+existing.length+' configuração(ões) serão substituídas.':'')))return;
+   for(const r of existing){dayRows.splice(dayRows.indexOf(r),1);r.box.remove();}
+   for(const date of selected)addDay(true,date,periods);
+   bulk.open=false;toast('Datas preparadas. Confira a lista e toque em Salvar minha disponibilidade.');
+  },'primary'));
+ host.append(button('+ Data especial',()=>addDay(true)),bulk,button('Salvar minha disponibilidade',async()=>{
+  const employee=teamEmployee,exceptions=dayRows.map(x=>({date:x.day.input.value,windows:windows(x)}));
+  if(new Set(exceptions.map(d=>d.date)).size!==exceptions.length)throw Error('Há datas especiais repetidas. Mantenha uma configuração por data.');
+  for(const d of exceptions)validatePeriods(d.windows);
+  await api('/team/hours?employeeId='+employee,{method:'PUT',body:{version:data.version,weekly:rows.flatMap(x=>windows(x).map(window=>({day:Number(x.day.input.value),window}))),exceptions}});
+  const saved=await api('/team/hours?employeeId='+employee);
+  if(exceptions.some(d=>JSON.stringify(saved.exceptions.find(r=>r.date===d.date)?.windows)!==JSON.stringify(d.windows)))throw Error('A conferência encontrou diferenças. Reabra a disponibilidade para conferir os dados gravados.');
+  toast('Datas e horários salvos para este profissional.');await workspace();
+ },'primary'));
 }
 async function employees(host){await invitationsPanel(host);const people=await api('/owner/employees');host.append(button('Adicionar conta existente',()=>{const username=field('Usuário ou e-mail');modal('Adicionar profissional',form([username.root],'Adicionar à equipe',async()=>{await api('/owner/memberships',{method:'POST',body:{username:username.input.value}});dialog.close();await workspace('equipe');}));}));host.append(button('+ Funcionário',()=>{const name=field('Nome'),user=field('Usuário'),email=field('E-mail','email'),pw=field('Senha inicial','password');pw.input.minLength=10;modal('Adicionar funcionário',form([name.root,user.root,email.root,pw.root],'Criar acesso',async()=>{await api('/owner/employees',{method:'POST',body:{fullName:name.input.value,userName:user.input.value,email:email.input.value,password:pw.input.value}});dialog.close();await workspace();}));},'primary'));for(const person of people){const name=field('Nome público','text',person.displayName),active=el('input',{type:'checkbox',checked:person.enabled});host.append(el('div',{class:'card stack'},heading(person.userName),p(person.email,'caption'),name.root,el('label',{class:'check'},active,'Profissional ativo'),row(button('Salvar profissional',async()=>{await api('/owner/employees/'+person.id,{method:'PUT',body:{version:person.version,displayName:name.input.value,enabled:active.checked}});toast('Profissional atualizado.');await workspace();},'primary'),...(!business||business==='orbe'?[button('Redefinir senha',()=>{const pw=field('Nova senha','password');pw.input.minLength=10;modal('Redefinir acesso',form([pw.root],'Redefinir senha',async()=>{await api('/owner/employees/'+person.id+'/password',{method:'POST',body:{password:pw.input.value}});dialog.close();toast('Senha redefinida. As sessões anteriores foram encerradas.');}));})]:[]))));}}
 async function services(host){
@@ -260,4 +293,51 @@ async function manageCategories(employee,refresh){
  }
  if(!categories.length)list.append(p('Nenhuma categoria criada para este profissional.'));
  modal('Categorias do profissional',list);
+}
+
+function validatePeriods(periods){
+ const sorted=[...periods].sort((a,b)=>a.startMinute-b.startMinute);
+ for(let i=0;i<sorted.length;i++){
+  const p=sorted[i];if(!Number.isInteger(p.startMinute)||!Number.isInteger(p.endMinute)||p.startMinute<0||p.endMinute>1440||p.endMinute<=p.startMinute||i&&p.startMinute<sorted[i-1].endMinute)throw Error('Confira os períodos. O fim deve vir após o início, sem sobreposição.');
+ }
+}
+function dateSelection(){
+ const mode=select('Selecionar datas',[{id:'single',name:'Um dia'},{id:'multiple',name:'Vários dias'},{id:'range',name:'Intervalo'}],'single');
+ const day=field('Dia','date',today()),first=field('Data inicial','date',today()),last=field('Data final','date',today());
+ const selected=new Set(),calendar=stack(),preview=p('','caption date-preview'),checks=[];
+ let month=today().slice(0,7);
+ const filters=row();
+ for(let i=0;i<7;i++){const box=el('input',{type:'checkbox',checked:true});checks.push(box);box.onchange=updatePreview;filters.append(el('label',{class:'check'},box,weekdays[i].slice(0,3)));}
+ const range=stack(first.root,last.root,p('Incluir estes dias da semana','caption'),filters);
+ function dates(){
+  if(mode.input.value==='single'){if(!day.input.value)throw Error('Escolha um dia.');return [day.input.value];}
+  if(mode.input.value==='multiple'){if(!selected.size||selected.size>366)throw Error('Selecione de 1 a 366 datas.');return [...selected].sort();}
+  const start=first.input.value,end=last.input.value;
+  const count=Math.round((new Date(end+'T12:00:00Z')-new Date(start+'T12:00:00Z'))/86400000)+1;
+  if(!Number.isInteger(count)||count<1||count>366)throw Error('Escolha um intervalo de até 366 dias com a data final após a inicial.');
+  const result=[];
+  for(let i=0;i<count;i++){const d=plus(start,i);if(checks[new Date(d+'T12:00:00Z').getUTCDay()].checked)result.push(d);}
+  if(!result.length)throw Error('Marque ao menos um dia da semana.');
+  return result;
+ }
+ function updatePreview(){
+  try{const values=dates();preview.textContent=values.length+' data(s): '+values.map(d=>d.split('-').reverse().join('/')).join(', ');}
+  catch(e){preview.textContent=e.message;}
+ }
+ function renderMonth(){
+  calendar.replaceChildren();const date=new Date(month+'-01T12:00:00Z'),grid=el('div',{class:'days'});
+  function move(delta){date.setUTCMonth(date.getUTCMonth()+delta);if(date.getUTCFullYear()<1900||date.getUTCFullYear()>2100)return;month=date.toISOString().slice(0,7);renderMonth();}
+  calendar.append(el('div',{class:'between'},el('strong',{},new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric',timeZone:'UTC'}).format(date)),row(button('‹',()=>move(-1),'small'),button('›',()=>move(1),'small'))),grid);
+  for(const name of ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'])grid.append(el('span',{class:'weekday'},name));
+  for(let i=0;i<date.getUTCDay();i++)grid.append(el('span',{'aria-hidden':'true'}));
+  const count=new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth()+1,0)).getUTCDate();
+  for(let i=1;i<=count;i++){
+   const value=month+'-'+String(i).padStart(2,'0');
+   const b=button(String(i),()=>{if(!selected.delete(value))selected.add(value);renderMonth();updatePreview();},'day'+(selected.has(value)?' selected':''));
+   b.setAttribute('aria-label',value);b.setAttribute('aria-pressed',String(selected.has(value)));grid.append(b);
+  }
+ }
+ function updateMode(){day.input.disabled=mode.input.value!=='single';first.input.disabled=last.input.disabled=mode.input.value!=='range';day.root.hidden=mode.input.value!=='single';calendar.hidden=mode.input.value!=='multiple';range.hidden=mode.input.value!=='range';renderMonth();updatePreview();}
+ mode.input.onchange=updateMode;day.input.onchange=first.input.onchange=last.input.onchange=updatePreview;
+ const root=stack(mode.root,day.root,calendar,range,preview);updateMode();return {root,dates};
 }
