@@ -103,8 +103,17 @@ public sealed class FinancialEntry : IBusinessRecord
  public long Cents {get;set;}
  public Guid Version {get;set;}=Guid.NewGuid();
 }
+public sealed class MembershipApplication : IBusinessRecord
+{
+ public string Id {get;set;}=Guid.NewGuid().ToString("N");
+ public int BusinessId {get;set;}
+ public string UserId {get;set;}="";
+ public string Status {get;set;}="Pending";
+ public DateTimeOffset RequestedAt {get;set;}
+}
 public sealed class BusinessSettings
 {
+ public string? InvitationCode {get;set;}=Invitations.NewCode();
  public Guid InstanceId {get;set;}=Guid.NewGuid();
  public string? ApiBaseUrl {get;set;}
  public string? SupportWhatsApp {get;set;}
@@ -154,6 +163,7 @@ public sealed class OrbeDb(DbContextOptions<OrbeDb> options) : IdentityDbContext
  }
  public DbSet<InboxNotification> Notifications=>Set<InboxNotification>();
  public DbSet<DataProtectionKey> DataProtectionKeys {get;set;}
+ public DbSet<MembershipApplication> MembershipApplications=>Set<MembershipApplication>();
  public DbSet<Employee> Employees=>Set<Employee>();
  public DbSet<Service> Services=>Set<Service>();
  public DbSet<ServiceCategory> Categories=>Set<ServiceCategory>();
@@ -170,6 +180,11 @@ public sealed class OrbeDb(DbContextOptions<OrbeDb> options) : IdentityDbContext
  {
   base.OnModelCreating(b);
   b.Entity<BusinessSettings>().HasIndex(x=>x.Slug).IsUnique();
+  b.Entity<BusinessSettings>().HasIndex(x=>x.InvitationCode).IsUnique();
+  b.Entity<MembershipApplication>().HasQueryFilter(x=>x.BusinessId==BusinessId);
+  b.Entity<MembershipApplication>().HasIndex(x=>new{x.BusinessId,x.UserId}).IsUnique();
+  b.Entity<MembershipApplication>().HasOne<AppUser>().WithMany().HasForeignKey(x=>x.UserId).OnDelete(DeleteBehavior.Cascade);
+  b.Entity<MembershipApplication>().HasOne<BusinessSettings>().WithMany().HasForeignKey(x=>x.BusinessId).OnDelete(DeleteBehavior.Cascade);
   b.Entity<BusinessSettings>().HasQueryFilter(x=>x.Id==BusinessId);
   b.Entity<Employee>().HasQueryFilter(x=>x.BusinessId==BusinessId);
   b.Entity<Service>().HasQueryFilter(x=>x.BusinessId==BusinessId);

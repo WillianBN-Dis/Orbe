@@ -164,11 +164,18 @@ public sealed partial class DashboardPage : ContentPage
         var title=tab switch{"Agenda"=>"Sua agenda","Financeiro"=>"Visão financeira",_=>"Seu espaço, sua conta"};
         var subtitle=tab switch{"Agenda"=>"Abra espaço para o que importa.","Financeiro"=>"Acompanhe o que entra, o que sai e o que fica.",_=>"Seu perfil, sua disponibilidade e seus acessos."};
         var heading=Stack(6,Text(title,compact?28:32,Ink,true),Text(subtitle,13,Muted));
-        var action=tab=="Agenda"?Button("+  Novo agendamento",()=>OpenAppointment(),primary:true):tab=="Financeiro"?Button("+  Novo lançamento",()=>OpenEntry(),primary:true):Button("Atualizar dados",Refresh);
-        View actions=tab=="Agenda"
-            ? compact?Stack(8,action,Button("Agendamento fixo",OpenRecurring)):Row(10,action,Button("Agendamento fixo",OpenRecurring))
-            : action;
-        body.Add(compact?Stack(16,heading,actions):Between(heading,actions));
+        if(tab=="Agenda")
+        {
+            body.Add(heading);
+            var create=Button("+  Novo agendamento",()=>OpenAppointment(),primary:true);
+            var recurring=Button("Agendamento fixo",OpenRecurring);
+            body.Add(compact?Stack(8,create,recurring):Between(create,recurring));
+        }
+        else
+        {
+            var action=tab=="Financeiro"?Button("+  Novo lançamento",()=>OpenEntry(),primary:true):Button("Atualizar dados",Refresh);
+            body.Add(compact?Stack(16,heading,action):Between(heading,action));
+        }
         if((!HasData||people.Length==0)&&tab!="Conta")body.Add(Welcome());
         if(tab=="Agenda")RenderAgenda();else if(tab=="Financeiro")RenderFinance();else RenderAccount();
         body.Add(Row(8,spinner,status));body.Add(new BoxView{HeightRequest=18,Color=Colors.Transparent});

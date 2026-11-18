@@ -4,17 +4,19 @@
 
 <p align="center"><img src="assets/orbe-icon.png" width="128" alt="Ícone Orbe" /></p>
 
-## Versão 2.0.3
+## Versão 2.0.7
+
+Calendários de domingo a sábado, com Dia/Mês/Ano no app e Mês/Ano no site. O ingresso de profissionais por convite depende da aprovação do administrador da empresa. Somente a administração global do Orbe troca o código de convite. Cada profissional gerencia suas categorias e serviços. Ocorrências fixas usam intervalos configuráveis em dias e podem ficar pendentes de remarcação em todos os tipos de evento.
 
 A versão 2 centraliza contas, agenda e financeiro na Discloud e funciona com o computador principal desligado. O aplicativo usa login; a demonstração foi removida. O Nexus permanece independente e o histórico antigo é importado uma única vez, com backup e conferência.
 
 **E-mail ativado em 08/11/2026:** clientes confirmam o cadastro pelo link enviado por e-mail. A recuperação de senha e o reenvio da confirmação estão disponíveis no site. Cadastros anteriores ainda não confirmados precisam solicitar a confirmação no login. As reservas continuam sujeitas às jornadas e regras configuradas pela administração.
 
-- [Site de testes](https://orbe.discloud.dev) · [Administração](https://orbe.discloud.dev/equipe)
+- [Site de testes](https://agendaorbe.com.br) · [Administração](https://agendaorbe.com.br/equipe)
 - [Versões e downloads](https://github.com/WillianBN-Dis/Orbe/releases)
-- Downloads atuais 2.0.3: [Windows](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.3/Orbe-Setup-2.0.3.exe) · [Android](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.3/Orbe-2.0.3.apk). Android atual: build 20016, sem configurar servidor no login. A conexão fica somente em Conta para o administrador e é compartilhada por todos os dispositivos. O endereço inicial de descoberta precisa continuar acessível; a troca de endereço não migra o banco.
+- Downloads atuais 2.0.7: [Windows](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.7/Orbe-Setup-2.0.7.exe) · [Android](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.7/Orbe-2.0.7.apk). Android atual: build 20022, sem configurar servidor no login. A conexão fica somente em Conta para o administrador e é compartilhada por todos os dispositivos. O endereço inicial de descoberta precisa continuar acessível; a troca de endereço não migra o banco.
 - [Primeiros passos](docs/PRIMEIROS-PASSOS.md) · [Operação e backups](deploy/discloud/README.md)
-- Android: **Atualizar aplicativo** no login e em Conta, a partir do **2.0.0 ajuste 1**. A versão atual é 2.0.3. [Como atualizar e publicar ajustes](docs/ATUALIZACOES-ANDROID.md).
+- Android: **Atualizar aplicativo** no login e em Conta, a partir do **2.0.0 ajuste 1**. A versão atual é 2.0.7. [Como atualizar e publicar ajustes](docs/ATUALIZACOES-ANDROID.md).
 
 ## Agenda, equipe e financeiro
 

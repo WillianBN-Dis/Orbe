@@ -300,6 +300,9 @@ namespace Orbe.Server.Migrations
                         .HasColumnType("uuid")
                         .HasDefaultValueSql("gen_random_uuid()");
 
+                    b.Property<string>("InvitationCode")
+                        .HasColumnType("text");
+
                     b.Property<int>("LeadMinutes")
                         .HasColumnType("integer");
 
@@ -332,6 +335,9 @@ namespace Orbe.Server.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("InvitationCode")
+                        .IsUnique();
 
                     b.HasIndex("Slug")
                         .IsUnique();
@@ -560,6 +566,35 @@ namespace Orbe.Server.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("Sessions");
+                });
+
+            modelBuilder.Entity("Orbe.Server.MembershipApplication", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<int>("BusinessId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("BusinessId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("MembershipApplications");
                 });
 
             modelBuilder.Entity("Orbe.Server.PushDevice", b =>
@@ -883,6 +918,21 @@ namespace Orbe.Server.Migrations
 
             modelBuilder.Entity("Orbe.Server.LoginSession", b =>
                 {
+                    b.HasOne("Orbe.Server.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Orbe.Server.MembershipApplication", b =>
+                {
+                    b.HasOne("Orbe.Server.BusinessSettings", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("Orbe.Server.AppUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")

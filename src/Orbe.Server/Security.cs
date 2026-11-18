@@ -140,7 +140,7 @@ public sealed class AuthService(OrbeDb db,UserManager<AppUser> users,IEmailDeliv
   await email.Send(next,"Alterar e-mail no Orbe","Confirme seu novo e-mail: "+Link("confirmar-email",user.Id,await users.GenerateChangeEmailTokenAsync(user,next),next));
  }
 }
-public sealed record RegisterInput(string FullName,string Email,string Phone,DateOnly BirthDate,string Password);
+public sealed record RegisterInput(string FullName,string Email,string Phone,DateOnly BirthDate,string Password,string? InvitationCode=null,string? Username=null);
 public sealed record LoginInput(string Login,string Password);
 public sealed record EmailInput(string Email);
 public sealed record TokenInput(string UserId,string Token,string Password);
@@ -155,19 +155,29 @@ public static class AuthRoutes
  {
   var group=app.MapGroup("/api/v1/auth").RequireRateLimiting("auth");
   group.MapGet("/csrf",(HttpContext c,IAntiforgery anti)=>Results.Ok(new{token=anti.GetAndStoreTokens(c).RequestToken})).RequireRateLimiting("account");
-  group.MapPost("/register",async(RegisterInput input,UserManager<AppUser> users,AuthService auth,IEmailDelivery email,IConfiguration config)=>
+  group.MapPost("/register",async(RegisterInput input,UserManager<AppUser> users,AuthService auth,IEmailDelivery email,IConfiguration config,OrbeDb db,TimeProvider clock)=>
   {
    var preview=config.GetValue<bool>("Preview:AllowUnverifiedClients");
    if(!email.Ready&&!preview)throw new ApiError(503,"Cadastro disponível após configurar o envio de e-mails.");
    if(string.IsNullOrWhiteSpace(input.FullName)||input.FullName.Length>150||string.IsNullOrWhiteSpace(input.Phone)||input.Phone.Length>30||new string(input.Phone.Where(char.IsDigit).ToArray()).Length<8||string.IsNullOrWhiteSpace(input.Email)||input.Email.Length>256||input.Password is null||input.Password.Length>256||input.BirthDate>DateOnly.FromDateTime(DateTime.UtcNow)||input.BirthDate.Year<1900)throw new ApiError(400,"Confira nome, telefone, e-mail e nascimento. Use senha de 10 a 256 caracteres.");
-   var user=new AppUser{UserName=input.Email,Email=input.Email,FullName=input.FullName.Trim(),PhoneNumber=input.Phone,BirthDate=input.BirthDate,LockoutEnabled=true};
+   var invitation=string.IsNullOrWhiteSpace(input.InvitationCode)?null:await Invitations.Find(db,input.InvitationCode);
+   var username=invitation is null?input.Email:RecurringRoutes.NormalizeUsername(input.Username)??throw new ApiError(400,"Informe um usuário de 3 a 32 caracteres sem espaços.");
+   var user=new AppUser{UserName=username,Email=input.Email,FullName=input.FullName.Trim(),PhoneNumber=input.Phone,BirthDate=input.BirthDate,LockoutEnabled=true};
    // Apply the password policy before looking up the email so an invalid password
    // produces the same response for existing and unknown accounts.
    foreach(var validator in users.PasswordValidators)
     AuthService.Check(await validator.ValidateAsync(users,user,input.Password));
    if(await users.FindByEmailAsync(input.Email) is null)
    {
-    AuthService.Check(await users.CreateAsync(user,input.Password));AuthService.Check(await users.AddToRoleAsync(user,Roles.Client));if(!preview)await auth.ConfirmEmail(user);
+    await using(var tx=await db.Database.BeginTransactionAsync()){
+     AuthService.Check(await users.CreateAsync(user,input.Password));AuthService.Check(await users.AddToRoleAsync(user,Roles.Client));
+     if(invitation is not null){
+      db.BusinessId=invitation.Id;await Invitations.Request(db,user,invitation,clock);
+      if(invitation.InvitationCode!=input.InvitationCode!.Trim().ToUpperInvariant())throw new ApiError(409,"O convite foi alterado. Solicite o código atual.");
+     }
+     await db.SaveChangesAsync();await tx.CommitAsync();
+    }
+    if(!preview)await auth.ConfirmEmail(user);
    }
    return Results.Accepted(value:new{emailConfirmationRequired=!preview,message=preview?"Ambiente de testes: se o cadastro foi concluído, você já pode entrar. O e-mail ainda não foi verificado.":"Confira seu e-mail para confirmar o cadastro."});
   });
@@ -188,7 +198,7 @@ public static class AuthRoutes
   {
    var user=await users.FindByIdAsync(userId)??throw new ApiError(400,AuthService.InvalidLink);
    if(email is null)AuthService.Check(await users.ConfirmEmailAsync(user,token));
-   else{AuthService.Check(await users.ChangeEmailAsync(user,email,token));if(await users.IsInRoleAsync(user,Roles.Client))AuthService.Check(await users.SetUserNameAsync(user,email));await users.UpdateSecurityStampAsync(user);}
+   else{var emailLogin=user.UserName==user.Email;AuthService.Check(await users.ChangeEmailAsync(user,email,token));if(emailLogin)AuthService.Check(await users.SetUserNameAsync(user,email));await users.UpdateSecurityStampAsync(user);}
    return Results.Ok(new{message="E-mail confirmado. Você já pode entrar."});
   });
   group.MapGet("/me",async(Actor actor,UserManager<AppUser> users,AuthService auth)=>Results.Ok(await auth.Profile((await users.FindByIdAsync(actor.Id))!))).RequireAuthorization().RequireRateLimiting("account");

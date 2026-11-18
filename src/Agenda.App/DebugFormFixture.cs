@@ -12,7 +12,7 @@ internal static class DebugFormFixture
   var api=new CloudApi("http://localhost",new FixtureHandler());
   var profile=new CloudProfile("qa","Equipe QA","qa@example.test",null,null,true,["Owner"],"a");
   return Environment.GetEnvironmentVariable("ORBE_QA_FORM") switch{
-   "services"=>AccountPages.Services(api),"block"=>AccountPages.Block(api,"a"),_=>AccountPages.Hours(api,profile,"a")
+   "categories"=>AccountPages.Categories(api,"a"),"invitations"=>AccountPages.Invitations(api),"platform"=>AccountPages.PlatformInvitations(api),"services"=>AccountPages.Services(api),"block"=>AccountPages.Block(api,"a"),_=>AccountPages.Hours(api,profile,"a")
   };
  }
  private static IEnumerable<T> Find<T>(IVisualTreeElement root)where T:class
@@ -30,9 +30,20 @@ internal static class DebugFormFixture
   }else if(mode=="block"){
    var period=Find<Picker>(page).Single(x=>x.ItemsSource?.Count==4);period.SelectedIndex=2;
    var clocks=Find<TimePicker>(page).ToArray();if(clocks.Length!=2||clocks[0].Time!=TimeSpan.FromHours(13)||clocks[1].Time!=TimeSpan.FromHours(18))throw new Exception("Afternoon block preset wrong");
+  }else if(mode=="categories"){
+   if(!Find<Button>(page).Any(x=>x.Text=="Editar")||!Find<Button>(page).Any(x=>x.Text=="Excluir"))throw new Exception("Category management missing");
+  }else if(mode=="invitations"){
+   if(!Find<Button>(page).Any(x=>x.Text=="Copiar convite")||!Find<Button>(page).Any(x=>x.Text=="Aprovar")||!Find<Button>(page).Any(x=>x.Text=="Rejeitar"))throw new Exception("Membership decisions missing");
+  }else if(mode=="platform"){
+   if(!Find<Button>(page).Any(x=>x.Text=="Gerar novo código"))throw new Exception("Platform rotation missing");
   }else{
    if(!Find<Button>(page).Any(x=>x.Text=="Editar serviço")||!Find<Button>(page).Any(x=>x.Text=="Excluir serviço"))throw new Exception("Service CRUD missing");
   }
+#if WINDOWS
+  await Task.Delay(300);
+  if(page.Window?.Handler?.PlatformView is Microsoft.UI.Xaml.Window window&&window.Content is Microsoft.UI.Xaml.FrameworkElement root)
+   await StartupCapture.Capture(root,Path.Combine(Path.GetTempPath(),$"orbe-forms-{Environment.ProcessId}.png"));
+#endif
   File.WriteAllText(Path.Combine(Path.GetTempPath(),$"orbe-forms-{Environment.ProcessId}.json"),JsonSerializer.Serialize(new{passed=true,mode}));
  }
  private sealed class FixtureHandler:HttpMessageHandler
@@ -44,6 +55,10 @@ internal static class DebugFormFixture
    object value=path switch{
     "/api/v1/auth/me"=>new{id="qa",fullName="Equipe QA",email="qa@example.test",emailConfirmed=true,roles=new[]{"Owner"},employeeId="a"},
     "/api/v1/team/employees"=>new[]{new{id="a",displayName="Maria Silva",enabled=true,version},new{id="b",displayName="Ana Souza",enabled=true,version}},
+    "/api/v1/team/categories"=>new[]{new{id="category-qa",name="Categoria sintética"}},
+    "/api/v1/owner/invitation"=>new{code="0123456789ABCDEF01234567"},
+    "/api/v1/owner/membership-requests"=>new[]{new{id="request-qa",fullName="Profissional sintética",email="qa@example.test",emailConfirmed=true}},
+    "/api/v1/platform/invitations"=>new[]{new{id=2,name="Empresa sintética",slug="empresa-qa",code="0123456789ABCDEF01234567"}},
     "/api/v1/team/hours"=>new{employeeId="a",version,weekly=Array.Empty<object>(),exceptions=Array.Empty<object>()},
     "/api/v1/team/services"=>new[]{new{id="service-a",employeeId="a",employeeName="Maria Silva",name="Atendimento personalizado",durationMinutes=30,priceCents=5000,enabled=true,version}},
     _=>throw new Exception("Unexpected fixture route")

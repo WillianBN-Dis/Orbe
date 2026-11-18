@@ -30,6 +30,7 @@ public sealed partial class DashboardPage
    CloudSessionStore.Show(this,new DashboardPage(next,account));
   })));
   management.Add(Button("Suporte",()=>Guard(OpenSupport)));
+  if(profile.Owner&&(client.Business is null or "orbe"))management.Add(Button("Convites das empresas",async()=>await Navigation.PushAsync(AccountPages.PlatformInvitations(client))));
   if(!profile.Owner)management.Add(Button("Meus serviços",async()=>await Navigation.PushAsync(AccountPages.Services(client))));
   if(profile.Owner&&client.Business is null or "orbe")management.Add(Button("Configurar conexão",async()=>await Navigation.PushAsync(AccountPages.Connection(client))));
   if(profile.Owner)

@@ -133,7 +133,8 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
    var deadline=CancellationDeadline(item,(await Settings()).TimeZoneId);
    if(deadline is null||now>deadline||now>=item.Start)
     throw new ApiError(409,"O prazo para cancelar online terminou. Entre em contato com a equipe.");
-   if(item.EmployeeId is not null&&await db.Employees.Where(e=>e.Id==item.EmployeeId).Select(e=>e.UserId).SingleOrDefaultAsync() is {} professional)
+   db.Notifications.Add(new(){UserId=actor.Id,AppointmentId=item.Id,Kind="Cancellation",OccurrenceStart=item.Start,DeliverAt=now});
+   if(item.EmployeeId is not null&&await db.Employees.Where(e=>e.Id==item.EmployeeId).Select(e=>e.UserId).SingleOrDefaultAsync() is {} professional&&professional!=actor.Id)
     db.Notifications.Add(new(){UserId=professional,AppointmentId=item.Id,Kind="Cancellation",OccurrenceStart=item.Start,DeliverAt=now});
   }
   item.Status="Cancelled";item.Version=Guid.NewGuid();await db.SaveChangesAsync();await tx.CommitAsync();
@@ -182,9 +183,20 @@ public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)
  }
  public async Task<ScheduleItem> EditBlock(string id,BlockInput input)
  {
+  input=input with{Start=input.Start.ToUniversalTime(),End=input.End.ToUniversalTime()};
   var employee=await actor.Employee(input.EmployeeId,true);var item=await Accessible(id,true);
   if(item.EmployeeId!=employee||item.Kind=="Atendimento"||input.Kind!=item.Kind||input.Version is null||string.IsNullOrWhiteSpace(input.Title)||input.Title.Length>200||input.End<=input.Start||input.End-input.Start>TimeSpan.FromDays(366)||input.Notes?.Length>2000)throw new ApiError(400,"Confira o bloqueio. Profissional e tipo são preservados na edição.");
   await using var tx=await db.Database.BeginTransactionAsync();await Lock(employee);await db.Entry(item).ReloadAsync();Version(input.Version.Value,item.Version);
+  if(item.Status is not ("Confirmed" or "Pending"))throw new ApiError(409,"Evento indisponível para edição.");
+  if(await db.Appointments.AnyAsync(x=>x.Id!=id&&x.EmployeeId==employee&&x.Status=="Confirmed"&&x.Start<input.End&&x.End>input.Start))
+   throw new ApiError(409,"Este período já está ocupado.");
+  if(item.Status=="Pending")
+  {
+   var hours=await Hours(employee);
+   if(input.Start<=clock.GetUtcNow()||!Fits(input.Start,input.End,(await Settings()).Policy(),hours.Week,hours.Days))
+    throw new ApiError(409,"Escolha um horário futuro, livre e dentro da jornada.");
+   item.Status="Confirmed";item.RecordedAt=clock.GetUtcNow();
+  }
   item.Title=input.Title.Trim();item.Start=input.Start.ToUniversalTime();item.End=input.End.ToUniversalTime();item.Notes=input.Notes;item.Version=Guid.NewGuid();await db.SaveChangesAsync();await tx.CommitAsync();return item;
  }
 }

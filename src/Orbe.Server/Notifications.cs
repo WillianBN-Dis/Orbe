@@ -18,7 +18,19 @@ public sealed class NotificationInbox(OrbeDb db,Actor actor,TimeProvider clock)
 {
  // Materialize due events on the server, not on individual devices. Tombstones
  // and the unique occurrence key make polling/retries/deletion idempotent.
- public Task Materialize()=>Materialize(actor.Id,actor.Owner);
+ public async Task Materialize()
+ {
+  var original=db.BusinessId;
+  var businesses=await db.Employees.IgnoreQueryFilters().Where(e=>e.UserId==actor.Id&&e.Enabled).Select(e=>e.BusinessId)
+   .Union(db.Appointments.IgnoreQueryFilters().Where(a=>a.ClientId==actor.Id).Select(a=>a.BusinessId)).ToArrayAsync();
+  try{
+   foreach(var business in businesses.Append(original).Distinct()){
+    db.BusinessId=business;
+    var owner=business==original&&actor.Owner||await db.Employees.AnyAsync(e=>e.UserId==actor.Id&&e.Enabled&&e.Administrator);
+    await Materialize(actor.Id,owner);
+   }
+  }finally{db.BusinessId=original;}
+ }
  internal async Task Materialize(string user,bool owner)
  {
   var now=clock.GetUtcNow();
@@ -27,7 +39,8 @@ public sealed class NotificationInbox(OrbeDb db,Actor actor,TimeProvider clock)
    SELECT gen_random_uuid(),{user},a."Id",event.kind,a."Start",event.due
    FROM "Appointments" a LEFT JOIN "Employees" e ON e."Id"=a."EmployeeId"
    CROSS JOIN LATERAL (VALUES ('Booking',a."RecordedAt"),('Day',a."Start"-INTERVAL '24 hours'),('Hour',a."Start"-INTERVAL '1 hour'),('Review',a."RecordedAt")) event(kind,due)
-   WHERE a."Kind"='Atendimento' AND a."BusinessId"={db.BusinessId}
+   WHERE a."BusinessId"={db.BusinessId}
+    AND (event.kind IN ('Day','Review') OR a."Kind"='Atendimento')
     AND ((a."Status"='Pending' AND event.kind='Review' AND ({owner} OR (e."UserId"={user} AND e."Enabled")))
       OR (a."Status"='Confirmed' AND event.kind<>'Review' AND ({owner} OR e."UserId"={user} OR a."ClientId"={user})))
     AND event.due IS NOT NULL AND event.due<={now}
@@ -36,17 +49,18 @@ public sealed class NotificationInbox(OrbeDb db,Actor actor,TimeProvider clock)
    """);
  }
  private IQueryable<InboxNotification> Visible()=>db.Notifications.Where(n=>n.UserId==actor.Id&&n.DeletedAt==null&&n.DeliverAt<=clock.GetUtcNow()&&
-  db.Appointments.Any(a=>a.Id==n.AppointmentId&&a.Kind=="Atendimento"&&a.Start==n.OccurrenceStart&&
-   (n.Kind=="Review"?a.Status=="Pending"&&(!actor.Client||a.ClientId!=actor.Id):n.Kind=="Cancellation"?a.Status=="Cancelled"&&(!actor.Client||a.ClientId!=actor.Id):a.Status=="Confirmed")&&
-   (actor.Owner||n.Kind!="Review"&&n.Kind!="Cancellation"&&a.ClientId==actor.Id||db.Employees.Any(e=>e.Id==a.EmployeeId&&e.UserId==actor.Id&&e.Enabled))));
+  db.Appointments.IgnoreQueryFilters().Any(a=>a.Id==n.AppointmentId&&a.Start==n.OccurrenceStart&&
+   (n.Kind=="Review"?a.Status=="Pending"&&(!actor.Client||a.ClientId!=actor.Id):n.Kind=="Cancellation"?a.Status=="Cancelled":a.Status=="Confirmed")&&
+   (actor.Owner&&a.BusinessId==db.BusinessId||n.Kind!="Review"&&a.ClientId==actor.Id||
+    db.Employees.IgnoreQueryFilters().Any(e=>e.UserId==actor.Id&&e.BusinessId==a.BusinessId&&e.Enabled&&(e.Id==a.EmployeeId||e.Administrator)))));
  public async Task<object> List(int offset,int limit)
  {
   if(offset<0||offset>100000||limit is <1 or >100)throw new ApiError(400,"Página inválida.");
   await Materialize();var visible=Visible();var unread=await visible.CountAsync(n=>n.ReadAt==null);var total=await visible.CountAsync();
-  var items=await (from n in visible join a in db.Appointments on n.AppointmentId equals a.Id
+  var items=await (from n in visible join a in db.Appointments.IgnoreQueryFilters() on n.AppointmentId equals a.Id
    orderby n.DeliverAt descending,n.Id descending
-   select new{n.Id,n.AppointmentId,n.Kind,n.OccurrenceStart,n.DeliverAt,n.ReadAt,a.EmployeeId,subject=a.Title,
-    person=actor.Client&&a.ClientId==actor.Id?db.Employees.Where(e=>e.Id==a.EmployeeId).Select(e=>e.DisplayName).FirstOrDefault():db.Users.Where(u=>u.Id==a.ClientId).Select(u=>u.FullName).FirstOrDefault()??a.LegacyClient,
+   select new{n.Id,n.AppointmentId,n.Kind,n.OccurrenceStart,n.DeliverAt,n.ReadAt,a.EmployeeId,business=db.Settings.IgnoreQueryFilters().Where(b=>b.Id==a.BusinessId).Select(b=>b.Slug).FirstOrDefault(),subject=a.Title,
+    person=actor.Client&&a.ClientId==actor.Id?db.Employees.IgnoreQueryFilters().Where(e=>e.Id==a.EmployeeId).Select(e=>e.DisplayName).FirstOrDefault():db.Users.Where(u=>u.Id==a.ClientId).Select(u=>u.FullName).FirstOrDefault()??a.LegacyClient,
     clientPhone=actor.Client&&a.ClientId==actor.Id?null:db.Users.Where(u=>u.Id==a.ClientId).Select(u=>u.PhoneNumber).FirstOrDefault()})
    .Skip(offset).Take(limit).ToArrayAsync();
   return new{items,unreadCount=unread,total};
@@ -54,12 +68,12 @@ public sealed class NotificationInbox(OrbeDb db,Actor actor,TimeProvider clock)
  public async Task Read(Guid id)
  {
   // Repeated read/delete from another device is safe; someone else's ID never matches.
-  if(!await db.Notifications.AnyAsync(n=>n.Id==id&&n.UserId==actor.Id&&db.Appointments.Any(a=>a.Id==n.AppointmentId)))throw new ApiError(404,"Notificação não encontrada.");
+  if(!await db.Notifications.AnyAsync(n=>n.Id==id&&n.UserId==actor.Id&&db.Appointments.IgnoreQueryFilters().Any(a=>a.Id==n.AppointmentId)))throw new ApiError(404,"Notificação não encontrada.");
   await Visible().Where(n=>n.Id==id&&n.ReadAt==null).ExecuteUpdateAsync(s=>s.SetProperty(n=>n.ReadAt,clock.GetUtcNow()));
  }
  public async Task Delete(Guid id)
  {
-  var updated=await db.Notifications.Where(n=>n.Id==id&&n.UserId==actor.Id&&db.Appointments.Any(a=>a.Id==n.AppointmentId)).ExecuteUpdateAsync(s=>s.SetProperty(n=>n.DeletedAt,clock.GetUtcNow()));
+  var updated=await db.Notifications.Where(n=>n.Id==id&&n.UserId==actor.Id&&db.Appointments.IgnoreQueryFilters().Any(a=>a.Id==n.AppointmentId)).ExecuteUpdateAsync(s=>s.SetProperty(n=>n.DeletedAt,clock.GetUtcNow()));
   if(updated==0)throw new ApiError(404,"Notificação não encontrada.");
  }
  public static void Map(WebApplication app)

@@ -43,6 +43,7 @@ public sealed partial class LoginPage
   var enter=Button("Entrar na minha conta  →",()=>Attempt(false),primary:true);
   var clientButton=Button("Reservar um horário como cliente  ↗",()=>Portal("/"));
   foreach(var button in new[]{enter,clientButton}){button.HorizontalOptions=LayoutOptions.Fill;button.MaximumWidthRequest=double.PositiveInfinity;button.MinimumHeightRequest=52;button.FontSize=14;}
+  var professional=Button("Criar conta profissional",()=>Portal("/cadastro-profissional"),quiet:true);
   var recovery=Button("Esqueci minha senha",()=>Portal("/recuperar-senha"),quiet:true);recovery.FontSize=12;recovery.Padding=0;recovery.MinimumHeightRequest=32;recovery.HorizontalOptions=LayoutOptions.End;
   var update=Button("Atualizar aplicativo",async()=>await Navigation.PushAsync(new UpdatePage()),quiet:true);update.FontSize=12;update.MinimumHeightRequest=32;update.HorizontalOptions=LayoutOptions.Start;
   var feedback=Row(8,spinner,message);feedback.MinimumHeightRequest=24;feedback.IsVisible=false;
@@ -54,7 +55,7 @@ public sealed partial class LoginPage
    Stack(10,Text("BEM-VINDO AO SEU ESPAÇO",11,Violet,true),Text("Vamos começar?",34,Ink,true),Text("Entre com sua conta para acessar o Orbe.",15,Muted)),
    new BoxView{HeightRequest=8,Color=Colors.Transparent},
    Field("Usuário ou e-mail",user),Field("Senha",passwordRow),recovery,enter,feedback,
-   Rule(),Stack(12,Text("Seu próximo atendimento começa aqui.",13,Muted),clientButton),
+   Rule(),Stack(12,Text("Seu próximo atendimento começa aqui.",13,Muted),clientButton,professional),
    update,Text("Acesso seguro para você e sua equipe.",11,Dim));
   form.MaximumWidthRequest=520;form.VerticalOptions=LayoutOptions.Center;
   var formPanel=new ContentView{Content=form,Padding=new Thickness(52,44)};

@@ -21,6 +21,25 @@ public static class ProfessionalServices
    row=new(){EmployeeId=employee,Name=name,NormalizedName=key};db.Categories.Add(row);await db.SaveChangesAsync();await tx.CommitAsync();
    return Results.Ok(new{row.Id,row.Name});
   });
+  team.MapPut("/categories/{id}",async(string id,string? employeeId,CategoryChange input,Actor actor,OrbeDb db)=>{
+   var employee=await CategoryEmployee(employeeId,actor,db);
+   var name=input.Name?.Trim();
+   if(string.IsNullOrWhiteSpace(name)||name.Length>80)throw new ApiError(400,"Informe um nome de até 80 caracteres.");
+   await using var tx=await db.Database.BeginTransactionAsync();await Lock(db,employee);
+   var category=await db.Categories.SingleOrDefaultAsync(c=>c.Id==id&&c.EmployeeId==employee)??throw new ApiError(404,"Categoria não encontrada.");
+   if(category.Name!=input.ExpectedName)throw new ApiError(409,"Categoria alterada. Atualize a lista.");
+   var key=name.ToUpperInvariant();
+   if(await db.Categories.AnyAsync(c=>c.EmployeeId==employee&&c.Id!=id&&c.NormalizedName==key))throw new ApiError(409,"Já existe uma categoria com este nome.");
+   category.Name=name;category.NormalizedName=key;await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(new{category.Id,category.Name});
+  });
+  team.MapDelete("/categories/{id}",async(string id,string? employeeId,[Microsoft.AspNetCore.Mvc.FromBody] CategoryInput input,Actor actor,OrbeDb db)=>{
+   var employee=await CategoryEmployee(employeeId,actor,db);
+   await using var tx=await db.Database.BeginTransactionAsync();await Lock(db,employee);
+   var category=await db.Categories.SingleOrDefaultAsync(c=>c.Id==id&&c.EmployeeId==employee)??throw new ApiError(404,"Categoria não encontrada.");
+   if(category.Name!=input.Name)throw new ApiError(409,"Categoria alterada. Atualize a lista.");
+   await db.EmployeeServices.Where(l=>l.EmployeeId==employee&&l.CategoryId==id).ExecuteUpdateAsync(s=>s.SetProperty(l=>l.Version,Guid.NewGuid()).SetProperty(l=>l.CategoryId,(string?)null));
+   db.Categories.Remove(category);await db.SaveChangesAsync();await tx.CommitAsync();return Results.NoContent();
+  });
   team.MapGet("/services",async(string? employeeId,Actor actor,OrbeDb db)=>{
    var employee=actor.Owner?employeeId:await actor.Employee(employeeId);
    return Results.Ok(await (from link in db.EmployeeServices join item in db.Services on link.ServiceId equals item.Id join person in db.Employees on link.EmployeeId equals person.Id where employee==null||link.EmployeeId==employee orderby person.DisplayName,link.Name??item.Name select new{item.Id,link.EmployeeId,link.CategoryId,EmployeeName=person.DisplayName,Name=link.Name??item.Name,DurationMinutes=link.DurationMinutes??item.DurationMinutes,PriceCents=link.PriceCents??item.PriceCents,PriceFrom=link.PriceFrom??item.PriceFrom,Enabled=link.Enabled??item.Enabled,link.Version}).ToArrayAsync());
@@ -48,6 +67,7 @@ public static class ProfessionalServices
   });
  }
  private sealed record CategoryInput(string Name);
+ private sealed record CategoryChange(string Name,string ExpectedName);
  private static async Task<string> CategoryEmployee(string? requested,Actor actor,OrbeDb db)
  {
   if(requested is null&&actor.Owner)

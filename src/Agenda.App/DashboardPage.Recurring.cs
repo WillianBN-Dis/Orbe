@@ -40,13 +40,12 @@ public sealed partial class DashboardPage
      confirmedUsername=candidate;result.Text="Cliente selecionada: "+found.FullName;
     }catch(Exception e){result.Text=FriendlyError(e);}
    }),result,Field("Valor previsto · R$",amount),
-   Stack(4,Row(8,notifyUnavailable,Text("Avisar se precisar remarcar",14,Ink)),
-    Text("Horários fora da jornada ou ocupados ficam pendentes. A cliente recebe a confirmação depois da remarcação.",12,Muted)));
+   Text("A cliente recebe a confirmação depois da remarcação, se a ocorrência ficar pendente.",12,Muted));
   kind.SelectedIndexChanged+=(_,_)=>clientFields.IsVisible=kind.SelectedIndex==0;
   return OpenForm("Agendamento fixo","Repita no mesmo horário, a cada intervalo de dias.","calendar",
    [Field("Nome",title),Field("Tipo",kind),Field("Primeira data",date),Field("Horário de início",start),
     Field("Horário de término",end),Field("Repetir a cada quantos dias?",frequency),Field("Número de ocorrências",count),
-    clientFields,Field("Descrição",notes)],async()=>{
+    clientFields,Stack(4,Row(8,notifyUnavailable,Text("Avisar se precisar remarcar",14,Ink)),Text("Ocorrências fora da jornada ou ocupadas ficam pendentes para revisão.",12,Muted)),Field("Descrição",notes)],async()=>{
     var service=kind.SelectedIndex==0;
     if(service&&!string.IsNullOrWhiteSpace(username.Text)&&confirmedUsername is null)
      throw new ArgumentException("Localize e confirme a cliente antes de salvar.");
@@ -56,7 +55,7 @@ public sealed partial class DashboardPage
      seriesId,employeeId=employee,title=title.Text??"",kind=kinds[kind.SelectedIndex],clientUsername=service?confirmedUsername:null,
      notes=notes.Text,firstDate=DateOnly.FromDateTime(date.Date??DateTime.Today),
      startTime=TimeOnly.FromTimeSpan(start.Time??TimeSpan.Zero),endTime=TimeOnly.FromTimeSpan(end.Time??TimeSpan.Zero),
-     everyDays=days,count=counts[count.SelectedIndex],notifyUnavailable=service&&notifyUnavailable.IsChecked,
+     everyDays=days,count=counts[count.SelectedIndex],notifyUnavailable=notifyUnavailable.IsChecked,
      expectedCents=service?Finance.ParseCents(amount.Text??"0"):0L
     });
     if(saved.Pending>0)await DisplayAlertAsync("Série criada",$"{saved.Pending} ocorrência(s) aguardam remarcação na aba Notificações.","Entendi");

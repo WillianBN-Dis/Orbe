@@ -11,6 +11,7 @@ internal static partial class AccountPages
   page.Load=async()=>
   {
    var rows=await api.Get<JsonElement>("owner/employees");var me=await api.Me();page.Fields.Clear();page.Fields.Add(Text("Sua equipe, seus acessos",24,Ink,true));page.Fields.Add(Text("O administrador da empresa gerencia os acessos. Cada profissional configura a própria disponibilidade.",13,Muted));page.Fields.Add(Button("+ Funcionário",async()=>await page.Navigation.PushAsync(NewEmployee(api)),primary:true));
+   page.Fields.Add(Button("Convites e solicitações",async()=>await page.Navigation.PushAsync(Invitations(api))));
    page.Fields.Add(Button("Adicionar conta existente",()=>page.Run(async()=>{
     var username=await page.DisplayPromptAsync("Adicionar profissional","Informe o usuário ou e-mail da conta confirmada.");
     if(string.IsNullOrWhiteSpace(username))return;
@@ -19,6 +20,45 @@ internal static partial class AccountPages
    })));
    if(api.Business is null or "orbe"&&!rows.EnumerateArray().Any(x=>S(x,"userId")==me.Id))page.Fields.Add(Button("Eu também atendo",()=>page.Run(async()=>{await api.Post<JsonElement>("owner/employees",new{userName="WillianBN",email=me.Email,fullName=me.FullName,password=""});await page.Load!();})));
    foreach(var row in rows.EnumerateArray()){var person=row.Clone();page.Fields.Add(Card(Stack(12,Between(Text(S(person,"displayName"),19,Ink,true),Pill(B(person,"enabled")?"ATIVO":"INATIVO",B(person,"enabled")?Mint:Coral)),Text(S(person,"userName")+" · "+S(person,"email"),12,Muted),Button("Configurar profissional",async()=>await page.Navigation.PushAsync(EditEmployee(api,person))))));}
+  };return page;
+ }
+ internal static Page Invitations(CloudApi api)
+ {
+  var page=new CloudFormPage(api,"Convites e solicitações");
+  page.Load=async()=>{
+   var invitation=await api.Get<JsonElement>("owner/invitation");
+   var requests=await api.Get<JsonElement>("owner/membership-requests");
+   page.Fields.Clear();page.Fields.Add(Text("Convide sua equipe",24,Ink,true));
+   page.Fields.Add(Text(S(invitation,"code"),18,Mint,true));
+   page.Fields.Add(Button("Copiar convite",async()=>await Clipboard.Default.SetTextAsync(S(invitation,"code"))));
+   page.Fields.Add(Text("Compartilhe com o profissional. O ingresso depende da sua aprovação.",13,Muted));
+   foreach(var request in requests.EnumerateArray()){
+    var item=request.Clone();
+    page.Fields.Add(Card(Stack(12,Text(S(item,"fullName"),18,Ink,true),Text(S(item,"email"),13,Muted),
+     Text(B(item,"emailConfirmed")?"E-mail confirmado":"Aguardando confirmação do e-mail",12,Muted),
+     Button("Aprovar",()=>page.Run(async()=>{
+      await api.Put<JsonElement>("owner/membership-requests/"+S(item,"id"),new{approve=true});await page.Load!();
+     }),primary:true),
+     Button("Rejeitar",()=>page.Run(async()=>{
+      if(!await page.DisplayAlertAsync("Rejeitar solicitação?","O profissional poderá pedir ingresso novamente.","Rejeitar","Voltar"))return;
+      await api.Put<JsonElement>("owner/membership-requests/"+S(item,"id"),new{approve=false});await page.Load!();
+     }),danger:true))));
+   }
+  };return page;
+ }
+ internal static Page PlatformInvitations(CloudApi api)
+ {
+  var page=new CloudFormPage(api,"Convites das empresas");
+  page.Load=async()=>{
+   var businesses=await api.Get<JsonElement>("platform/invitations");page.Fields.Clear();
+   foreach(var business in businesses.EnumerateArray()){
+    var b=business.Clone();
+    page.Fields.Add(Card(Stack(12,Text(S(b,"name"),19,Ink,true),Text(S(b,"slug"),13,Muted),Text(S(b,"code"),14,Mint),
+     Button("Gerar novo código",()=>page.Run(async()=>{
+      if(!await page.DisplayAlertAsync("Trocar código?","O código anterior deixará de aceitar novas solicitações. Solicitações já recebidas continuarão aguardando análise.","Trocar","Voltar"))return;
+      await api.Post<JsonElement>("platform/invitations/"+I(b,"id")+"/rotate",new{});await page.Load!();
+     })))));
+   }
   };return page;
  }
  private static Page NewEmployee(CloudApi api)
@@ -48,7 +88,7 @@ internal static partial class AccountPages
    if(people.Length==0){page.Fields.Add(Text("Cadastre um profissional na seção Equipe para começar.",14,Muted));return;}
    var picker=People(people,selectedEmployee??profile.EmployeeId??people[0].Id);if(profile.Owner)page.Fields.Add(Field("Profissional",picker));var host=Stack(16);page.Fields.Add(host);
    page.Fields.Add(Button("+ Categoria",()=>page.Run(async()=>{var name=await page.DisplayPromptAsync("Nova categoria","Informe o nome da categoria.");if(!string.IsNullOrWhiteSpace(name))await api.Post<JsonElement>("team/categories?employeeId="+Uri.EscapeDataString(Picked(picker)),new{name});})));
-   async Task Render(){var employee=Picked(picker);selectedEmployee=employee;var catalog=await api.Get<JsonElement>("team/services?employeeId="+Uri.EscapeDataString(employee));host.Children.Clear();host.Add(Button("+ Serviço",async()=>await page.Navigation.PushAsync(EditService(api,employee)),primary:true));
+   async Task Render(){var employee=Picked(picker);selectedEmployee=employee;var catalog=await api.Get<JsonElement>("team/services?employeeId="+Uri.EscapeDataString(employee));host.Children.Clear();host.Add(Button("Gerenciar categorias",async()=>await page.Navigation.PushAsync(Categories(api,employee))));host.Add(Button("+ Serviço",async()=>await page.Navigation.PushAsync(EditService(api,employee)),primary:true));
     foreach(var record in catalog.EnumerateArray()){var item=record.Clone();host.Add(Card(Stack(12,Between(Text(S(item,"name"),19,Ink,true),Pill(B(item,"enabled")?"ATIVO":"INDISPONÍVEL",B(item,"enabled")?Mint:Muted)),Text($"{I(item,"durationMinutes")} min · {(B(item,"priceFrom")?"A partir de ":"")}{Finance.Currency(item.GetProperty("priceCents").GetInt64())}",13,Muted),Button("Editar serviço",async()=>await page.Navigation.PushAsync(EditService(api,employee,item))),Button("Excluir serviço",()=>page.Run(async()=>{if(!await page.DisplayAlertAsync("Excluir serviço?","Ele sairá do catálogo deste profissional. Agendamentos e valores anteriores serão preservados.","Excluir","Manter"))return;await api.Delete("team/services/"+S(item,"id")+"?employeeId="+Uri.EscapeDataString(employee),new{version=S(item,"version")});await Render();}),danger:true))));}
     if(!catalog.EnumerateArray().Any())host.Add(Text("Crie seu primeiro serviço para disponibilizá-lo às clientes.",14,Muted));
    }
@@ -63,6 +103,31 @@ internal static partial class AccountPages
   page.Load=async()=>{categories=await api.Get<CloudCategory[]>("team/categories?employeeId="+Uri.EscapeDataString(employee));category.ItemsSource=new[]{"Sem categoria"}.Concat(categories.Select(c=>c.Name)).ToArray();category.SelectedIndex=item is {} row&&row.TryGetProperty("categoryId",out var id)&&id.ValueKind==JsonValueKind.String?Array.FindIndex(categories,c=>c.Id==id.GetString())+1:0;};
   var priceMode=new Picker{ItemsSource=new[]{"Preço fixo","A partir de"},SelectedIndex=item is not null&&B(item.Value,"priceFrom")?1:0};
   page.Fields.Add(Stack(18,Field("Serviço",name),Field("Categoria",category),Field("Duração · minutos",duration),Field("Tipo de preço",priceMode),Field("Preço · R$",price),Between(Text("Disponível para reservar",13,Muted),enabled),Text("O serviço pertence ao profissional selecionado. Alterar o catálogo não modifica reservas existentes.",12,Muted),Button("Salvar serviço",()=>page.Run(async()=>{var input=new{name=Required(name,"o nome"),durationMinutes=Number(duration,"a duração"),priceCents=Finance.ParseCents(price.Text??""),priceFrom=priceMode.SelectedIndex==1,categoryId=category.SelectedIndex>0?categories[category.SelectedIndex-1].Id:null,enabled=enabled.IsToggled,version=item is null?null:S(item.Value,"version")};var path="team/services"+(item is null?"":"/"+S(item.Value,"id"))+"?employeeId="+Uri.EscapeDataString(employee);if(item is null)await api.Post<JsonElement>(path,input);else await api.Put<JsonElement>(path,input);await Back(page);}),primary:true)));return page;
+ }
+ internal static Page Categories(CloudApi api,string employee)
+ {
+  var page=new CloudFormPage(api,"Categorias"){ReloadOnReturn=true};
+  var query="?employeeId="+Uri.EscapeDataString(employee);
+  page.Load=async()=>{
+   var rows=await api.Get<CloudCategory[]>("team/categories"+query);page.Fields.Clear();
+   page.Fields.Add(Text("Categorias deste profissional",24,Ink,true));
+   page.Fields.Add(Button("+ Categoria",()=>page.Run(async()=>{
+    var name=await page.DisplayPromptAsync("Nova categoria","Nome da categoria");
+    if(string.IsNullOrWhiteSpace(name))return;
+    await api.Post<JsonElement>("team/categories"+query,new{name});await page.Load!();
+   })));
+   foreach(var row in rows)page.Fields.Add(Card(Stack(12,Text(row.Name,18,Ink,true),
+    Button("Editar",()=>page.Run(async()=>{
+     var name=await page.DisplayPromptAsync("Editar categoria","Nome da categoria",initialValue:row.Name);
+     if(string.IsNullOrWhiteSpace(name))return;
+     await api.Put<JsonElement>("team/categories/"+row.Id+query,new{name,expectedName=row.Name});await page.Load!();
+    })),
+    Button("Excluir",()=>page.Run(async()=>{
+     if(!await page.DisplayAlertAsync("Excluir categoria?","Os serviços vinculados ficarão sem categoria.","Excluir","Manter"))return;
+     await api.Delete("team/categories/"+row.Id+query,new{name=row.Name});await page.Load!();
+    }),danger:true))));
+   if(rows.Length==0)page.Fields.Add(Text("Crie a primeira categoria para organizar os serviços.",14,Muted));
+  };return page;
  }
  private sealed record CloudCategory(string Id,string Name);
  internal static Page Settings(CloudApi api)

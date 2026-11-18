@@ -4,6 +4,8 @@ using Agenda.Core;
 namespace Agenda.App;
 public sealed partial class DashboardPage
 {
+ private static IEnumerable<T> FindViews<T>(IVisualTreeElement root)where T:class
+ {if(root is T value)yield return value;foreach(var child in root.GetVisualChildren())foreach(var match in FindViews<T>(child))yield return match;}
  internal void SeedCalendarMarkers()
  {
   var start=calendarMonth.AddDays(1).ToDateTime(new TimeOnly(10,0));
@@ -39,6 +41,28 @@ public sealed partial class DashboardPage
   if(calendarMonth.Month!=selected.Month||calendarMonth.Year!=selected.Year)throw new Exception("Today did not restore month");
   await SwitchTab("Conta");await SwitchTab("Financeiro");await SwitchTab("Agenda");
   if(!nav.SequenceEqual(navigationButtons.Keys))throw new Exception("Navigation controls rebuilt on tab change");
+  var weekdayLabels=FindViews<Label>(agendaCalendar).Where(l=>new[]{"DOM","SEG","TER","QUA","QUI","SEX","SÁB"}.Contains(l.Text)).Select(l=>l.Text).ToArray();
+  if(!weekdayLabels.SequenceEqual(new[]{"DOM","SEG","TER","QUA","QUI","SEX","SÁB"}))throw new Exception("Sunday-first calendar missing");
+#if WINDOWS
+  async Task Capture(string mode){
+   await Task.Delay(300);
+   if(Window?.Handler?.PlatformView is Microsoft.UI.Xaml.Window nativeWindow&&nativeWindow.Content is Microsoft.UI.Xaml.FrameworkElement root)
+    await StartupCapture.Capture(root,System.IO.Path.Combine(System.IO.Path.GetTempPath(),$"orbe-calendar-{mode}-{Environment.ProcessId}.png"));
+  }
+  await Capture("month");
+#endif
+  agendaView="Ano";agendaCalendar.Content=BuildCalendar();
+  if(FindViews<Button>(agendaCalendar).Count(b=>System.Globalization.CultureInfo.GetCultureInfo("pt-BR").DateTimeFormat.MonthNames.Contains(b.Text,StringComparer.OrdinalIgnoreCase))!=12)
+   throw new Exception("Expected 12 months in year view");
+#if WINDOWS
+  await Capture("year");
+#endif
+  agendaView="Dia";agendaCalendar.Content=BuildCalendar();
+  var nextDay=Selected.AddDays(1);await SelectDay(nextDay);
+  if(selected!=nextDay||calendarButtons.Count!=0)throw new Exception("Day view navigation failed");
+#if WINDOWS
+  await Capture("day");
+#endif
   System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(),$"orbe-interaction-{Environment.ProcessId}.json"),System.Text.Json.JsonSerializer.Serialize(new{passed=true,selectionWorkMs=milliseconds,calendarControlsReused=42,navigationControlsReused=nav.Length}));
  }
 }

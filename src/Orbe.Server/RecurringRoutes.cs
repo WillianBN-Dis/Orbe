@@ -82,7 +82,7 @@ public static class RecurringRoutes
    var end=Instant(date,input.EndTime,zone);
    if(start<=now||end<=start)throw new ApiError(400,"O primeiro horário precisa estar no futuro e o término depois do início.");
    var conflict=await db.Appointments.IgnoreQueryFilters().AnyAsync(x=>x.Status=="Confirmed"&&(x.EmployeeId==employee||client!=null&&x.ClientId==client)&&x.Start<end&&x.End>start);
-   var pending=input.Kind=="Atendimento"&&input.NotifyUnavailable&&
+   var pending=input.NotifyUnavailable&&
     (conflict||!Scheduling.Fits(start,end,policy,hours.Week,hours.Days));
    if(conflict&&!pending)
     throw new ApiError(409,$"Já existe um agendamento em {date:dd/MM/yyyy}. Nenhuma ocorrência foi criada.");

@@ -19,13 +19,14 @@ public sealed partial class DashboardPage
         return g;
     }
     private ContentView agendaStats=new(),agendaCalendar=new(),agendaTimeline=new();
+    private string agendaView="Mês";
     private readonly Dictionary<DateOnly,Button> calendarButtons=new();
     private Task SelectDay(DateOnly day)
     {
         if(selected==day&&calendarMonth.Year==day.Year&&calendarMonth.Month==day.Month)return Task.CompletedTask;var previous=selected;selected=day;
         if(day.Month!=calendarMonth.Month||day.Year!=calendarMonth.Year){calendarMonth=new(day.Year,day.Month,1);agendaCalendar.Content=BuildCalendar();}
         else{if(calendarButtons.TryGetValue(previous,out var old))StyleDay(old,previous);if(calendarButtons.TryGetValue(day,out var current))StyleDay(current,day);}
-        UpdateAgendaDay();return Task.CompletedTask;
+        UpdateAgendaDay();if(agendaView=="Dia")agendaCalendar.Content=BuildCalendar();return Task.CompletedTask;
     }
     private void StyleDay(Button button,DateOnly day)
     {
@@ -53,17 +54,28 @@ public sealed partial class DashboardPage
     private View BuildCalendar()
     {
         calendarButtons.Clear();
+        var modes=Row(4);
+        foreach(var mode in new[]{"Dia","Mês","Ano"}){
+         var selectedMode=mode;
+         var option=Button(mode,()=>{agendaView=selectedMode;agendaCalendar.Content=BuildCalendar();return Task.CompletedTask;},quiet:true);
+         option.BackgroundColor=mode==agendaView?Raised:Colors.Transparent;modes.Add(option);
+        }
+        if(agendaView=="Ano")return BuildYear(modes);
+        if(agendaView=="Dia"){
+         var dayTitle=Text(Selected.ToString("dd MMMM yyyy",Finance.Brazilian),18,Ink,true);
+         return Card(Stack(18,modes,dayTitle,Row(8,Button("‹",()=>SelectDay(Selected.AddDays(-1)),quiet:true),Button("Hoje",()=>SelectDay(DateOnly.FromDateTime(DateTime.Today)),quiet:true),Button("›",()=>SelectDay(Selected.AddDays(1)),quiet:true))),18);
+        }
         var title=Text(TitleCase(calendarMonth.ToString("MMMM yyyy",Finance.Brazilian)),19,Ink,true);
         var previous=Button("‹",()=>MoveMonth(-1),quiet:true); previous.WidthRequest=compact?40:48;previous.FontSize=22;
         var next=Button("›",()=>MoveMonth(1),quiet:true); next.WidthRequest=compact?40:48;next.FontSize=22;
         var today=Button("Hoje",()=>SelectDay(DateOnly.FromDateTime(DateTime.Today)),quiet:true);
-        var s=Stack(20,Between(title,Row(0,previous,today,next)),Rule());
+        var s=Stack(20,modes,Between(title,Row(0,previous,today,next)),Rule());
         var grid=new Grid { ColumnSpacing=4,RowSpacing=5 };
         for(int i=0;i<7;i++)grid.ColumnDefinitions.Add(new(GridLength.Star));
         grid.RowDefinitions.Add(new(new GridLength(30)));
-        var weekdays=new[]{"SEG","TER","QUA","QUI","SEX","SÁB","DOM"};
+        var weekdays=new[]{"DOM","SEG","TER","QUA","QUI","SEX","SÁB"};
         for(int i=0;i<7;i++){var l=Text(weekdays[i],9,Dim,true);l.HorizontalTextAlignment=TextAlignment.Center;grid.Add(l,i);}
-        var start=calendarMonth.AddDays(-(((int)calendarMonth.DayOfWeek+6)%7));
+        var start=calendarMonth.AddDays(-(int)calendarMonth.DayOfWeek);
         for(int row=0;row<6;row++)
         {
             grid.RowDefinitions.Add(new(new GridLength(compact?52:80)));
@@ -113,6 +125,33 @@ public sealed partial class DashboardPage
         s.Add(legend);
         s.Add(Text("Selecione um dia para ver seus agendamentos.",11,Dim));
         return Card(s,compact?14:22);
+    }
+    private View BuildYear(View modes)
+    {
+     var months=new Grid{ColumnSpacing=12,RowSpacing=12};
+     var columns=compact?2:3;
+     for(var i=0;i<columns;i++)months.ColumnDefinitions.Add(new(GridLength.Star));
+     for(var month=1;month<=12;month++){
+      var date=new DateOnly(calendarMonth.Year,month,1);
+      var content=Stack(8,Button(TitleCase(date.ToString("MMMM",Finance.Brazilian)),()=>{
+       calendarMonth=date;agendaView="Mês";agendaCalendar.Content=BuildCalendar();return Task.CompletedTask;
+      },quiet:true));
+      var days=new Grid{ColumnSpacing=1,RowSpacing=1};
+      for(var col=0;col<7;col++)days.ColumnDefinitions.Add(new(GridLength.Star));
+      for(var row=0;row<7;row++)days.RowDefinitions.Add(new(GridLength.Auto));
+      var labels=new[]{"D","S","T","Q","Q","S","S"};
+      for(var col=0;col<7;col++)days.Add(Text(labels[col],9,Dim),col,0);
+      for(var d=1;d<=DateTime.DaysInMonth(date.Year,date.Month);d++){
+       var day=date.AddDays(d-1);var pos=(int)date.DayOfWeek+d-1;
+       var label=Text(d.ToString(),10,day==Selected?Violet:Ink);label.HorizontalTextAlignment=TextAlignment.Center;
+       var gesture=new TapGestureRecognizer();gesture.Tapped+=async(_,_)=>{agendaView="Dia";await SelectDay(day);agendaCalendar.Content=BuildCalendar();};label.GestureRecognizers.Add(gesture);
+       days.Add(label,pos%7,pos/7+1);
+      }
+      content.Add(days);var index=month-1;if(index%columns==0)months.RowDefinitions.Add(new(GridLength.Auto));
+      months.Add(Card(content,10),index%columns,index/columns);
+     }
+     Task MoveYear(int delta){if(calendarMonth.Year+delta is >=1900 and <=2100){calendarMonth=calendarMonth.AddYears(delta);agendaCalendar.Content=BuildCalendar();}return Task.CompletedTask;}
+     return Card(Stack(18,modes,Between(Text(calendarMonth.Year.ToString(),19,Ink,true),Row(4,Button("‹",()=>MoveYear(-1),quiet:true),Button("›",()=>MoveYear(1),quiet:true))),months),16);
     }
     private Task MoveMonth(int amount)
     { var next=calendarMonth.AddMonths(amount);if(next.Year is <1900 or >2100)return Task.CompletedTask;calendarMonth=next;agendaCalendar.Content=BuildCalendar();return Task.CompletedTask; }

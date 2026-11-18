@@ -39,7 +39,7 @@ public sealed partial class LoginPage:ContentPage
   var panel=Stack(14,Row(10,BrandImage(40),Text("orbe",30,Ink,true)),
    Pill("SEU ESPAÇO DE TRABALHO",Mint),Stack(8,Text("Tudo no seu tempo.",28,Ink,true),Text("Entre para cuidar da sua agenda, da sua disponibilidade e das suas finanças.",14,Muted)),
    Field("Usuário ou e-mail",user),Field("Senha",password),Button("Entrar",()=>Attempt(false),primary:true),Row(8,spinner,message),Rule(),
-   Text("Quer reservar um horário?",14,Ink,true),Button("Entrar como cliente",()=>Portal("/")),Button("Esqueci minha senha",()=>Portal("/recuperar-senha"),quiet:true),
+   Text("Quer reservar um horário?",14,Ink,true),Button("Entrar como cliente",()=>Portal("/")),Button("Criar conta profissional",()=>Portal("/cadastro-profissional"),quiet:true),Button("Esqueci minha senha",()=>Portal("/recuperar-senha"),quiet:true),
    Text("Seu acesso é pessoal. A disponibilidade de cada profissional é compartilhada com o site em tempo real.",11,Dim));
   loginCard=Card(panel,28);loginCard.MaximumWidthRequest=540;loginCard.HorizontalOptions=LayoutOptions.Fill;loginCard.VerticalOptions=LayoutOptions.Center;
 #if ANDROID || WINDOWS
@@ -95,8 +95,8 @@ public sealed partial class LoginPage:ContentPage
    api=new(connection.ApiUrl);CloudProfile profile;
    if(restore){api.AccessToken=token;profile=await api.Me();}
    else{var session=await api.Login(user.Text!.Trim(),password.Text!);api.AccessToken=session.AccessToken;profile=session.Profile;password.Text="";}
-   if(!profile.Team){await api.Post<System.Text.Json.JsonElement>("auth/logout",new{});SecureStorage.Default.Remove(CloudSessionStore.TokenKey);message.Text="Sua conta é de cliente. Use Entrar como cliente para acessar o site.";return;}
    var companies=await api.Get<CloudBusiness[]>("businesses/mine");
+   if(!profile.Team&&companies.Length==0){await api.Post<System.Text.Json.JsonElement>("auth/logout",new{});SecureStorage.Default.Remove(CloudSessionStore.TokenKey);message.Text="Sem vínculo profissional aprovado. Consulte sua solicitação no site ou entre como cliente.";return;}
    var previous=Preferences.Default.Get("orbe-business-"+profile.Id,"");
    var company=companies.FirstOrDefault(x=>x.Slug==previous)??companies.FirstOrDefault(x=>x.Slug=="orbe")??companies.FirstOrDefault();
    if(company is not null){api.Business=company.Slug;profile=await api.Me();}

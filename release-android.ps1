@@ -1,4 +1,4 @@
-param([string]$Version='2.0.6', [int]$VersionCode=20021, [string]$OutputName='', [string]$FirebaseConfig='')
+param([string]$Version='2.0.7', [int]$VersionCode=20022, [string]$OutputName='', [string]$FirebaseConfig='')
 $ErrorActionPreference='Stop'
 if($Version -notmatch '^\d+\.\d+\.\d+$' -or $VersionCode -lt 1){throw 'Informe versão semântica e código Android positivo.'}
 if(!$OutputName){$OutputName="Orbe-$Version-build$VersionCode.apk"}

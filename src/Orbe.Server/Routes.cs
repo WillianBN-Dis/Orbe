@@ -16,7 +16,7 @@ public static class Routes
  public static void MapOrbe(this WebApplication app)
  {
   var api=app.MapGroup("/api/v1");
-  api.MapGet("/public/info",async(OrbeDb db,IEmailDelivery email,IConfiguration config)=>{var s=await db.Settings.SingleAsync();return Results.Ok(new{s.Name,s.PublicBookingOpen,s.TimeZoneId,s.CancellationHours,emailReady=email.Ready,testMode=config.GetValue<bool>("Preview:AllowUnverifiedClients")});});
+  api.MapGet("/public/info",async(OrbeDb db,IEmailDelivery email,IConfiguration config)=>{var s=await db.Settings.SingleAsync();return Results.Ok(new{s.Name,s.PublicBookingOpen,s.TimeZoneId,s.CancellationHours,s.HorizonDays,emailReady=email.Ready,testMode=config.GetValue<bool>("Preview:AllowUnverifiedClients")});});
   api.MapGet("/public/services",async(string? employeeId,OrbeDb db)=>{
    if(employeeId is null)return Results.Ok(await db.Services.Where(x=>x.Enabled).OrderBy(x=>x.Name).Select(x=>new{x.Id,x.Name,x.DurationMinutes,x.PriceCents,x.PriceFrom}).ToArrayAsync());
    return Results.Ok(await (from link in db.EmployeeServices join service in db.Services on link.ServiceId equals service.Id join person in db.Employees on link.EmployeeId equals person.Id where person.Id==employeeId&&person.Enabled&&person.User.Active&&(link.Enabled??service.Enabled) orderby link.Name??service.Name select new{service.Id,link.CategoryId,CategoryName=db.Categories.Where(c=>c.Id==link.CategoryId).Select(c=>c.Name).FirstOrDefault(),Name=link.Name??service.Name,DurationMinutes=link.DurationMinutes??service.DurationMinutes,PriceCents=link.PriceCents??service.PriceCents,PriceFrom=link.PriceFrom??service.PriceFrom}).ToArrayAsync());
@@ -53,6 +53,7 @@ public static class Routes
   });
   team.MapPut("/appointments/{id}",async(string id,TeamAppointmentInput input,Actor actor,OrbeDb db,Scheduling s,TimeProvider clock)=>
   {
+   input=input with{Start=input.Start.ToUniversalTime(),End=input.End.ToUniversalTime()};
    var item=await s.Accessible(id,true);Text(input.Title,200,"o título");
    if(item.Kind!="Atendimento"||item.Status is not ("Confirmed" or "Pending")||item.EmployeeId!=await actor.Employee(input.EmployeeId,true)||input.End<=input.Start||input.End-input.Start>TimeSpan.FromDays(1)||input.ExpectedCents<0||input.Version!=item.Version||input.ClientId!=item.ClientId)throw new ApiError(409,"Atualize o agendamento antes de editar. Funcionário e conta da cliente são preservados.");
    await using var tx=await db.Database.BeginTransactionAsync();
@@ -74,9 +75,9 @@ public static class Routes
     join b in db.Settings.IgnoreQueryFilters() on a.BusinessId equals b.Id
     where a.ClientId==actor.Id&&a.Status!="Pending"&&(business==null||b.Slug==business)
     orderby a.Start descending,a.Id
-    select new{item=a,b.Slug,b.Name,b.TimeZoneId,employeeName=db.Employees.IgnoreQueryFilters().Where(e=>e.Id==a.EmployeeId&&e.BusinessId==b.Id).Select(e=>e.DisplayName).FirstOrDefault()})
+    select new{item=a,b.Slug,b.Name,b.TimeZoneId,employeeName=db.Employees.IgnoreQueryFilters().Where(e=>e.Id==a.EmployeeId&&e.BusinessId==b.Id).Select(e=>e.DisplayName).FirstOrDefault(),professionalPhone=db.Employees.IgnoreQueryFilters().Where(e=>e.Id==a.EmployeeId&&e.BusinessId==b.Id).Select(e=>e.User.PhoneNumber).FirstOrDefault()})
     .Skip(Math.Max(0,offset??0)).Take(100).ToArrayAsync();
-   return Results.Ok(rows.Select(x=>new{x.item.Id,x.item.Title,x.item.Status,x.item.Start,x.item.End,x.item.ExpectedCents,x.item.PriceFrom,x.item.Version,x.item.ServiceId,x.item.EmployeeId,x.employeeName,business=x.Slug,businessName=x.Name,x.TimeZoneId,cancelUntil=Scheduling.CancellationDeadline(x.item,x.TimeZoneId),canCancel=x.item.Status=="Confirmed"&&clock.GetUtcNow()<x.item.Start&&clock.GetUtcNow()<=Scheduling.CancellationDeadline(x.item,x.TimeZoneId)}));
+   return Results.Ok(rows.Select(x=>new{x.item.Id,x.item.Title,x.item.Status,x.item.Start,x.item.End,x.item.ExpectedCents,x.item.PriceFrom,x.item.Version,x.item.ServiceId,x.item.EmployeeId,x.employeeName,x.professionalPhone,business=x.Slug,businessName=x.Name,x.TimeZoneId,cancelUntil=Scheduling.CancellationDeadline(x.item,x.TimeZoneId),canCancel=x.item.Status=="Confirmed"&&clock.GetUtcNow()<x.item.Start&&clock.GetUtcNow()<=Scheduling.CancellationDeadline(x.item,x.TimeZoneId)}));
   }).RequireAuthorization();
   api.MapGet("/bookings/businesses",async(Actor actor,OrbeDb db)=>{
    if(!actor.Client)throw new ApiError(403,"Acesso para clientes.");

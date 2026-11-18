@@ -31,8 +31,9 @@ public sealed partial class DashboardPage
         {
             var value=new Appointment(eventId,title.Text??"",(EventKind)kind.SelectedIndex,(from.Date??DateTime.Today).Date+(fromTime.Time??TimeSpan.Zero),
                 (until.Date??DateTime.Today).Date+(untilTime.Time??TimeSpan.Zero),person.Text,notes.Text,Finance.ParseCents(amount.Text??"0"));value.Validate();
-            if(reviewRepository is null&&appointments.Any(x=>x.Value.Id!=value.Id&&x.Value.Start<value.End&&x.Value.End>value.Start)&&
-                !await DisplayAlertAsync("Já existe um evento neste horário","Você pode manter os dois compromissos. Deseja salvar mesmo assim?","Salvar mesmo assim","Revisar horário"))return false;
+            if(reviewRepository is null&&appointments.Any(x=>x.Value.Id!=value.Id&&x.Value.Start<value.End&&x.Value.End>value.Start)){
+                await DisplayAlertAsync("Já existe um evento neste horário","Escolha outro período ou ajuste o evento existente antes de salvar.","Entendi");return false;
+            }
             await destination.Save(value,original?.Snapshot);return true;
         });
     }

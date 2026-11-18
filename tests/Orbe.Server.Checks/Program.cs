@@ -22,6 +22,12 @@ internal static class ChecksMain
  {
   using var request=new HttpRequestMessage(method,path);if(body is not null)request.Content=JsonContent.Create(body);if(key is not null)request.Headers.Add("Idempotency-Key",key);
   using var response=await c.SendAsync(request);if((int)response.StatusCode!=expected)throw new Exception($"{method} {path.Split('?')[0]}: esperado {expected}, recebido {(int)response.StatusCode}.");
+  // CookieContainer uses the machine clock, while the API tests use a fixed clock.
+  // Retain the issued session explicitly so cookie tests also run after that fixture date.
+  if(path=="/api/v1/auth/login"&&response.IsSuccessStatusCode&&response.Headers.TryGetValues("Set-Cookie",out var cookies)){
+   var session=cookies.First(x=>x.StartsWith("Orbe.Session=",StringComparison.Ordinal)).Split(';')[0];
+   c.DefaultRequestHeaders.Remove("Cookie");c.DefaultRequestHeaders.TryAddWithoutValidation("Cookie",session);
+  }
   if(response.StatusCode==HttpStatusCode.NoContent)return default;var text=await response.Content.ReadAsStringAsync();return string.IsNullOrWhiteSpace(text)?default:JsonDocument.Parse(text).RootElement.Clone();
  }
  static Task<JsonElement> Get(HttpClient c,string path)=>Send(c,HttpMethod.Get,path);
@@ -156,6 +162,7 @@ internal static class ChecksMain
   factory.Clock.Now=At(14).AddDays(-1);
   await Send(client1,HttpMethod.Post,$"/api/v1/bookings/{Id(nextDay)}/cancel",Version(nextDay),204);
   client1.DefaultRequestHeaders.Remove("X-Orbe-Business");
+  Check((await Get(client1,"/api/v1/notifications")).GetProperty("items").EnumerateArray().Any(n=>n.GetProperty("appointmentId").GetString()==Id(nextDay)&&n.GetProperty("business").GetString()=="studio-qa"&&n.GetProperty("kind").GetString()=="Cancellation"),"Cliente recebe cancelamento na caixa mesmo fora da empresa selecionada");
   staff1.DefaultRequestHeaders.Add("X-Orbe-Business","studio-qa");
   Check((await Get(staff1,"/api/v1/notifications")).GetProperty("items").EnumerateArray().Any(x=>x.GetProperty("kind").GetString()=="Cancellation"),"Atendimento de amanhã aceita cancelamento até duas horas e avisa a profissional");
   await Send(staff1,HttpMethod.Delete,$"/api/v1/team/appointments/{Id(nextDay)}",new{version=(await Get(client1,"/api/v1/bookings/mine?business=studio-qa")).EnumerateArray().Single().GetProperty("version").GetGuid()},204);
@@ -321,6 +328,7 @@ internal static class ChecksMain
   await Send(previewClient,HttpMethod.Get,"/api/v1/auth/me",expected:401);Check(true,"Desativar testes fecha login e sessões de clientes ainda não verificados");
   await ProfessionalServiceChecks.Verify(owner,anonymous,factory);
   await NotificationChecks.Verify(owner,anonymous,factory);
+  await BusinessFeatureChecks.Verify(owner,anonymous,factory);
   Console.WriteLine($"{checks} verificações HTTP/PostgreSQL passaram com dados exclusivamente sintéticos.");
  }
 }
