@@ -30,7 +30,7 @@ public sealed partial class DashboardPage : ContentPage
     private int resizeVersion;
     private IDispatcherTimer? liveTimer;
     private Window? observedWindow;
-    private bool activePage;
+    private bool activePage,skipNextAppearance;
     private bool Wide=>Width>=1180;
     private bool HasData=>dataLoaded;
 #if DEBUG
@@ -51,6 +51,7 @@ public sealed partial class DashboardPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();compact=Width<860;lastWidth=Width;
+        if(skipNextAppearance){skipNextAppearance=false;StartLiveUpdates();return;}
         InboxActivation.Requested-=OpenInboxFromSystem;
         InboxActivation.Requested+=OpenInboxFromSystem;
         if(InboxActivation.Consume())tab="Notificações";
@@ -75,7 +76,7 @@ public sealed partial class DashboardPage : ContentPage
                 repository=new(client,string.IsNullOrEmpty(employee)?null:employee);
                 selected=DateOnly.FromDateTime(client.Local(DateTimeOffset.UtcNow));calendarMonth=new(selected.Year,selected.Month,1);loaded=true;
             }
-            await Reload();await LoadNotifications(false);BuildShell();StartLiveUpdates();
+            await Reload();await LoadNotifications(false);
 #if ORBE_FIREBASE
             AndroidPush.Connect(client);
 #endif
@@ -131,6 +132,7 @@ public sealed partial class DashboardPage : ContentPage
     }
     private void BuildShell()
     {
+        var restoredScroll=mainScroll.ScrollY;
         navigationButtons.Clear();navigationGlyphs.Clear();notificationBadges.Clear();
         if(status.Parent is Layout parent)parent.Children.Remove(status);if(spinner.Parent is Layout spinParent)spinParent.Children.Remove(spinner);
         shell.ColumnDefinitions[0].Width=compact?new GridLength(0):new GridLength(224);sidebarHost.Content=compact?null:BuildSidebar();sidebarHost.IsVisible=!compact;
@@ -140,7 +142,7 @@ public sealed partial class DashboardPage : ContentPage
         var eyebrow=Text("ESPAÇO DE TRABALHO",10,Dim,true);eyebrow.CharacterSpacing=1.8;
         var scope=repository?.EmployeeId is {} id?people.FirstOrDefault(x=>x.Id==id)?.DisplayName:profile.Owner?"Visão geral":profile.FullName;
         headerHost.Content=compact?Between(Brand(),Pill(scope??profile.FullName,Violet)):Between(eyebrow,Row(10,Icon("people",Dim,16),Text(scope??profile.FullName,12,Muted)));
-        mobileHost.Content=compact?BuildMobileNav():null;mobileHost.IsVisible=compact;RenderNow();Dispatcher.Dispatch(async()=>await mainScroll.ScrollToAsync(0,0,false));
+        mobileHost.Content=compact?BuildMobileNav():null;mobileHost.IsVisible=compact;RenderNow();Dispatcher.Dispatch(async()=>await mainScroll.ScrollToAsync(0,restoredScroll,false));
     }
     private View Brand()=>Row(12,BrandImage(compact?30:42),Text("orbe",compact?24:28,Ink,true));
     private View BuildSidebar()

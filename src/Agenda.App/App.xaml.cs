@@ -19,7 +19,7 @@ public partial class App : Application
             var page=window.Page is NavigationPage navigation?navigation.CurrentPage:window.Page;
             if(page is null||page is UpdatePage)return;
             if(await page.DisplayAlertAsync("Atualização disponível","Orbe "+update.Version+" está disponível. Deseja ver a atualização?","Ver atualização","Agora não"))
-                await page.Navigation.PushAsync(new UpdatePage());
+                await page.Navigation.PushAsync(new UpdatePage(),false);
         }
         catch(Exception e) when(e is HttpRequestException or OperationCanceledException or System.IO.IOException or System.Text.Json.JsonException or InvalidOperationException)
         { /* Background checks must not interrupt access when the feed is unavailable. */ }

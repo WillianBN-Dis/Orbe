@@ -25,7 +25,7 @@ internal static partial class AccountPages
     box.CheckedChanged+=(_,_)=>UpdatePreview();
     filters.Add(new HorizontalStackLayout{Spacing=3,Margin=new Thickness(0,0,12,4),Children={box,Text(Days[i][..3],12,Muted)}});
    }
-   range.Add(filters);
+   range.Add(Text("Incluir estes dias da semana",12,Muted,true));range.Add(filters);
    single.Date=day.Date;
    single.DateSelected+=(_,_)=>UpdatePreview();
    first.DateSelected+=(_,_)=>UpdatePreview();last.DateSelected+=(_,_)=>UpdatePreview();
@@ -51,8 +51,8 @@ internal static partial class AccountPages
   }
   private void UpdatePreview()
   {
-   try{var dates=Dates();preview.Text=$"{dates.Length} data(s) selecionada(s) — "+string.Join(", ",dates.Select(d=>d.ToString("dd/MM/yyyy")));}
-   catch(ArgumentException e){preview.Text=e.Message;}
+   try{var dates=Dates();preview.TextColor=Muted;preview.Text=$"{dates.Length} data(s) selecionada(s) — "+string.Join(", ",dates.Select(d=>d.ToString("dd/MM/yyyy")));}
+   catch(ArgumentException e){preview.TextColor=Coral;preview.Text=e.Message;}
   }
   private void RenderMonth()
   {

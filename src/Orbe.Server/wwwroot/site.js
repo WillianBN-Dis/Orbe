@@ -19,7 +19,7 @@ function field(label,type='text',value='',required=true){const input=el('input',
 function select(label,values,value=''){const input=el('select',{'aria-label':label},...values.map(x=>el('option',{value:x.id},x.name)));input.value=value;return {input,root:el('label',{class:'field'},el('span',{},label),input)};}
 function form(fields,submitText,action){const f=el('form',{class:'form'},...fields);const b=el('button',{type:'submit',class:'primary'},submitText);f.append(b);f.onsubmit=async e=>{e.preventDefault();if(!f.reportValidity())return;b.disabled=true;try{await action();}catch(error){toast(error.message,true);}finally{b.disabled=false;}};return f;}
 const bookingApi=(item,path,options={})=>api(path,{...options,scope:item.business});
-async function api(path,{method='GET',body,key,scope=business}={}){if(method!=='GET'&&!csrf){const r=await fetch('/api/v1/auth/csrf',{credentials:'same-origin'});if(!r.ok)throw Error('O serviço está sendo preparado. Tente novamente em breve.');csrf=(await r.json()).token;}const r=await fetch('/api/v1'+path,{method,credentials:'same-origin',headers:{...(scope?{'X-Orbe-Business':scope}:{}),...(body?{'Content-Type':'application/json'}:{}),...(method!=='GET'?{'X-CSRF-TOKEN':csrf}:{}),...(key?{'Idempotency-Key':key}:{})},body:body?JSON.stringify(body):undefined});const data=r.status===204?null:await r.json().catch(()=>null);if(!r.ok){if(r.status===401){me=null;renderNav();}throw Error(data?.message??(r.status===429?'Muitas tentativas. Aguarde um pouco.':r.status===403?'Sua conta não tem acesso a esta área.':'Não foi possível concluir. Atualize antes de tentar novamente.'));}return data;}
+async function api(path,{method='GET',body,key,scope=business}={}){if(method!=='GET'&&!csrf){const r=await fetch('/api/v1/auth/csrf',{credentials:'same-origin'});if(!r.ok)throw Error('O serviço está sendo preparado. Tente novamente em breve.');csrf=(await r.json()).token;}const r=await fetch('/api/v1'+path,{method,credentials:'same-origin',headers:{...(scope?{'X-Orbe-Business':scope}:{}),...(body?{'Content-Type':'application/json'}:{}),...(method!=='GET'?{'X-CSRF-TOKEN':csrf}:{}),...(key?{'Idempotency-Key':key}:{})},body:body?JSON.stringify(body):undefined});const data=r.status===204?null:await r.json().catch(()=>null);if(!r.ok){if(r.status===401){me=null;renderNav();}const error=Error(data?.message??(r.status===429?'Muitas tentativas. Aguarde um pouco.':r.status===403?'Sua conta não tem acesso a esta área.':'Não foi possível concluir. Atualize antes de tentar novamente.'));error.status=r.status;throw error;}return data;}
 const money=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(n)/100);
 function cents(value){
  let text=String(value).trim();
@@ -94,78 +94,136 @@ async function booking(){
  if(!me)return login(booking);
  if(pendingEmail())return account();
  info=await api('/public/info');
- const benefits=el('div',{class:'benefits'});
- ['Escolha o que combina com você','Veja apenas horários disponíveis','Agende com confirmação automática'].forEach((s,i)=>benefits.append(el('div',{class:'benefit'},el('span',{class:'number'},String(i+1).padStart(2,'0')),el('div',{},el('strong',{},s),p(['Serviços e durações para cada atendimento.','Uma agenda individual para cada profissional.','Sua reserva aparece na sua conta.'][i])))));
- const intro=el('div',{},p('CUIDADO QUE CABE NA SUA ROTINA','eyebrow'),el('h1',{},info.name),p('Escolha seu profissional, conheça os serviços e reserve um horário só seu.','lead'),benefits);
- const hero=el('section',{class:'hero'},intro),card=el('div',{class:'card stack'});hero.append(card);setView(hero);
- if(!info.publicBookingOpen){card.append(el('span',{class:'pill'},'Estamos preparando sua experiência'),heading('Em breve, novos horários por aqui'),p('As reservas online ainda não estão abertas. Entre em contato com a equipe para agendar.'),button(me?'Acessar minha conta':'Já tenho uma conta',()=>me?(isTeam()?workspace():mine()):login(),'primary'));return;}
- card.append(el('div',{class:'steps'},...['Profissional','Serviço','Horário'].map((s,i)=>el('span',{},el('b',{},i+1),s))),heading('Reserve seu horário'));
- const people=await api('/public/employees');const employee=select('Com qual profissional?',[{id:'',name:'Selecione um profissional'},...people.map(x=>({id:x.id,name:x.displayName}))],state.employee?.id??'');const catalog=el('div',{class:'stack'});card.append(employee.root,catalog);let selection=0;
- async function chooseProfessional(restore=false){const ticket=++selection;state.employee=people.find(x=>x.id===employee.input.value)??null;const previous=restore?state.service?.id:null;state.service=null;state.slot=null;state.key=null;state.page=0;state.calendarMonth=null;state.calendarView='month';catalog.replaceChildren();if(!state.employee)return;const services=await api('/public/services?employeeId='+encodeURIComponent(state.employee.id));if(ticket!==selection)return;if(!services.length){catalog.append(p('Este profissional ainda não tem serviços disponíveis. Escolha outro profissional.'));return;}const service=select('Qual serviço você deseja?',[{id:'',name:'Selecione um serviço'},...services.map(s=>({id:s.id,name:s.name+' · '+s.durationMinutes+' min · '+servicePrice(s.priceCents,s.priceFrom)}))],previous??'');const dates=el('div',{class:'stack'});
- const categories=[...new Map(services.filter(x=>x.categoryId).map(x=>[x.categoryId,x.categoryName]))];
- if(categories.length){
-  const selected=services.find(x=>x.id===previous);
-  const category=select('Tipo de serviço',[{id:'',name:'Selecione a categoria'},...categories.map(([id,name])=>({id,name})),...(services.some(x=>!x.categoryId)?[{id:'other',name:'Outros serviços'}]:[])],selected?(selected.categoryId??'other'):'');
-  catalog.append(category.root);
-  function filter(){const key=category.input.value;for(const option of service.input.options){const entry=services.find(x=>x.id===option.value);option.hidden=!!entry&&(entry.categoryId??'other')!==key;}service.root.hidden=!key;}
-  category.input.onchange=()=>{service.input.value='';filter();calendar().catch(e=>toast(e.message,true));};filter();
+ const shell=el('section',{class:'booking-shell'}),aside=el('aside',{class:'booking-aside'}),panel=el('div',{class:'booking-panel card'});
+ const progress=el('div',{class:'booking-progress','aria-live':'polite'}),content=el('div',{class:'booking-content'}),feedback=el('p',{class:'booking-error',role:'alert',hidden:true}),actions=el('div',{class:'booking-actions'});
+ panel.append(progress,content,feedback,actions);shell.append(aside,panel);setView(shell);
+ if(!info.publicBookingOpen){aside.append(p('SEU PRÓXIMO MOMENTO','eyebrow'),el('h1',{},info.name));content.append(heading('Em breve, novos horários por aqui'),p('As reservas online ainda não estão abertas. Entre em contato com a equipe para agendar.'),button('Acessar minha conta',()=>isTeam()?workspace():mine(),'primary'));return;}
+ let people=[],catalog=[],catalogEmployee='',category='',stage='professional',busy=false,request=0;
+ const cache=new Map(),positions=new Map();let next,previous;
+ const labels={professional:'Profissional',category:'Categoria',service:'Serviço',datetime:'Data e horário',confirm:'Confirmar'};
+ const stages=()=>['professional',...(catalog.some(s=>s.categoryId)?['category']:[]),'service','datetime','confirm'];
+ const categoryOf=s=>s.categoryId??'other';
+ const ready=()=>stage==='professional'?!!state.employee:stage==='category'?!!category:stage==='service'?!!state.service:stage==='datetime'?!!state.slot:true;
+ const fail=error=>{feedback.hidden=false;feedback.textContent=error.message??String(error);};
+ function clearTime(){state.day=null;state.slot=null;state.key=null;state.calendarMonth=null;state.calendarView='month';}
+ function choose(kind,item){
+  if(kind==='professional'){
+   if(state.employee?.id!==item.id){state.employee=item;state.service=null;category='';catalog=[];catalogEmployee='';cache.clear();clearTime();}
+  }else if(kind==='category'){
+   if(category!==item.id){category=item.id;if(state.service&&categoryOf(state.service)!==category){state.service=null;clearTime();}}
+  }else if(state.service?.id!==item.id){state.service=item;clearTime();}
+  for(const option of content.querySelectorAll('.booking-option')){const selected=option.dataset.choice===item.id;option.classList.toggle('selected',selected);option.setAttribute('aria-pressed',String(selected));}
+  feedback.hidden=true;updateSummary();updateActions();
  }
- catalog.append(service.root,dates);async function calendar(){state.service=services.find(s=>s.id===service.input.value)??null;state.slot=null;state.key=null;state.page=0;state.calendarMonth=null;state.calendarView='month';dates.replaceChildren();if(state.service)await renderDates(dates);}service.input.onchange=()=>calendar().catch(e=>toast(e.message,true));if(service.input.value)await calendar();}
- employee.input.onchange=()=>chooseProfessional().catch(e=>toast(e.message,true));if(employee.input.value)await chooseProfessional(true);
-}
-async function renderDates(host){
- const current=today(), first=(state.calendarMonth??current.slice(0,7))+'-01';
- const month=new Date(first+'T12:00:00Z'),end=new Date(Date.UTC(month.getUTCFullYear(),month.getUTCMonth()+1,0,12));
- const result=await api('/public/availability?employeeId='+encodeURIComponent(state.employee.id)+'&serviceId='+encodeURIComponent(state.service.id)+'&from='+first+'&days='+end.getUTCDate());
- host.replaceChildren();
- if(!result.open){host.append(p('A agenda foi fechada pela equipe. Atualize a página.'));return;}
- const monthName=new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric',timeZone:'UTC'}).format(month);
- const controls=row(),mode=select('Visualização',[{id:'month',name:'Mês'},{id:'year',name:'Ano'}],state.calendarView??'month');
- const move=async(delta)=>{const next=new Date(month);next.setUTCMonth(next.getUTCMonth()+delta);
-  if(next.getUTCFullYear()<1900||next.getUTCFullYear()>2100)return;
-  state.calendarMonth=next.toISOString().slice(0,7);await renderDates(host);
- };
- controls.append(button('‹',()=>move(state.calendarView==='year'?-12:-1),'small'),button('Hoje',async()=>{state.calendarMonth=current.slice(0,7);await renderDates(host);},'small'),button('›',()=>move(state.calendarView==='year'?12:1),'small'));
- mode.input.onchange=()=>{state.calendarView=mode.input.value;renderDates(host).catch(e=>toast(e.message,true));};
- host.append(el('div',{class:'between calendar-toolbar'},heading(state.calendarView==='year'?String(month.getUTCFullYear()):monthName),controls),mode.root);
- if(state.calendarView==='year'){
-  const year=el('div',{class:'calendar-year'});
-  for(let m=0;m<12;m++){
-   const day=new Date(Date.UTC(month.getUTCFullYear(),m,1,12));
-   const caption=new Intl.DateTimeFormat('pt-BR',{month:'long',timeZone:'UTC'}).format(day);
-   const choice=button('',async()=>{state.calendarMonth=day.toISOString().slice(0,7);state.calendarView='month';await renderDates(host);},'month-choice');
-   choice.setAttribute('aria-label',caption+' de '+month.getUTCFullYear());choice.append(el('strong',{},caption));
-   const mini=el('span',{class:'mini-days','aria-hidden':'true'});
-   for(const label of ['D','S','T','Q','Q','S','S'])mini.append(el('span',{class:'mini-weekday'},label));
-   for(let blank=0;blank<day.getUTCDay();blank++)mini.append(el('span',{}));
-   const total=new Date(Date.UTC(day.getUTCFullYear(),m+1,0)).getUTCDate();
-   for(let d=1;d<=total;d++)mini.append(el('span',{},d));
-   choice.append(mini);year.append(choice);
+ function option(kind,item,selected,detail=''){
+  const b=el('button',{type:'button',class:'booking-option'+(selected?' selected':''),'aria-pressed':String(selected),'data-choice':item.id,onclick:()=>choose(kind,item)},
+   el('span',{class:'booking-option-mark','aria-hidden':'true'},kind==='professional'?item.displayName.trim().slice(0,1).toUpperCase():'✓'),
+   el('span',{class:'booking-option-copy'},el('strong',{},item.displayName??item.name),detail?el('span',{},detail):null));return b;
+ }
+ function summaryItem(label,value,target){return el('div',{class:'booking-summary-item'},el('div',{},p(label,'caption'),el('strong',{},value)),target?button('Alterar',()=>go(target),'quiet small'):null);}
+ function updateSummary(){
+  aside.replaceChildren();shell.dataset.stage=stage;
+  if(stage==='professional'){
+   aside.append(p('CUIDADO QUE CABE NA SUA ROTINA','eyebrow'),el('h1',{},info.name),p('Escolha quem vai cuidar de você. Nos próximos passos, encontre o serviço e o melhor horário.','lead'),el('div',{class:'booking-assurance'},IconText('01','Escolha seu profissional'),IconText('02','Encontre seu horário'),IconText('03','Confira e confirme')));return;
   }
-  host.append(year);return;
+  const details=el('details',{class:'booking-summary',open:window.matchMedia('(min-width:1001px)').matches});
+  details.append(el('summary',{},'Resumo da reserva'),el('h2',{},info.name));
+  if(state.employee)details.append(summaryItem('Profissional',state.employee.displayName,'professional'));
+  if(category&&catalog.some(s=>s.categoryId)){const item=catalog.find(s=>categoryOf(s)===category);details.append(summaryItem('Categoria',category==='other'?'Outros serviços':item?.categoryName??'Categoria','category'));}
+  if(state.service)details.append(summaryItem('Serviço',state.service.name,'service'),summaryItem('Duração',state.service.durationMinutes+' minutos'),summaryItem(state.service.priceFrom?'Valor a partir de':'Valor',money(state.service.priceCents)));
+  if(state.slot)details.append(summaryItem('Quando',stamp(state.slot.start),'datetime'));
+  details.append(p('Seus agendamentos ficam disponíveis na sua conta.','caption'));aside.append(details);
  }
- const grid=el('div',{class:'days',role:'group','aria-label':'Dias de '+monthName}),times=stack();
- host.append(grid,times);
- for(const name of ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'])grid.append(el('span',{class:'weekday'},name));
- for(let i=0;i<month.getUTCDay();i++)grid.append(el('span',{'aria-hidden':'true'}));
- for(const day of result.days){
-  const b=button(String(Number(day.date.slice(-2))),async()=>{
-   grid.querySelectorAll('button').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');
-   state.day=day.date;state.slot=null;state.key=null;
-   times.replaceChildren(el('strong',{},'Horários disponíveis'));
-   const slots=el('div',{class:'slots'});times.append(slots);
-   for(const slot of day.slots){
-    const t=button(time(slot.start),async()=>{
-     slots.querySelectorAll('button').forEach(x=>x.classList.remove('selected'));t.classList.add('selected');
-     state.slot=slot;state.key=crypto.randomUUID();showConfirmation(times);
-    },'slot');slots.append(t);
+ function IconText(number,label){return el('div',{class:'booking-assurance-item'},el('span',{},number),el('strong',{},label));}
+ function updateActions(){
+  actions.replaceChildren();const order=stages(),index=order.indexOf(stage);
+  previous=el('button',{type:'button',class:'quiet',disabled:busy||index===0,onclick:()=>go(order[index-1])},'Voltar');
+  next=el('button',{type:'button',class:'primary',disabled:busy||!ready(),onclick:advance},busy?'Aguarde…':stage==='confirm'?'Confirmar meu agendamento':stage==='datetime'?'Revisar reserva':'Continuar');
+  actions.append(previous,next);
+ }
+ async function advance(){
+  if(busy||!ready())return;busy=true;feedback.hidden=true;updateActions();
+  try{
+   if(stage==='professional'&&catalogEmployee!==state.employee.id){
+    const id=state.employee.id;const services=await api('/public/services?employeeId='+encodeURIComponent(id));
+    if(!shell.isConnected||state.employee.id!==id)return;
+    catalog=services;catalogEmployee=id;category=state.service?categoryOf(state.service):'';
    }
-  },'day');
-  b.disabled=!day.slots.length;b.setAttribute('aria-label',day.date+(b.disabled?', sem horários disponíveis':', horários disponíveis'));grid.append(b);
+   if(stage==='confirm'){
+    if(!me.roles.includes('Client'))throw Error('Use uma conta de cliente para confirmar a reserva.');
+    const record=await api('/bookings',{method:'POST',key:state.key,body:{serviceId:state.service.id,employeeId:state.employee.id,start:state.slot.start}});
+    state.slot=null;state.key=null;toast('Seu horário está confirmado: '+stamp(record.start));if(shell.isConnected)await mine();return;
+   }
+   const order=stages();await go(order[order.indexOf(stage)+1]);
+  }catch(error){
+   if(error.status===401)return login(booking);
+   if(error.status===409&&stage==='confirm'){cache.clear();state.slot=null;state.key=null;await go('datetime');}
+   fail(error);
+  }finally{busy=false;if(shell.isConnected)updateActions();}
  }
- if(result.days.every(x=>!x.slots.length))times.append(p('Não há horários disponíveis neste mês. Consulte outro período ou profissional.'));
+ async function go(target){
+  if(!target||!shell.isConnected)return;
+  positions.set(stage,window.scrollY);stage=target;const ticket=++request;
+  feedback.hidden=true;content.replaceChildren();updateSummary();
+  const order=stages(),index=order.indexOf(stage);
+  progress.replaceChildren(p('Etapa '+(index+1)+' de '+order.length,'caption'),el('div',{class:'booking-step-track'},...order.map((key,i)=>el('span',{class:i<=index?'complete':'','aria-current':key===stage?'step':null},el('b',{},i+1),labels[key]))));
+  const headingText={professional:'Quem vai atender você?',category:'Que tipo de cuidado?',service:'Escolha seu serviço',datetime:'Escolha o dia e o horário',confirm:'Está tudo certo?'};
+  content.append(el('h2',{tabIndex:-1},headingText[stage]));
+  if(stage==='professional'){
+   content.append(p('Selecione um profissional para continuar.','caption'));
+   const list=el('div',{class:'booking-options'});for(const person of people)list.append(option('professional',person,person.id===state.employee?.id,'Ver serviços e horários'));content.append(list);
+   if(!people.length)content.append(p('Ainda não há profissionais disponíveis. Entre em contato com a empresa.'));
+  }else if(stage==='category'){
+   const categories=[...new Map(catalog.filter(s=>s.categoryId).map(s=>[s.categoryId,s.categoryName]))].map(([id,name])=>({id,name}));
+   if(catalog.some(s=>!s.categoryId))categories.push({id:'other',name:'Outros serviços'});
+   const list=el('div',{class:'booking-options'});for(const item of categories)list.append(option('category',item,item.id===category));content.append(list);
+  }else if(stage==='service'){
+   const services=catalog.filter(s=>!catalog.some(x=>x.categoryId)||categoryOf(s)===category),list=el('div',{class:'booking-options'});
+   for(const item of services)list.append(option('service',item,item.id===state.service?.id,item.durationMinutes+' min · '+servicePrice(item.priceCents,item.priceFrom)));content.append(list);
+   if(!services.length)content.append(p('Não há serviços disponíveis nesta seleção. Volte para escolher outra opção.'));
+  }else if(stage==='datetime')await renderCalendar(ticket);
+  else{
+   content.append(p('Confira sua escolha antes de confirmar.','caption'),el('div',{class:'booking-review'},summaryItem('Empresa',info.name),summaryItem('Profissional',state.employee.displayName),summaryItem('Serviço',state.service.name),summaryItem('Quando',stamp(state.slot.start)),summaryItem('Duração',state.service.durationMinutes+' minutos'),summaryItem(state.service.priceFrom?'Valor a partir de':'Valor',money(state.service.priceCents))),p('Após reservar, você pode cancelar em 24 horas, ou em 2 horas se o atendimento for no dia seguinte, sempre antes do início. Agendar não representa pagamento.','caption'));
+  }
+  if(!shell.isConnected||ticket!==request)return;updateActions();content.querySelector('h2')?.focus({preventScroll:true});
+  if(positions.has(stage))window.scrollTo({top:positions.get(stage),behavior:'instant'});
+ }
+ async function renderCalendar(ticket){
+  const date=today(),first=(state.calendarMonth??date.slice(0,7))+'-01',month=new Date(first+'T12:00:00Z'),last=new Date(Date.UTC(month.getUTCFullYear(),month.getUTCMonth()+1,0,12));
+  const controls=row(),calendar=el('div',{class:'booking-calendar'}),times=el('div',{class:'booking-times'}),layout=el('div',{class:'booking-date-layout'},calendar,times);content.append(layout);
+  const monthName=new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric',timeZone:'UTC'}).format(month),mode=select('Visualização',[{id:'month',name:'Mês'},{id:'year',name:'Ano'}],state.calendarView??'month');
+  async function move(delta){const value=new Date(month);value.setUTCMonth(value.getUTCMonth()+delta);if(value.getUTCFullYear()<1900||value.getUTCFullYear()>2100)return;state.calendarMonth=value.toISOString().slice(0,7);state.day=state.slot=state.key=null;await go('datetime');}
+  controls.append(button('‹',()=>move(state.calendarView==='year'?-12:-1),'small'),button('Hoje',async()=>{state.calendarMonth=date.slice(0,7);state.day=state.slot=state.key=null;await go('datetime');},'small'),button('›',()=>move(state.calendarView==='year'?12:1),'small'));
+  mode.input.onchange=()=>{state.calendarView=mode.input.value;go('datetime').catch(fail);};calendar.append(el('div',{class:'between calendar-toolbar'},heading(state.calendarView==='year'?String(month.getUTCFullYear()):monthName),controls),mode.root);
+  if(state.calendarView==='year'){
+   const grid=el('div',{class:'calendar-year'});for(let m=0;m<12;m++){const name=new Intl.DateTimeFormat('pt-BR',{month:'long',timeZone:'UTC'}).format(new Date(Date.UTC(month.getUTCFullYear(),m,1)));grid.append(button(name,async()=>{state.calendarMonth=month.getUTCFullYear()+'-'+String(m+1).padStart(2,'0');state.calendarView='month';state.day=state.slot=state.key=null;await go('datetime');},'month-choice'));}calendar.append(grid);times.append(p('Escolha um mês para consultar os horários.'));return;
+  }
+  times.append(p('Consultando horários…','caption'));const key=state.employee.id+'|'+state.service.id+'|'+first;
+  let result=cache.get(key);if(!result){result=await api('/public/availability?employeeId='+encodeURIComponent(state.employee.id)+'&serviceId='+encodeURIComponent(state.service.id)+'&from='+first+'&days='+last.getUTCDate());if(ticket!==request||!shell.isConnected)return;cache.set(key,result);}
+  times.replaceChildren();if(!result.open){state.slot=null;times.append(p('A agenda foi fechada pela equipe. Consulte a empresa.'));return;}
+  const grid=el('div',{class:'days',role:'group','aria-label':'Dias de '+monthName});calendar.append(grid);
+  for(const name of ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'])grid.append(el('span',{class:'weekday'},name));for(let i=0;i<month.getUTCDay();i++)grid.append(el('span',{'aria-hidden':'true'}));
+  function showTimes(day){
+   times.replaceChildren();const title=new Intl.DateTimeFormat('pt-BR',{dateStyle:'full',timeZone:'UTC'}).format(new Date(day.date+'T12:00:00Z'));times.append(el('h3',{},title));
+   for(const [name,from,until]of [['Manhã',0,12],['Tarde',12,18],['Noite',18,24]]){
+    const slots=day.slots.filter(s=>{const hour=Number(time(s.start).split(':')[0]);return hour>=from&&hour<until;});if(!slots.length)continue;
+    const group=el('div',{class:'booking-time-group'},el('strong',{},name)),list=el('div',{class:'slots'});group.append(list);times.append(group);
+    for(const slot of slots){const chosen=state.slot?.start===slot.start;const b=el('button',{type:'button',class:'slot'+(chosen?' selected':''),'aria-pressed':String(chosen),onclick:()=>{
+     if(state.slot?.start!==slot.start){state.slot=slot;state.key=crypto.randomUUID();}
+     times.querySelectorAll('.slot').forEach(x=>{const active=x===b;x.classList.toggle('selected',active);x.setAttribute('aria-pressed',String(active));});updateSummary();updateActions();
+    }},time(slot.start));list.append(b);}
+   }
+  }
+  for(const day of result.days){const b=el('button',{type:'button',class:'day'+(state.day===day.date?' selected':''),disabled:!day.slots.length,'aria-label':day.date+(day.slots.length?', horários disponíveis':', sem horários disponíveis'),onclick:()=>{
+   if(state.day!==day.date){state.day=day.date;state.slot=state.key=null;}grid.querySelectorAll('button').forEach(x=>x.classList.toggle('selected',x===b));showTimes(day);updateSummary();updateActions();
+  }},String(Number(day.date.slice(-2))));grid.append(b);}
+  const selected=result.days.find(d=>d.date===state.day&&d.slots.length);if(selected){if(state.slot&&!selected.slots.some(s=>s.start===state.slot.start)){state.slot=state.key=null;}showTimes(selected);}
+  else times.append(p(result.days.some(d=>d.slots.length)?'Escolha um dia no calendário para ver os horários.':'Não há horários disponíveis neste mês. Consulte outro período ou profissional.'));
+ }
+ updateSummary();content.append(p('Carregando profissionais…','caption'));
+ try{people=await api('/public/employees');if(!people.some(p=>p.id===state.employee?.id)){state.employee=state.service=null;clearTime();}await go('professional');}catch(error){fail(error);content.append(button('Tentar novamente',booking));}
 }
-function showConfirmation(host){host.querySelector('.summary')?.remove();const summary=el('div',{class:'summary stack'},el('strong',{},state.service.name),p(state.employee.displayName+' · '+stamp(state.slot.start)),el('strong',{class:'positive'},servicePrice(state.service.priceCents,state.service.priceFrom)),p(`Após reservar, você pode cancelar em 24 horas, ou em 2 horas se o atendimento for no dia seguinte, sempre antes do início. Agendar não representa pagamento.`,'caption'),button(me?'Confirmar meu agendamento':'Entrar para confirmar',async()=>{if(!me)return login(booking);if(!me.roles.includes('Client'))throw Error('Use uma conta de cliente para reservar pelo site.');const record=await api('/bookings',{method:'POST',key:state.key,body:{serviceId:state.service.id,employeeId:state.employee.id,start:state.slot.start}});toast('Seu horário está confirmado: '+stamp(record.start));state.slot=null;state.key=null;await mine();},'primary'));host.append(summary);}
+
 async function mine(){if(!me)return login(mine);const companies=await api('/bookings/businesses');const path='/bookings/mine'+(bookingFilter?'?business='+encodeURIComponent(bookingFilter):'');const items=await allPages(path,100);const company=select('Empresa',[{id:'',name:'Todas as empresas'},...companies.map(x=>({id:x.slug,name:x.name}))],bookingFilter);company.input.onchange=()=>{bookingFilter=company.input.value;mine().catch(e=>toast(e.message,true));};const list=el('div',{class:'list'});setView(stack(el('div',{class:'title'},el('div',{},p('SEUS PRÓXIMOS MOMENTOS','eyebrow'),el('h1',{},'Meus agendamentos')),button('+ Agendar',businessDirectory,'primary')),company.root,list));main.dataset.live='mine';main.dataset.signature=JSON.stringify(items);if(!items.length)list.append(el('div',{class:'empty'},'Sua agenda está livre. Que tal reservar seu próximo momento?'));for(const item of items){const actions=row();const card=el('article',{class:'booking'},el('div',{},el('span',{class:'pill'},item.status==='Confirmed'?'Confirmado':'Cancelado'),el('h3',{},item.title),p((item.businessName??'Orbe')+' · '+(item.employeeName??'Equipe')+' · '+stamp(item.start,item.timeZoneId),'caption'),p(servicePrice(item.expectedCents,item.priceFrom),'caption')),actions);if(item.status==='Confirmed'){if(item.serviceId)actions.append(button('Remarcar',()=>reschedule(item),'small'));if(item.canCancel===false&&whatsAppNumber(item.professionalPhone))actions.append(el('a',{href:'https://wa.me/'+whatsAppNumber(item.professionalPhone),target:'_blank',rel:'noopener noreferrer',class:'support-link'},'WhatsApp do profissional'));if(item.canCancel!==false)actions.append(button('Cancelar',()=>modal('Cancelar agendamento?',stack(p(item.title+' · '+stamp(item.start,item.timeZoneId)),p('O horário ficará disponível para outra pessoa.'),button('Confirmar cancelamento',async()=>{await bookingApi(item,'/bookings/'+item.id+'/cancel',{method:'POST',body:{version:item.version}});dialog.close();await mine();toast('Agendamento cancelado.');},'danger'))),'danger small'));}list.append(card);}}
 async function reschedule(item){const date=field('Novo dia','date',new Intl.DateTimeFormat('sv-SE',{timeZone:item.timeZoneId??info.timeZoneId}).format(new Date())),slots=el('div',{class:'slots'});const content=stack(p('Serviço e profissional serão mantidos.'),date.root,button('Consultar horários',async()=>{const result=await bookingApi(item,`/bookings/${item.id}/availability?from=${date.input.value}&days=1`);slots.replaceChildren();for(const slot of result.days[0]?.slots??[])slots.append(button(time(slot.start,item.timeZoneId),async()=>{await bookingApi(item,'/bookings/'+item.id+'/move',{method:'POST',body:{version:item.version,start:slot.start}});dialog.close();await mine();toast('Agendamento remarcado.');},'slot'));if(!slots.childElementCount)slots.append(p('Nenhum horário disponível neste dia.'));}),slots);modal('Escolha o novo horário',content);}
 let teamEmployee='',teamTab='agenda';

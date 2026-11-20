@@ -80,6 +80,15 @@ public sealed partial class DashboardPage
 #if WINDOWS
   await Capture("day-empty");
 #endif
+  var scopeId="quick-professional-qa";people=[new(scopeId,"Profissional QA",true,Guid.NewGuid())];repository=new(client,scopeId);
+  var requested=Selected.ToDateTime(new TimeOnly(14,30));await QuickAppointment(requested);await Task.Delay(250);
+  var editor=Navigation.NavigationStack.Last();
+  var dateFields=FindViews<DatePicker>(editor).ToArray();var timeFields=FindViews<TimePicker>(editor).ToArray();
+  if(editor is not EditorPage||dateFields.Length!=2||timeFields.Length!=2||dateFields[0].Date?.Date!=requested.Date||timeFields[0].Time!=requested.TimeOfDay||timeFields[1].Time!=requested.AddHours(1).TimeOfDay)throw new Exception("Quick scheduling must prefill selected date/time");
+#if WINDOWS
+  await Capture("quick");
+#endif
+  await Navigation.PopAsync(false);
   System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(),$"orbe-interaction-{Environment.ProcessId}.json"),System.Text.Json.JsonSerializer.Serialize(new{passed=true,selectionWorkMs=milliseconds,calendarControlsReused=42,navigationControlsReused=nav.Length}));
  }
 }

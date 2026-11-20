@@ -10,8 +10,8 @@ internal static partial class AccountPages
   var page=new CloudFormPage(api,"Equipe e acessos"){ReloadOnReturn=true};
   page.Load=async()=>
   {
-   var rows=await api.Get<JsonElement>("owner/employees");var me=await api.Me();page.Fields.Clear();page.Fields.Add(Text("Sua equipe, seus acessos",24,Ink,true));page.Fields.Add(Text("O administrador da empresa gerencia os acessos. Cada profissional configura a própria disponibilidade.",13,Muted));page.Fields.Add(Button("+ Funcionário",async()=>await page.Navigation.PushAsync(NewEmployee(api)),primary:true));
-   page.Fields.Add(Button("Convites e solicitações",async()=>await page.Navigation.PushAsync(Invitations(api))));
+   var rows=await api.Get<JsonElement>("owner/employees");var me=await api.Me();page.Fields.Clear();page.Fields.Add(Text("Sua equipe, seus acessos",24,Ink,true));page.Fields.Add(Text("O administrador da empresa gerencia os acessos. Cada profissional configura a própria disponibilidade.",13,Muted));page.Fields.Add(Button("+ Funcionário",async()=>await page.Navigation.PushAsync(NewEmployee(api),false),primary:true));
+   page.Fields.Add(Button("Convites e solicitações",async()=>await page.Navigation.PushAsync(Invitations(api),false)));
    page.Fields.Add(Button("Adicionar conta existente",()=>page.Run(async()=>{
     var username=await page.DisplayPromptAsync("Adicionar profissional","Informe o usuário ou e-mail da conta confirmada.");
     if(string.IsNullOrWhiteSpace(username))return;
@@ -19,7 +19,7 @@ internal static partial class AccountPages
     await page.Load!();
    })));
    if(api.Business is null or "orbe"&&!rows.EnumerateArray().Any(x=>S(x,"userId")==me.Id))page.Fields.Add(Button("Eu também atendo",()=>page.Run(async()=>{await api.Post<JsonElement>("owner/employees",new{userName="WillianBN",email=me.Email,fullName=me.FullName,password=""});await page.Load!();})));
-   foreach(var row in rows.EnumerateArray()){var person=row.Clone();page.Fields.Add(Card(Stack(12,Between(Text(S(person,"displayName"),19,Ink,true),Pill(B(person,"enabled")?"ATIVO":"INATIVO",B(person,"enabled")?Mint:Coral)),Text(S(person,"userName")+" · "+S(person,"email"),12,Muted),Button("Configurar profissional",async()=>await page.Navigation.PushAsync(EditEmployee(api,person))))));}
+   foreach(var row in rows.EnumerateArray()){var person=row.Clone();page.Fields.Add(Card(Stack(12,Between(Text(S(person,"displayName"),19,Ink,true),Pill(B(person,"enabled")?"ATIVO":"INATIVO",B(person,"enabled")?Mint:Coral)),Text(S(person,"userName")+" · "+S(person,"email"),12,Muted),Button("Configurar profissional",async()=>await page.Navigation.PushAsync(EditEmployee(api,person),false)))));}
   };return page;
  }
  internal static Page Invitations(CloudApi api)
@@ -73,7 +73,7 @@ internal static partial class AccountPages
    Entry name=Input("Nome público",S(person,"displayName"));var enabled=new Switch{IsToggled=B(person,"enabled")};
    page.Fields.Add(Stack(14,Text(S(person,"userName"),23,Ink,true),Field("Nome exibido às clientes",name),Between(Text("Profissional ativo",13,Muted),enabled)));
    page.Fields.Add(Text("Desativar o acesso não cancela reservas existentes. Confira a agenda antes de reorganizar os atendimentos.",12,Muted));page.Fields.Add(Button("Salvar profissional",()=>page.Run(async()=>{await api.Put<JsonElement>("owner/employees/"+S(person,"id"),new{version=S(person,"version"),displayName=Required(name,"o nome"),enabled=enabled.IsToggled});await Back(page);}),primary:true));
-   if((api.Business is null or "orbe")&&S(person,"userName")!="WillianBN")page.Fields.Add(Button("Redefinir senha",async()=>await page.Navigation.PushAsync(ResetEmployee(api,S(person,"id")))));
+   if((api.Business is null or "orbe")&&S(person,"userName")!="WillianBN")page.Fields.Add(Button("Redefinir senha",async()=>await page.Navigation.PushAsync(ResetEmployee(api,S(person,"id")),false)));
   };return page;
  }
  private static Page ResetEmployee(CloudApi api,string id)
@@ -88,8 +88,8 @@ internal static partial class AccountPages
    if(people.Length==0){page.Fields.Add(Text("Cadastre um profissional na seção Equipe para começar.",14,Muted));return;}
    var picker=People(people,selectedEmployee??profile.EmployeeId??people[0].Id);if(profile.Owner)page.Fields.Add(Field("Profissional",picker));var host=Stack(16);page.Fields.Add(host);
    page.Fields.Add(Button("+ Categoria",()=>page.Run(async()=>{var name=await page.DisplayPromptAsync("Nova categoria","Informe o nome da categoria.");if(!string.IsNullOrWhiteSpace(name))await api.Post<JsonElement>("team/categories?employeeId="+Uri.EscapeDataString(Picked(picker)),new{name});})));
-   async Task Render(){var employee=Picked(picker);selectedEmployee=employee;var catalog=await api.Get<JsonElement>("team/services?employeeId="+Uri.EscapeDataString(employee));host.Children.Clear();host.Add(Button("Gerenciar categorias",async()=>await page.Navigation.PushAsync(Categories(api,employee))));host.Add(Button("+ Serviço",async()=>await page.Navigation.PushAsync(EditService(api,employee)),primary:true));
-    foreach(var record in catalog.EnumerateArray()){var item=record.Clone();host.Add(Card(Stack(12,Between(Text(S(item,"name"),19,Ink,true),Pill(B(item,"enabled")?"ATIVO":"INDISPONÍVEL",B(item,"enabled")?Mint:Muted)),Text($"{I(item,"durationMinutes")} min · {(B(item,"priceFrom")?"A partir de ":"")}{Finance.Currency(item.GetProperty("priceCents").GetInt64())}",13,Muted),Button("Editar serviço",async()=>await page.Navigation.PushAsync(EditService(api,employee,item))),Button("Excluir serviço",()=>page.Run(async()=>{if(!await page.DisplayAlertAsync("Excluir serviço?","Ele sairá do catálogo deste profissional. Agendamentos e valores anteriores serão preservados.","Excluir","Manter"))return;await api.Delete("team/services/"+S(item,"id")+"?employeeId="+Uri.EscapeDataString(employee),new{version=S(item,"version")});await Render();}),danger:true))));}
+   async Task Render(){var employee=Picked(picker);selectedEmployee=employee;var catalog=await api.Get<JsonElement>("team/services?employeeId="+Uri.EscapeDataString(employee));host.Children.Clear();host.Add(Button("Gerenciar categorias",async()=>await page.Navigation.PushAsync(Categories(api,employee),false)));host.Add(Button("+ Serviço",async()=>await page.Navigation.PushAsync(EditService(api,employee),false),primary:true));
+    foreach(var record in catalog.EnumerateArray()){var item=record.Clone();host.Add(Card(Stack(12,Between(Text(S(item,"name"),19,Ink,true),Pill(B(item,"enabled")?"ATIVO":"INDISPONÍVEL",B(item,"enabled")?Mint:Muted)),Text($"{I(item,"durationMinutes")} min · {(B(item,"priceFrom")?"A partir de ":"")}{Finance.Currency(item.GetProperty("priceCents").GetInt64())}",13,Muted),Button("Editar serviço",async()=>await page.Navigation.PushAsync(EditService(api,employee,item),false)),Button("Excluir serviço",()=>page.Run(async()=>{if(!await page.DisplayAlertAsync("Excluir serviço?","Ele sairá do catálogo deste profissional. Agendamentos e valores anteriores serão preservados.","Excluir","Manter"))return;await api.Delete("team/services/"+S(item,"id")+"?employeeId="+Uri.EscapeDataString(employee),new{version=S(item,"version")});await Render();}),danger:true))));}
     if(!catalog.EnumerateArray().Any())host.Add(Text("Crie seu primeiro serviço para disponibilizá-lo às clientes.",14,Muted));
    }
    picker.SelectedIndexChanged+=async(_,_)=>await page.Run(Render);await Render();
@@ -152,13 +152,13 @@ internal static partial class AccountPages
 #else
   page.Fields.Add(Text("Use o Orbe no Windows para gerar a cópia do banco Nexus. Aqui você pode importar um JSON já exportado.",12,Muted));
 #endif
-  page.Fields.Add(Button("Selecionar arquivo de importação JSON",()=>page.Run(async()=>{var file=await FilePicker.Default.PickAsync(new PickOptions{PickerTitle="Selecione o JSON exportado pelo Orbe"});if(file is null)return;await using var stream=await file.OpenReadAsync();await Preview(stream);})));page.Fields.Add(Button("Atribuir registros aos profissionais",async()=>await page.Navigation.PushAsync(Assignments(api))));
+  page.Fields.Add(Button("Selecionar arquivo de importação JSON",()=>page.Run(async()=>{var file=await FilePicker.Default.PickAsync(new PickOptions{PickerTitle="Selecione o JSON exportado pelo Orbe"});if(file is null)return;await using var stream=await file.OpenReadAsync();await Preview(stream);})));page.Fields.Add(Button("Atribuir registros aos profissionais",async()=>await page.Navigation.PushAsync(Assignments(api),false)));
   async Task Preview(Stream stream)
   {
    using var document=await JsonDocument.ParseAsync(stream);var data=document.RootElement.Clone();if(data.GetRawText().Length>2*1024*1024)throw new ArgumentException("O arquivo é extenso demais para a importação direta. Entre em contato para migrar um histórico maior.");var preview=await api.Post<JsonElement>("owner/import/preview",data);
    var summary=$"{I(preview,"appointments")} agendamentos e {I(preview,"entries")} lançamentos.\nReceitas: {Finance.Currency(preview.GetProperty("income").GetInt64())}\nDespesas: {Finance.Currency(preview.GetProperty("expense").GetInt64())}";
    if(B(preview,"alreadyImported")){await page.DisplayAlertAsync("Arquivo já importado",summary+"\nNão serão criadas duplicatas.","Entendi");return;}
-   if(await page.DisplayAlertAsync("Importar os dados conferidos?",summary+"\nNenhum dado do banco original será alterado.","Importar","Cancelar")){await api.Post<JsonElement>("owner/import/commit",data);await page.DisplayAlertAsync("Histórico importado","Atribua os agendamentos aos profissionais antes de abrir as reservas públicas.","Continuar");await page.Navigation.PushAsync(Assignments(api));}
+   if(await page.DisplayAlertAsync("Importar os dados conferidos?",summary+"\nNenhum dado do banco original será alterado.","Importar","Cancelar")){await api.Post<JsonElement>("owner/import/commit",data);await page.DisplayAlertAsync("Histórico importado","Atribua os agendamentos aos profissionais antes de abrir as reservas públicas.","Continuar");await page.Navigation.PushAsync(Assignments(api),false);}
   }
   return page;
  }

@@ -6,21 +6,44 @@ using static Agenda.App.OrbeUi;
 namespace Agenda.App;
 internal sealed class CloudFormPage:ContentPage
 {
- internal readonly VerticalStackLayout Fields=new(){Spacing=18,Padding=22,MaximumWidthRequest=900,HorizontalOptions=LayoutOptions.Fill};
- private readonly ActivityIndicator spinner=new(){Color=Violet,HeightRequest=24,IsVisible=false};
+ internal readonly VerticalStackLayout Fields=new(){Spacing=20,HorizontalOptions=LayoutOptions.Fill};
+ internal readonly ScrollView FormScroll=new(){VerticalScrollBarVisibility=ScrollBarVisibility.Default};
+ private readonly ActivityIndicator spinner=new(){Color=Violet,HeightRequest=22,WidthRequest=22,IsVisible=false};
+ private readonly Label error=Text("",12,Coral);
+ private readonly VerticalStackLayout footer=Stack(12),actions=Stack(10);
+ private readonly Grid frame=new(){RowDefinitions=new(){new(GridLength.Auto),new(GridLength.Star),new(GridLength.Auto)},RowSpacing=18,MaximumWidthRequest=1000,HorizontalOptions=LayoutOptions.Center};
  private readonly CloudApi api;
- private bool loaded,busy;
+ private readonly Button back;
+ private bool loaded,busy,saving;
  internal Func<Task>? Load {get;set;}
  internal bool ReloadOnReturn {get;set;}
- internal CloudFormPage(CloudApi client,string title){api=client;Title=title;BackgroundColor=CanvasColor;SafeAreaEdges=SafeAreaEdges.All;var grid=new Grid{RowDefinitions=new(){new(GridLength.Auto),new(GridLength.Star)}};grid.Add(spinner);grid.Add(new ScrollView{Content=Fields},0,1);Content=grid;}
- protected override async void OnAppearing(){base.OnAppearing();if(loaded&&!ReloadOnReturn)return;loaded=true;if(Load is not null)await Run(Load);}
- internal async Task Run(Func<Task> action)
+ internal CloudFormPage(CloudApi client,string title)
  {
-  if(busy)return;busy=true;spinner.IsRunning=spinner.IsVisible=true;
+  api=client;Title=title;BackgroundColor=CanvasColor;SafeAreaEdges=SafeAreaEdges.All;NavigationPage.SetHasNavigationBar(this,false);
+  back=Button("‹ Voltar",async()=>await Navigation.PopAsync(false),quiet:true);
+  var heading=Stack(12,Between(back,Pill("ORBE",Violet)),Between(Text(title,26,Ink,true),spinner));
+  FormScroll.Content=Fields;error.IsVisible=false;footer.Add(error);footer.Add(actions);footer.IsVisible=false;
+  frame.Add(heading);frame.Add(FormScroll,0,1);frame.Add(footer,0,2);Content=new Grid{Children={frame}};
+  SizeChanged+=(_,_)=>{var gutter=Width<600?18:32;frame.WidthRequest=Math.Max(0,Math.Min(1000,Width-2*gutter));Fields.WidthRequest=frame.WidthRequest;Fields.MaximumWidthRequest=frame.WidthRequest;frame.Padding=new Thickness(0,14,0,18);};
+ }
+ internal void SetActions(string title,Func<Task> action)
+ {
+  actions.Children.Clear();actions.Add(Rule());
+  actions.Add(Between(Button("Cancelar",async()=>await Navigation.PopAsync(false),quiet:true),Button(title,()=>Run(action),primary:true)));footer.IsVisible=true;
+ }
+ protected override async void OnAppearing(){base.OnAppearing();if(loaded&&!ReloadOnReturn)return;loaded=true;if(Load is not null)await Run(Load,false);}
+ protected override bool OnBackButtonPressed()=>saving||base.OnBackButtonPressed();
+ internal async Task Run(Func<Task> action,bool lockNavigation=true)
+ {
+  if(busy)return;busy=true;saving=lockNavigation;spinner.IsRunning=spinner.IsVisible=true;error.IsVisible=false;Fields.IsEnabled=actions.IsEnabled=false;back.IsEnabled=!lockNavigation;
   try{await action();}
   catch(CloudException e)when(e.Status==HttpStatusCode.Unauthorized){await CloudSessionStore.End(this,api);}
-  catch(Exception e){if(Window is not null&&ReferenceEquals(Navigation.NavigationStack.LastOrDefault(),this))await DisplayAlertAsync("Vamos conferir?",e is CloudException or ArgumentException?e.Message:"Não foi possível concluir. Confira sua conexão e atualize antes de tentar novamente.","Entendi");}
-  finally{busy=false;spinner.IsRunning=spinner.IsVisible=false;}
+  catch(Exception e){
+   error.Text=e is CloudException or ArgumentException?e.Message:"Não foi possível concluir. Confira sua conexão e tente novamente.";
+   error.IsVisible=footer.IsVisible=true;
+   if(Fields.Children.Count==0&&Load is not null){Fields.Add(Button("Tentar novamente",()=>Run(Load,false)));}
+  }
+  finally{busy=saving=false;spinner.IsRunning=spinner.IsVisible=false;Fields.IsEnabled=actions.IsEnabled=back.IsEnabled=true;}
  }
 }
 internal static partial class AccountPages
@@ -35,7 +58,7 @@ internal static partial class AccountPages
  private static string S(JsonElement j,string key)=>j.TryGetProperty(key,out var p)&&p.ValueKind==JsonValueKind.String?p.GetString()??"":"";
  private static bool B(JsonElement j,string key)=>j.TryGetProperty(key,out var p)&&p.ValueKind==JsonValueKind.True;
  private static int I(JsonElement j,string key)=>j.GetProperty(key).GetInt32();
- private static async Task Back(CloudFormPage page)=>await page.Navigation.PopAsync();
+ private static async Task Back(CloudFormPage page)=>await page.Navigation.PopAsync(false);
  private static string Required(Entry input,string name){if(string.IsNullOrWhiteSpace(input.Text))throw new ArgumentException("Informe "+name+".");return input.Text.Trim();}
  private static int Number(Entry input,string name){if(!int.TryParse(input.Text,out var number))throw new ArgumentException("Confira "+name+".");return number;}
  private static Picker People(CloudEmployee[] people,string? current=null)
@@ -49,7 +72,7 @@ internal static partial class AccountPages
   var birthday=new DatePicker{Date=account.BirthDate?.ToDateTime(TimeOnly.MinValue),Format="dd/MM/yyyy"};
   var hasBirth=new Switch{IsToggled=account.BirthDate is not null};birthday.IsEnabled=hasBirth.IsToggled;hasBirth.Toggled+=(_,e)=>birthday.IsEnabled=e.Value;
   page.Fields.Add(Card(Stack(18,Text("Seu perfil",23,Ink,true),Field("Nome completo",name),Field("WhatsApp",phone),Between(Text("Informar nascimento",12,Muted),hasBirth),Field("Data de nascimento",birthday),Button("Salvar cadastro",()=>page.Run(async()=>{await api.Put<CloudProfile>("auth/me",new{fullName=Required(name,"seu nome"),phone=phone.Text??"",birthDate=hasBirth.IsToggled?DateOnly.FromDateTime(birthday.Date??DateTime.Today):(DateOnly?)null});await Back(page);}),primary:true))));
-  page.Fields.Add(Card(Stack(16,Text("Acesso à conta",19,Ink,true),Text(account.Email,13,Muted),Button("Alterar e-mail",async()=>await page.Navigation.PushAsync(EmailPage(api))),Button("Trocar senha",async()=>await page.Navigation.PushAsync(PasswordPage(api))))));return page;
+  page.Fields.Add(Card(Stack(16,Text("Acesso à conta",19,Ink,true),Text(account.Email,13,Muted),Button("Alterar e-mail",async()=>await page.Navigation.PushAsync(EmailPage(api),false)),Button("Trocar senha",async()=>await page.Navigation.PushAsync(PasswordPage(api),false)))));return page;
  }
  private static Page EmailPage(CloudApi api)
  {

@@ -45,7 +45,7 @@ public sealed partial class LoginPage
   foreach(var button in new[]{enter,clientButton}){button.HorizontalOptions=LayoutOptions.Fill;button.MaximumWidthRequest=double.PositiveInfinity;button.MinimumHeightRequest=52;button.FontSize=14;}
   var professional=Button("Criar conta profissional",()=>Portal("/cadastro-profissional"),quiet:true);
   var recovery=Button("Esqueci minha senha",()=>Portal("/recuperar-senha"),quiet:true);recovery.FontSize=12;recovery.Padding=0;recovery.MinimumHeightRequest=32;recovery.HorizontalOptions=LayoutOptions.End;
-  var update=Button("Atualizar aplicativo",async()=>await Navigation.PushAsync(new UpdatePage()),quiet:true);update.FontSize=12;update.MinimumHeightRequest=32;update.HorizontalOptions=LayoutOptions.Start;
+  var update=Button("Atualizar aplicativo",async()=>await Navigation.PushAsync(new UpdatePage(),false),quiet:true);update.FontSize=12;update.MinimumHeightRequest=32;update.HorizontalOptions=LayoutOptions.Start;
   var feedback=Row(8,spinner,message);feedback.MinimumHeightRequest=24;feedback.IsVisible=false;
   void UpdateFeedback()=>feedback.IsVisible=spinner.IsVisible||!string.IsNullOrWhiteSpace(message.Text);
   message.PropertyChanged+=(_,e)=>{if(e.PropertyName==nameof(Label.Text))UpdateFeedback();};

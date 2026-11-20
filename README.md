@@ -4,7 +4,9 @@
 
 <p align="center"><img src="assets/orbe-icon.png" width="128" alt="Ícone Orbe" /></p>
 
-## Versão 2.0.9
+## Versão 2.0.10
+
+Agende diretamente na visualização Dia pelo botão fixo do bloco ou tocando em um horário livre. Data, horário e profissional são preenchidos a partir da agenda. Formulários de disponibilidade, folgas e compromissos com ações fixas, resumo e campos alinhados; navegação sem animação e feedback imediato. O site usa etapas de reserva com resumo editável e calendário/horários distribuídos conforme a largura da tela.
 
 Visualização diária com grade de horários e eventos proporcionais à duração, incluindo colunas para sobreposições. Seleção múltipla de datas especiais com células quadradas e realce visível em PC e celular.
 
@@ -20,9 +22,9 @@ A versão 2 centraliza contas, agenda e financeiro na Discloud e funciona com o 
 
 - [Site de testes](https://agendaorbe.com.br) · [Administração](https://agendaorbe.com.br/equipe)
 - [Versões e downloads](https://github.com/WillianBN-Dis/Orbe/releases)
-- Downloads atuais 2.0.9: [Windows](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.9/Orbe-Setup-2.0.9.exe) · [Android](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.9/Orbe-2.0.9.apk). Android atual: build 20024, sem configurar servidor no login. A conexão fica somente em Conta para o administrador e é compartilhada por todos os dispositivos. O endereço inicial de descoberta precisa continuar acessível; a troca de endereço não migra o banco.
+- Downloads atuais 2.0.10: [Windows](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.10/Orbe-Setup-2.0.10.exe) · [Android](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.10/Orbe-2.0.10.apk). Android atual: build 20025, sem configurar servidor no login. A conexão fica somente em Conta para o administrador e é compartilhada por todos os dispositivos. O endereço inicial de descoberta precisa continuar acessível; a troca de endereço não migra o banco.
 - [Primeiros passos](docs/PRIMEIROS-PASSOS.md) · [Operação e backups](deploy/discloud/README.md)
-- Android: **Atualizar aplicativo** no login e em Conta, a partir do **2.0.0 ajuste 1**. A versão atual é 2.0.9. [Como atualizar e publicar ajustes](docs/ATUALIZACOES-ANDROID.md).
+- Android: **Atualizar aplicativo** no login e em Conta, a partir do **2.0.0 ajuste 1**. A versão atual é 2.0.10. [Como atualizar e publicar ajustes](docs/ATUALIZACOES-ANDROID.md).
 
 ## Agenda, equipe e financeiro
 

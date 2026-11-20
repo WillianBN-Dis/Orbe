@@ -16,7 +16,7 @@ public sealed partial class DashboardPage
  {
   var contacts=await client.Get<CloudSupport>("support");
   var page=new ContentPage{Title="Suporte",BackgroundColor=CanvasColor};
-  var content=Stack(16,Button("‹ Voltar",async()=>await Navigation.PopAsync(),quiet:true),Text("Suporte",28,Ink,true));
+  var content=Stack(16,Button("‹ Voltar",async()=>await Navigation.PopAsync(false),quiet:true),Text("Suporte",28,Ink,true));
   var actions=Stack(12);
   var phone=Input("5511999999999",contacts.WhatsApp);
   phone.Keyboard=Keyboard.Telephone;
@@ -46,6 +46,6 @@ public sealed partial class DashboardPage
   }
   page.Content=new ScrollView{Content=content,Padding=24,MaximumWidthRequest=680};
   NavigationPage.SetHasNavigationBar(page,false);
-  await Navigation.PushAsync(page);
+  await Navigation.PushAsync(page,false);
  }
 }

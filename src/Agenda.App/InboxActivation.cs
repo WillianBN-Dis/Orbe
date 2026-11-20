@@ -10,7 +10,7 @@ internal static class InboxActivation
   if(Application.Current?.Windows.FirstOrDefault()?.Page is NavigationPage navigation&&
      navigation.RootPage is DashboardPage&&navigation.CurrentPage is not DashboardPage)
   {
-   await navigation.PopToRootAsync();
+   await navigation.PopToRootAsync(false);
   }
   Requested?.Invoke();
  }

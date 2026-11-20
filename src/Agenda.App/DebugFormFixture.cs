@@ -12,14 +12,14 @@ internal static class DebugFormFixture
   var api=new CloudApi("http://localhost",new FixtureHandler());
   var profile=new CloudProfile("qa","Equipe QA","qa@example.test",null,null,true,["Owner"],"a");
   return Environment.GetEnvironmentVariable("ORBE_QA_FORM") switch{
-   "categories"=>AccountPages.Categories(api,"a"),"invitations"=>AccountPages.Invitations(api),"platform"=>AccountPages.PlatformInvitations(api),"services"=>AccountPages.Services(api),"block" or "dates"=>AccountPages.Block(api,"a"),_=>AccountPages.Hours(api,profile,"a")
+   "profile"=>AccountPages.Profile(api,profile),"categories"=>AccountPages.Categories(api,"a"),"invitations"=>AccountPages.Invitations(api),"platform"=>AccountPages.PlatformInvitations(api),"services"=>AccountPages.Services(api),"block" or "dates"=>AccountPages.Block(api,"a"),_=>AccountPages.Hours(api,profile,"a")
   };
  }
  private static IEnumerable<T> Find<T>(IVisualTreeElement root)where T:class
  {if(root is T result)yield return result;foreach(var child in root.GetVisualChildren())foreach(var match in Find<T>(child))yield return match;}
  internal static async Task Verify(Page page)
  {
-  for(var i=0;i<30&&!Find<Button>(page).Any();i++)await Task.Delay(100);
+  for(var i=0;i<30&&!(page is CloudFormPage formPage&&formPage.Fields.Children.Count>0);i++)await Task.Delay(100);
   var mode=Environment.GetEnvironmentVariable("ORBE_QA_FORM")??"hours";
   if(mode=="hours"){
    Find<Button>(page).Single(x=>x.Text=="+ Jornada · manhã e tarde").SendClicked();
@@ -27,6 +27,8 @@ internal static class DebugFormFixture
    var boxes=Find<CheckBox>(page).ToArray();boxes[2].IsChecked=true;
    if(clocks[2].IsEnabled||clocks[3].IsEnabled||!clocks[0].IsEnabled)throw new Exception("Period checkbox did not isolate afternoon");
    if(clocks[0].Time!=TimeSpan.FromHours(9)||clocks[1].Time!=TimeSpan.FromHours(12))throw new Exception("Morning defaults wrong");
+  }else if(mode=="hours-existing"){
+   if(Find<Button>(page).Count(b=>b.Text=="Editar")<2)throw new Exception("Saved day summaries missing");
   }else if(mode=="dates"){
    var selector=Find<Picker>(page).Single(p=>p.ItemsSource?.Count==3&&p.ItemsSource[0]?.ToString()=="Um dia");
    selector.SelectedIndex=1;
@@ -47,6 +49,8 @@ internal static class DebugFormFixture
   }else if(mode=="block"){
    var period=Find<Picker>(page).Single(x=>x.ItemsSource?.Count==4);period.SelectedIndex=2;
    var clocks=Find<TimePicker>(page).ToArray();if(clocks.Length!=2||clocks[0].Time!=TimeSpan.FromHours(13)||clocks[1].Time!=TimeSpan.FromHours(18))throw new Exception("Afternoon block preset wrong");
+  }else if(mode=="profile"){
+   if(Find<Entry>(page).Count()<2||!Find<DatePicker>(page).Any())throw new Exception("Profile fields missing");
   }else if(mode=="categories"){
    if(!Find<Button>(page).Any(x=>x.Text=="Editar")||!Find<Button>(page).Any(x=>x.Text=="Excluir"))throw new Exception("Category management missing");
   }else if(mode=="invitations"){
@@ -59,7 +63,7 @@ internal static class DebugFormFixture
 #if WINDOWS
   await Task.Delay(300);
   if(page.Window?.Handler?.PlatformView is Microsoft.UI.Xaml.Window window&&window.Content is Microsoft.UI.Xaml.FrameworkElement root)
-   await StartupCapture.Capture(root,Path.Combine(Path.GetTempPath(),$"orbe-forms-{Environment.ProcessId}.png"));
+   {root.UpdateLayout();await StartupCapture.Capture(root,Path.Combine(Path.GetTempPath(),$"orbe-forms-{Environment.ProcessId}.png"));}
 #endif
   File.WriteAllText(Path.Combine(Path.GetTempPath(),$"orbe-forms-{Environment.ProcessId}.json"),JsonSerializer.Serialize(new{passed=true,mode}));
  }
@@ -76,7 +80,7 @@ internal static class DebugFormFixture
     "/api/v1/owner/invitation"=>new{code="0123456789ABCDEF01234567"},
     "/api/v1/owner/membership-requests"=>new[]{new{id="request-qa",fullName="Profissional sintética",email="qa@example.test",emailConfirmed=true}},
     "/api/v1/platform/invitations"=>new[]{new{id=2,name="Empresa sintética",slug="empresa-qa",code="0123456789ABCDEF01234567"}},
-    "/api/v1/team/hours"=>new{employeeId="a",version,weekly=Array.Empty<object>(),exceptions=Array.Empty<object>()},
+    "/api/v1/team/hours"=>new{employeeId="a",version,weekly=Environment.GetEnvironmentVariable("ORBE_QA_FORM")=="hours-existing"?new object[]{new{day=1,window=new{startMinute=540,endMinute=720}},new{day=1,window=new{startMinute=780,endMinute=1080}},new{day=3,window=new{startMinute=600,endMinute=1020}}}:Array.Empty<object>(),exceptions=Array.Empty<object>()},
     "/api/v1/team/services"=>new[]{new{id="service-a",employeeId="a",employeeName="Maria Silva",name="Atendimento personalizado",durationMinutes=30,priceCents=5000,enabled=true,version}},
     _=>throw new Exception("Unexpected fixture route")
    };

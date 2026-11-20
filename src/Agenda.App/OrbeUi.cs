@@ -33,6 +33,7 @@ internal static class OrbeUi
             BorderColor = primary || quiet || danger ? Colors.Transparent : Line, BorderWidth = quiet ? 0 : 1,
             Padding = new Thickness(16, 11), MinimumHeightRequest = 44, CornerRadius = 10,
             MaximumWidthRequest = 320, HorizontalOptions = LayoutOptions.Start, VerticalOptions = LayoutOptions.Center };
+        b.Pressed+=(_,_)=>b.Opacity=.75;b.Released+=(_,_)=>b.Opacity=1;
         b.Clicked += async (_, _) => { if (!b.IsEnabled) return; b.IsEnabled = false; try { await action(); } finally { b.IsEnabled = true; } };
         SemanticProperties.SetDescription(b, text);
         return b;
@@ -54,6 +55,14 @@ internal static class OrbeUi
         var s = Stack(8, Text(label, 12, Muted, true), Card(control, 8, CanvasColor, Line, 10));
         if (helper is not null) s.Add(Text(helper, 11, Muted));
         return s;
+    }
+    public static View CheckLine(CheckBox box,string caption)
+    {
+        box.WidthRequest=box.HeightRequest=32;box.MinimumWidthRequest=box.MinimumHeightRequest=24;
+        var label=Text(caption,12,Muted);label.VerticalOptions=LayoutOptions.Center;
+        var tap=new TapGestureRecognizer();tap.Tapped+=(_,_)=>{if(box.IsEnabled)box.IsChecked=!box.IsChecked;};label.GestureRecognizers.Add(tap);
+        var grid=new Grid{ColumnDefinitions=new(){new(new GridLength(32)),new(GridLength.Star)},ColumnSpacing=8};grid.Add(box);grid.Add(label,1);
+        SemanticProperties.SetDescription(box,caption);return grid;
     }
     public static Color KindColor(Agenda.Core.EventKind kind) => kind switch { Agenda.Core.EventKind.Atendimento => Violet, Agenda.Core.EventKind.Compromisso => Blue, Agenda.Core.EventKind.Folga => Mint, _ => Coral };
 }

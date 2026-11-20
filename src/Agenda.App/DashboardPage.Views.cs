@@ -224,7 +224,8 @@ public sealed partial class DashboardPage
         chartStack.Add(chart);
         chartStack.Add(Text("O lucro considera somente recebimentos e despesas lançados. Valores previstos não entram neste cálculo.",11,Dim));
         body.Add(Card(chartStack,compact?16:24));
-        new Animation(p=>{drawing.Progress=(float)p;chart.Invalidate();},0,1).Commit(chart,"finance-reveal",16,700,Easing.CubicOut);
+        if(compact||DeviceInfo.Current.Platform==DevicePlatform.Android){drawing.Progress=1;chart.Invalidate();}
+        else new Animation(p=>{drawing.Progress=(float)p;chart.Invalidate();},0,1).Commit(chart,"finance-reveal",16,700,Easing.CubicOut);
         var filtered=entries.Where(e=>InPeriod(e.Value.Date)).OrderByDescending(e=>e.Value.Date).ToArray();
         var transactionStack=Stack(18,Between(Stack(4,Text("Movimentações",18,Ink,true),Text("O detalhe de cada entrada e saída.",11,Muted)),Pill($"{filtered.Length} lançamentos",Violet)),Rule());
         if(filtered.Length==0)transactionStack.Add(Stack(10,Text("Nada por aqui, por enquanto.",15,Ink,true),Text("Seus recebimentos e despesas aparecerão neste período assim que forem registrados.",12,Muted)));

@@ -7,8 +7,11 @@ public static class MauiProgram
 	public static MauiApp CreateMauiApp()
 	{
 		var builder = MauiApp.CreateBuilder();
+#if ANDROID
+        InstantInteraction.Configure();
+#endif
 #if WINDOWS
-        DesktopPointer.Configure();
+        DesktopPointer.Configure();WorkspaceFields.Configure();
 #endif
 		builder
 			.UseMauiApp<App>()

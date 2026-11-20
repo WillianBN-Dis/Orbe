@@ -5,9 +5,9 @@ namespace Agenda.App;
 
 public sealed partial class DashboardPage
 {
-    private Task OpenAppointment(Stored<Appointment>? original=null,CloudAgendaRepository? reviewRepository=null)
+    private Task OpenAppointment(Stored<Appointment>? original=null,CloudAgendaRepository? reviewRepository=null,DateTime? suggestedStart=null,CloudAgendaRepository? bookingRepository=null)
     {
-        var destination=reviewRepository??repository;
+        var destination=reviewRepository??bookingRepository??repository;
         if(destination is null||destination.EmployeeId is null)return NeedConnection();
         if(original is null&&people.Any(x=>x.Id==destination.EmployeeId&&!x.Enabled))return DisplayAlertAsync("Profissional inativo","Você pode consultar e ajustar o histórico. Reative o profissional antes de criar novos atendimentos.","Entendi");
         var a=original?.Value;var eventId=a?.Id??Guid.NewGuid().ToString("N");
@@ -16,10 +16,11 @@ public sealed partial class DashboardPage
         var flexible=new CheckBox{IsChecked=a?.PriceFrom??false,Color=Violet};
         var kind=new Picker{Title="Escolha o tipo",ItemsSource=Enum.GetNames<EventKind>(),SelectedIndex=(int)(a?.Kind??EventKind.Atendimento)};
         kind.IsEnabled=original is null;
-        var from=new DatePicker{Date=a?.Start??Selected.ToDateTime(new(9,0)),Format="dd/MM/yyyy"};
-        var fromTime=new TimePicker{Time=a?.Start.TimeOfDay??TimeSpan.FromHours(9),Format="HH:mm"};
-        var until=new DatePicker{Date=a?.End??Selected.ToDateTime(new(10,0)),Format="dd/MM/yyyy"};
-        var untilTime=new TimePicker{Time=a?.End.TimeOfDay??TimeSpan.FromHours(10),Format="HH:mm"};
+        var initial=a?.Start??suggestedStart??Selected.ToDateTime(new(9,0));
+        var from=new DatePicker{Date=initial,Format="dd/MM/yyyy"};
+        var fromTime=new TimePicker{Time=initial.TimeOfDay,Format="HH:mm"};
+        var until=new DatePicker{Date=a?.End??initial.AddHours(1),Format="dd/MM/yyyy"};
+        var untilTime=new TimePicker{Time=(a?.End??initial.AddHours(1)).TimeOfDay,Format="HH:mm"};
         var amount=Input("0,00",((a?.ExpectedCents??0)/100m).ToString("F2",Finance.Brazilian));amount.Keyboard=Keyboard.Numeric;
         if(original is {Snapshot.Valores.Length:>1}&&original.Snapshot.Valores[1].ValueKind==System.Text.Json.JsonValueKind.String)person.IsReadOnly=true;
         void UpdateKind(){var service=kind.SelectedIndex==(int)EventKind.Atendimento;amount.IsEnabled=service;person.IsEnabled=service;flexible.IsEnabled=service;}
@@ -27,7 +28,7 @@ public sealed partial class DashboardPage
         var fields=new View[]{Field("Título do agendamento",title),Columns(!compact,Field("Tipo de evento",kind),Field("Pessoa ou cliente · opcional",person)),Rule(),
             Text("Quando acontece?",18,Ink,true),Columns(!compact,Field("Data de início",from),Field("Horário de início",fromTime)),
             Columns(!compact,Field("Data de término",until),Field("Horário de término",untilTime)),Rule(),
-            Field("Valor previsto · R$",amount,"O valor fixo será recebido automaticamente após o término. Para valor flexível, marque A partir de."),Row(8,flexible,Text("A partir de · informar valor recebido após o atendimento",12,Muted)),Field("Observações · opcional",notes)};
+            Field("Valor previsto · R$",amount,"O valor fixo será recebido automaticamente após o término. Para valor flexível, marque A partir de."),CheckLine(flexible,"A partir de · informar valor recebido após o atendimento"),Field("Observações · opcional",notes)};
         return OpenForm(reviewRepository is not null?"Remarcar ocorrência":a is null?"Novo agendamento":"Editar agendamento","Reserve um momento na sua rotina.","calendar",fields,async()=>
         {
             var value=new Appointment(eventId,title.Text??"",(EventKind)kind.SelectedIndex,(from.Date??DateTime.Today).Date+(fromTime.Time??TimeSpan.Zero),
@@ -72,9 +73,11 @@ public sealed partial class DashboardPage
     {
         var page=new EditorPage{Title=title,BackgroundColor=CanvasColor,SafeAreaEdges=SafeAreaEdges.All};NavigationPage.SetHasNavigationBar(page,false);
         var root=new Grid{RowDefinitions=new(){new(GridLength.Auto),new(GridLength.Star),new(GridLength.Auto)},Padding=new Thickness(compact?18:32,18),RowSpacing=20,MaximumWidthRequest=780,HorizontalOptions=LayoutOptions.Fill};
-        var back=Button("‹  Voltar",async()=>{await Navigation.PopAsync();},quiet:true);
-        var cancel=Button("Cancelar",async()=>{await Navigation.PopAsync();});
-        var heading=Stack(8,back,Row(12,Card(Icon(glyph,Violet,24),12,Color.FromArgb("#28213F"),Colors.Transparent,12),Stack(4,Text(title,compact?24:28,Ink,true),Text(subtitle,12,Muted))));
+        var back=Button("‹  Voltar",async()=>{await Navigation.PopAsync(false);},quiet:true);
+        var cancel=Button("Cancelar",async()=>{await Navigation.PopAsync(false);});
+        var titleRow=new Grid{ColumnDefinitions=new(){new(GridLength.Auto),new(GridLength.Star)},ColumnSpacing=12};
+        titleRow.Add(Card(Icon(glyph,Violet,24),12,Color.FromArgb("#28213F"),Colors.Transparent,12));titleRow.Add(Stack(4,Text(title,compact?24:28,Ink,true),Text(subtitle,12,Muted)),1);
+        var heading=Stack(8,back,titleRow);
         root.Add(heading);
         var fieldStack=Stack(20,fields);
 
@@ -84,13 +87,13 @@ public sealed partial class DashboardPage
         var saveButton=Button("Salvar "+(glyph=="calendar"?"agendamento":"lançamento"),async()=>
         {
             if(saving)return;saving=true;page.Saving=true;back.IsEnabled=cancel.IsEnabled=false;
-            try{if(!await save())return;await Navigation.PopAsync();await Refresh();}
+            try{if(!await save())return;skipNextAppearance=true;await Navigation.PopAsync(false);await Refresh();}
             catch(Exception e){info.IsVisible=true;info.Text=FriendlyError(e)+(e is CloudException?" Atualize a tela principal antes de repetir, pois a gravação pode ter sido concluída.":"");}
             finally{saving=false;page.Saving=false;back.IsEnabled=cancel.IsEnabled=true;}
         },primary:true);
 
         feedback.Add(Between(cancel,saveButton));root.Add(feedback,0,2);page.Content=root;
-        await Navigation.PushAsync(page);
+        await Navigation.PushAsync(page,false);
     }
 }
 

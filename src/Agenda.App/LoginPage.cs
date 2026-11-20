@@ -43,7 +43,7 @@ public sealed partial class LoginPage:ContentPage
    Text("Seu acesso é pessoal. A disponibilidade de cada profissional é compartilhada com o site em tempo real.",11,Dim));
   loginCard=Card(panel,28);loginCard.MaximumWidthRequest=540;loginCard.HorizontalOptions=LayoutOptions.Fill;loginCard.VerticalOptions=LayoutOptions.Center;
 #if ANDROID || WINDOWS
-  panel.Children.Insert(panel.Children.Count-1,Button("Atualizar aplicativo",async()=>await Navigation.PushAsync(new UpdatePage()),quiet:true));
+  panel.Children.Insert(panel.Children.Count-1,Button("Atualizar aplicativo",async()=>await Navigation.PushAsync(new UpdatePage(),false),quiet:true));
 #endif
   foreach(var button in panel.Children.OfType<Button>()){button.HorizontalOptions=LayoutOptions.Fill;button.MaximumWidthRequest=double.PositiveInfinity;}
   panel.Add(Text("Orbe · "+AppInfo.Current.VersionString+" · compilação "+AppInfo.Current.BuildString,10,Dim));
