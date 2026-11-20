@@ -1,7 +1,7 @@
 {
-  "version": "2.0.8",
-  "build": 20023,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.8/Orbe-Setup-2.0.8.exe",
-  "sha256": "f1f610957a8b06fcfceaae4e427aafc364c834011a251729b0080c03109b97f6",
-  "notes": "Notificações individuais e seleção de várias datas para disponibilidade, folgas e compromissos."
+  "version": "2.0.9",
+  "build": 20024,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.9/Orbe-Setup-2.0.9.exe",
+  "sha256": "4dc124a14108689867e8251f06c047f4b24f20021efd0588fcb13ce6d300a2ce",
+  "notes": "Recebimento único e automático, aniversários das clientes e agenda diária com horários."
 }

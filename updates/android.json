@@ -1,7 +1,7 @@
 {
-  "version": "2.0.8",
-  "build": 20023,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.8/Orbe-2.0.8.apk",
-  "sha256": "48f5d43ee9a45caad5b377aa69d69726d1c1c7ba0bba6fd2a74df043db1bd5f1",
-  "notes": "Notificações individuais e seleção de várias datas para disponibilidade, folgas e compromissos."
+  "version": "2.0.9",
+  "build": 20024,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.9/Orbe-2.0.9.apk",
+  "sha256": "b66a480ebb5439be1d5148d23a38f0a8a14aa7c2107e871f1c988ca29b99a32d",
+  "notes": "Recebimento único e automático, aniversários das clientes e agenda diária com horários."
 }
