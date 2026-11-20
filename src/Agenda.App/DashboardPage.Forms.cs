@@ -13,6 +13,7 @@ public sealed partial class DashboardPage
         var a=original?.Value;var eventId=a?.Id??Guid.NewGuid().ToString("N");
         var title=Input("Ex.: Atendimento individual",a?.Title);var person=Input("Nome da pessoa ou cliente",a?.Client);
         var notes=new Editor{Text=a?.Notes,Placeholder="Algum detalhe importante para este compromisso?",AutoSize=EditorAutoSizeOption.TextChanges,MinimumHeightRequest=90,TextColor=Ink,PlaceholderColor=Dim,FontSize=14};
+        var flexible=new CheckBox{IsChecked=a?.PriceFrom??false,Color=Violet};
         var kind=new Picker{Title="Escolha o tipo",ItemsSource=Enum.GetNames<EventKind>(),SelectedIndex=(int)(a?.Kind??EventKind.Atendimento)};
         kind.IsEnabled=original is null;
         var from=new DatePicker{Date=a?.Start??Selected.ToDateTime(new(9,0)),Format="dd/MM/yyyy"};
@@ -21,16 +22,16 @@ public sealed partial class DashboardPage
         var untilTime=new TimePicker{Time=a?.End.TimeOfDay??TimeSpan.FromHours(10),Format="HH:mm"};
         var amount=Input("0,00",((a?.ExpectedCents??0)/100m).ToString("F2",Finance.Brazilian));amount.Keyboard=Keyboard.Numeric;
         if(original is {Snapshot.Valores.Length:>1}&&original.Snapshot.Valores[1].ValueKind==System.Text.Json.JsonValueKind.String)person.IsReadOnly=true;
-        void UpdateKind(){var service=kind.SelectedIndex==(int)EventKind.Atendimento;amount.IsEnabled=service;person.IsEnabled=service;}
+        void UpdateKind(){var service=kind.SelectedIndex==(int)EventKind.Atendimento;amount.IsEnabled=service;person.IsEnabled=service;flexible.IsEnabled=service;}
         kind.SelectedIndexChanged+=(_,_)=>UpdateKind();UpdateKind();
         var fields=new View[]{Field("Título do agendamento",title),Columns(!compact,Field("Tipo de evento",kind),Field("Pessoa ou cliente · opcional",person)),Rule(),
             Text("Quando acontece?",18,Ink,true),Columns(!compact,Field("Data de início",from),Field("Horário de início",fromTime)),
             Columns(!compact,Field("Data de término",until),Field("Horário de término",untilTime)),Rule(),
-            Field("Valor previsto · R$",amount,"Previsão para este evento. O recebimento é registrado separadamente."),Field("Observações · opcional",notes)};
+            Field("Valor previsto · R$",amount,"O valor fixo será recebido automaticamente após o término. Para valor flexível, marque A partir de."),Row(8,flexible,Text("A partir de · informar valor recebido após o atendimento",12,Muted)),Field("Observações · opcional",notes)};
         return OpenForm(reviewRepository is not null?"Remarcar ocorrência":a is null?"Novo agendamento":"Editar agendamento","Reserve um momento na sua rotina.","calendar",fields,async()=>
         {
             var value=new Appointment(eventId,title.Text??"",(EventKind)kind.SelectedIndex,(from.Date??DateTime.Today).Date+(fromTime.Time??TimeSpan.Zero),
-                (until.Date??DateTime.Today).Date+(untilTime.Time??TimeSpan.Zero),person.Text,notes.Text,Finance.ParseCents(amount.Text??"0"));value.Validate();
+                (until.Date??DateTime.Today).Date+(untilTime.Time??TimeSpan.Zero),person.Text,notes.Text,Finance.ParseCents(amount.Text??"0"),flexible.IsChecked);value.Validate();
             if(reviewRepository is null&&appointments.Any(x=>x.Value.Id!=value.Id&&x.Value.Start<value.End&&x.Value.End>value.Start)){
                 await DisplayAlertAsync("Já existe um evento neste horário","Escolha outro período ou ajuste o evento existente antes de salvar.","Entendi");return false;
             }
@@ -40,10 +41,11 @@ public sealed partial class DashboardPage
     private Task OpenEntry(Appointment? appointment=null)
     {
         if(repository is null)return NeedConnection();
+        if(appointment is not null&&entries.FirstOrDefault(e=>e.Value.AppointmentId==appointment.Id&&e.Value.Kind==EntryKind.Receita) is {} receipt)return EditReceipt(receipt);
         var description=Input("Ex.: Recebimento de atendimento",appointment?.Title);
         var kind=new Picker{Title="Tipo",ItemsSource=new[]{"Recebimento","Despesa"},SelectedIndex=0};
         var when=new DatePicker{Date=Selected.ToDateTime(TimeOnly.MinValue),Format="dd/MM/yyyy"};
-        var amount=Input("0,00",appointment is null?"":(appointment.ExpectedCents/100m).ToString("F2",Finance.Brazilian));amount.Keyboard=Keyboard.Numeric;
+        var amount=Input("0,00",appointment is null||appointment.PriceFrom?"":(appointment.ExpectedCents/100m).ToString("F2",Finance.Brazilian));amount.Keyboard=Keyboard.Numeric;
         var id=Guid.NewGuid().ToString("N");
         var choices=appointments.Select(x=>x.Value).OrderBy(x=>x.Start).ToArray();
         var linked=new Picker{Title="Agendamento vinculado",ItemsSource=new[]{"Sem vínculo"}.Concat(choices.Select(x=>$"{x.Start:dd/MM/yyyy HH:mm} · {x.Title}")).ToArray(),SelectedIndex=appointment is null?0:Array.FindIndex(choices,x=>x.Id==appointment.Id)+1};
@@ -55,6 +57,15 @@ public sealed partial class DashboardPage
         {
             if(repository is null){await NeedConnection();return false;}
             await repository.Save(new MoneyEntry(id,description.Text??"",(EntryKind)kind.SelectedIndex,DateOnly.FromDateTime(when.Date??DateTime.Today),Finance.ParseCents(amount.Text??""),linked.SelectedIndex>0?choices[linked.SelectedIndex-1].Id:null));return true;
+        });
+    }
+    private Task EditReceipt(Stored<MoneyEntry> stored)
+    {
+        var e=stored.Value;var description=Input("Descrição",e.Description);var amount=Input("0,00",(e.Cents/100m).ToString("F2",Finance.Brazilian));amount.Keyboard=Keyboard.Numeric;
+        var day=new DatePicker{Date=e.Date.ToDateTime(TimeOnly.MinValue),Format="dd/MM/yyyy"};
+        return OpenForm("Editar recebimento","Atualize o lançamento existente sem duplicar valores.","wallet",[
+            Text(e.Automatic?"Registrado automaticamente após o atendimento":"Recebimento registrado",14,Mint,true),Field("Descrição",description),Field("Valor recebido · R$",amount),Field("Data efetiva",day)],async()=>{
+            await client.Put<System.Text.Json.JsonElement>("team/entries/"+Uri.EscapeDataString(e.Id),new{version=stored.Snapshot.Valores[0].GetGuid(),description=description.Text,date=DateOnly.FromDateTime(day.Date??DateTime.Today),cents=Finance.ParseCents(amount.Text??"")});return true;
         });
     }
     private async Task OpenForm(string title,string subtitle,string glyph,View[] fields,Func<Task<bool>> save)

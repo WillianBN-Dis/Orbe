@@ -18,6 +18,9 @@ public sealed partial class DashboardPage : ContentPage
     private CloudEmployee[] people=[];
     private IReadOnlyList<Stored<Appointment>> appointments=[];
     private IReadOnlyList<Stored<MoneyEntry>> entries=[];
+    private CloudBirthday[] birthdays=[];
+    private static readonly Color BirthdayColor=Color.FromArgb("#F5C86A");
+    private IEnumerable<CloudBirthday> BirthdayOn(DateOnly day)=>birthdays.Where(b=>b.ForYear(day.Year)==day);
     private DateOnly selected=DateOnly.FromDateTime(DateTime.Today),calendarMonth=new(DateTime.Today.Year,DateTime.Today.Month,1);
     private Period financialPeriod=Period.Mes;
     private EventKind? kindFilter;
@@ -108,9 +111,9 @@ public sealed partial class DashboardPage : ContentPage
 #endif
                 CloudApi.DefaultUrl);
             if(connection.ApiUrl!=client.BaseUrl){await CloudSessionStore.End(this,client);return;}
-            var oldAppointments=appointments.Select(x=>x.Value).ToArray();var oldEntries=entries.Select(x=>x.Value).ToArray();var wasOffline=connectionProblem;
+            var oldAppointments=appointments.Select(x=>x.Value).ToArray();var oldEntries=entries.Select(x=>x.Value).ToArray();var wasOffline=connectionProblem;var oldBirthdays=birthdays;
             await Reload();await LoadNotifications();
-            if(wasOffline||!oldAppointments.SequenceEqual(appointments.Select(x=>x.Value))||!oldEntries.SequenceEqual(entries.Select(x=>x.Value)))
+            if(wasOffline||!oldBirthdays.SequenceEqual(birthdays)||!oldAppointments.SequenceEqual(appointments.Select(x=>x.Value))||!oldEntries.SequenceEqual(entries.Select(x=>x.Value)))
             {var scroll=mainScroll.ScrollY;RenderNow();if(!compact)sidebarHost.Content=BuildSidebar();await mainScroll.ScrollToAsync(0,scroll,false);}
         }
         catch(CloudException e)when(e.Status==HttpStatusCode.Unauthorized){appointments=[];entries=[];await CloudSessionStore.End(this,client);}
@@ -193,7 +196,7 @@ public sealed partial class DashboardPage : ContentPage
     private static string FriendlyError(Exception e)=>e is ArgumentException or CloudException?e.Message:e is OverflowException?"O valor informado é muito alto. Confira e tente novamente.":"Não foi possível concluir. Atualize os dados antes de tentar novamente. Nenhuma gravação será repetida automaticamente.";
     private async Task Reload()
     {
-        if(repository is null)return;var nextAppointments=await repository.Appointments();var nextEntries=await repository.Entries();appointments=nextAppointments;entries=nextEntries;dataLoaded=true;connectionProblem=false;status.Text=$"Atualizado às {client.Local(DateTimeOffset.UtcNow):HH:mm}";
+        if(repository is null)return;var nextAppointments=await repository.Appointments();var nextEntries=await repository.Entries();var nextBirthdays=await client.Get<CloudBirthday[]>("team/birthdays?year="+Selected.Year+(repository.EmployeeId is null?"":"&employeeId="+Uri.EscapeDataString(repository.EmployeeId)));appointments=nextAppointments;entries=nextEntries;birthdays=nextBirthdays;dataLoaded=true;connectionProblem=false;status.Text=$"Atualizado às {client.Local(DateTimeOffset.UtcNow):HH:mm}";
     }
     private Task Refresh()=>Guard(async()=>{await Reload();await LoadNotifications(false);BuildShell();});
     private Task NeedConnection()=>DisplayAlertAsync("Escolha um profissional","Na seção Conta, selecione o profissional cuja agenda deseja organizar.","Entendi");

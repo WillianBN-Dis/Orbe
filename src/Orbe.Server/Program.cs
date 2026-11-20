@@ -27,6 +27,8 @@ builder.Services.AddAuthorization();builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<NotificationInbox>();builder.Services.AddSingleton(TimeProvider.System);builder.Services.AddScoped<Actor>();builder.Services.AddScoped<AuthService>();builder.Services.AddScoped<Scheduling>();builder.Services.AddScoped<Importing>();builder.Services.AddScoped<IEmailDelivery,SmtpEmail>();
 builder.Services.AddHttpClient<IConnectionProbe,ConnectionProbe>().ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
 builder.Services.AddHttpClient();
+builder.Services.AddScoped<Receipts>();builder.Services.AddScoped<AutomaticReceipts>();
+if(!builder.Environment.IsEnvironment("Testing"))builder.Services.AddHostedService<ReceiptWorker>();
 if(!string.IsNullOrWhiteSpace(builder.Configuration["Push:ServiceAccountJson"]))
  builder.Services.AddHostedService<PushWorker>();
 builder.Services.AddAntiforgery(o=>{o.HeaderName="X-CSRF-TOKEN";o.Cookie.SameSite=SameSiteMode.Strict;o.Cookie.HttpOnly=true;});

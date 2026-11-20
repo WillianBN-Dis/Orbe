@@ -35,6 +35,15 @@ public sealed class NotificationInbox(OrbeDb db,Actor actor,TimeProvider clock)
   var now=clock.GetUtcNow();
   await db.Database.ExecuteSqlInterpolatedAsync($"""
    INSERT INTO "Notifications" ("Id","UserId","AppointmentId","Kind","OccurrenceStart","DeliverAt")
+   SELECT gen_random_uuid(),{user},a."Id",'Payment',a."Start",a."End"
+   FROM "Appointments" a JOIN "Employees" e ON e."Id"=a."EmployeeId" JOIN "Settings" b ON b."Id"=a."BusinessId"
+   WHERE a."BusinessId"={db.BusinessId} AND e."UserId"={user} AND e."Enabled" AND a."Kind"='Atendimento' AND a."Status"='Confirmed'
+    AND a."PriceFrom" AND a."End"<={now} AND a."End">=b."AutoFinanceStart" AND NOT a."AutoReceiptSuppressed"
+    AND NOT EXISTS (SELECT 1 FROM "Entries" f WHERE f."AppointmentId"=a."Id" AND f."Kind"='Receita')
+   ON CONFLICT ("UserId","AppointmentId","Kind","OccurrenceStart") DO NOTHING
+   """);
+  await db.Database.ExecuteSqlInterpolatedAsync($"""
+   INSERT INTO "Notifications" ("Id","UserId","AppointmentId","Kind","OccurrenceStart","DeliverAt")
    SELECT gen_random_uuid(),{user},a."Id",event.kind,a."Start",event.due
    FROM "Appointments" a LEFT JOIN "Employees" e ON e."Id"=a."EmployeeId"
    CROSS JOIN LATERAL (VALUES ('Booking',a."RecordedAt"),('Day',a."Start"-INTERVAL '24 hours'),('Hour',a."Start"-INTERVAL '1 hour'),('Review',a."RecordedAt")) event(kind,due)
@@ -50,7 +59,8 @@ public sealed class NotificationInbox(OrbeDb db,Actor actor,TimeProvider clock)
  private IQueryable<InboxNotification> Visible()=>db.Notifications.Where(n=>n.UserId==actor.Id&&n.DeletedAt==null&&n.DeliverAt<=clock.GetUtcNow()&&
   db.Appointments.IgnoreQueryFilters().Any(a=>a.Id==n.AppointmentId&&a.Start==n.OccurrenceStart&&
    (n.Kind=="Review"?a.Status=="Pending"&&(!actor.Client||a.ClientId!=actor.Id):n.Kind=="Cancellation"?a.Status=="Cancelled":a.Status=="Confirmed")&&
-   (n.Kind!="Review"&&a.ClientId==actor.Id||
+   (n.Kind=="Payment"?a.PriceFrom&&a.End<=clock.GetUtcNow()&&!a.AutoReceiptSuppressed&&!db.Entries.IgnoreQueryFilters().Any(e=>e.AppointmentId==a.Id&&e.Kind=="Receita"):true)&&
+   (n.Kind!="Review"&&n.Kind!="Payment"&&a.ClientId==actor.Id||
     db.Employees.IgnoreQueryFilters().Any(e=>e.UserId==actor.Id&&e.BusinessId==a.BusinessId&&e.Enabled&&e.Id==a.EmployeeId))));
  public async Task<object> List(int offset,int limit)
  {

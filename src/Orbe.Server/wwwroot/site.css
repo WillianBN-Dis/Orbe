@@ -45,3 +45,7 @@ code{overflow-wrap:anywhere}
 @media(max-width:850px){.calendar-year{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .date-preview{max-height:140px;overflow:auto;overflow-wrap:anywhere}
+
+.birthday-day{border-color:#f5c86a!important;color:#f5c86a!important}.birthday-day:after{content:"●";font-size:7px;display:block;color:#f5c86a}
+
+.birthday-calendar{grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}.birthday-calendar button{min-width:0;min-height:40px;padding:4px 0}.birthday-calendar>span{text-align:center}

@@ -286,6 +286,11 @@ namespace Orbe.Server.Migrations
                     b.Property<string>("ApiBaseUrl")
                         .HasColumnType("text");
 
+                    b.Property<DateTimeOffset>("AutoFinanceStart")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("now()");
+
                     b.Property<int>("CancellationHours")
                         .HasColumnType("integer");
 
@@ -343,6 +348,24 @@ namespace Orbe.Server.Migrations
                         .IsUnique();
 
                     b.ToTable("Settings");
+                });
+
+            modelBuilder.Entity("Orbe.Server.ClientRelationship", b =>
+                {
+                    b.Property<string>("EmployeeId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ClientId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("BusinessId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("EmployeeId", "ClientId");
+
+                    b.HasIndex("ClientId");
+
+                    b.ToTable("ClientRelationships");
                 });
 
             modelBuilder.Entity("Orbe.Server.DayOverride", b =>
@@ -446,6 +469,9 @@ namespace Orbe.Server.Migrations
 
                     b.Property<string>("AppointmentId")
                         .HasColumnType("text");
+
+                    b.Property<bool>("Automatic")
+                        .HasColumnType("boolean");
 
                     b.Property<int>("BusinessId")
                         .HasColumnType("integer");
@@ -635,6 +661,9 @@ namespace Orbe.Server.Migrations
                 {
                     b.Property<string>("Id")
                         .HasColumnType("text");
+
+                    b.Property<bool>("AutoReceiptSuppressed")
+                        .HasColumnType("boolean");
 
                     b.Property<int>("BusinessId")
                         .HasColumnType("integer");
@@ -842,6 +871,21 @@ namespace Orbe.Server.Migrations
                     b.HasOne("Orbe.Server.AppUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Orbe.Server.ClientRelationship", b =>
+                {
+                    b.HasOne("Orbe.Server.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Orbe.Server.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

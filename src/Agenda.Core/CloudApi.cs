@@ -11,7 +11,9 @@ public sealed record CloudSession(string AccessToken,DateTimeOffset ExpiresAt,Cl
 public sealed record CloudInfo(string Name,bool PublicBookingOpen,string TimeZoneId,int CancellationHours,bool EmailReady);
 public sealed record CloudEmployee(string Id,string DisplayName,bool Enabled,Guid Version){public string Caption=>DisplayName+(Enabled?"":" · inativo");}
 public sealed record CloudItem(string Id,string? EmployeeId,string? ClientId,string? ServiceId,string Title,string Kind,string Status,DateTimeOffset Start,DateTimeOffset End,string? LegacyClient,string? ClientName,string? Notes,long ExpectedCents,int DurationMinutes,Guid Version,bool PriceFrom=false);
-public sealed record CloudMoney(string Id,string? EmployeeId,string? AppointmentId,string Description,string Kind,DateOnly Date,long Cents,Guid Version);
+public sealed record CloudMoney(string Id,string? EmployeeId,string? AppointmentId,string Description,string Kind,DateOnly Date,long Cents,Guid Version,bool Automatic=false);
+public sealed record CloudBirthday(string ClientId,string Name,int Month,int Day)
+{public DateOnly ForYear(int year)=>new(year,Month,Math.Min(Day,DateTime.DaysInMonth(year,Month)));}
 public sealed record CloudNotice(Guid Id,string AppointmentId,string Kind,DateTimeOffset OccurrenceStart,DateTimeOffset DeliverAt,DateTimeOffset? ReadAt,string Subject,string? Person,string? ClientPhone=null,string? EmployeeId=null,string? Business=null);
 public sealed record CloudSupport(string? WhatsApp,string? Email);
 public sealed record CloudInbox(CloudNotice[] Items,int UnreadCount,int Total);
@@ -87,14 +89,14 @@ public sealed class CloudAgendaRepository(CloudApi api,string? employeeId):IAgen
   return row is null?null:ToAppointment(row);
  }
  private Stored<Appointment> ToAppointment(CloudItem x)=>new(new(x.Id,x.Title,Enum.Parse<EventKind>(x.Kind),api.Local(x.Start),api.Local(x.End),x.ClientName??x.LegacyClient,x.Notes,x.ExpectedCents,x.PriceFrom),Snapshot(x.Id,x.Version,x.ClientId));
- public async Task<IReadOnlyList<Stored<MoneyEntry>>> Entries()=> (await Pages<CloudMoney>("team/entries")).Select(x=>new Stored<MoneyEntry>(new(x.Id,x.Description,Enum.Parse<EntryKind>(x.Kind),x.Date,x.Cents,x.AppointmentId),Snapshot(x.Id,x.Version))).ToArray();
+ public async Task<IReadOnlyList<Stored<MoneyEntry>>> Entries()=> (await Pages<CloudMoney>("team/entries")).Select(x=>new Stored<MoneyEntry>(new(x.Id,x.Description,Enum.Parse<EntryKind>(x.Kind),x.Date,x.Cents,x.AppointmentId,x.Automatic),Snapshot(x.Id,x.Version))).ToArray();
  public async Task Save(Appointment item,RowSnapshot? original=null)
  {
   item.Validate();if(EmployeeId is null)throw new ArgumentException("Selecione um profissional para salvar o agendamento.");
   if(item.Kind==EventKind.Atendimento)
   {
    var clientId=original is {Valores.Length:>1}&&original.Valores[1].ValueKind==JsonValueKind.String?original.Valores[1].GetString():null;
-   var body=new{id=item.Id,employeeId=EmployeeId,item.Title,start=api.Instant(item.Start),end=api.Instant(item.End),clientId,legacyClient=item.Client,item.Notes,item.ExpectedCents,version=original is null?(Guid?)null:Version(original)};
+   var body=new{id=item.Id,employeeId=EmployeeId,item.Title,start=api.Instant(item.Start),end=api.Instant(item.End),clientId,legacyClient=item.Client,item.Notes,item.ExpectedCents,item.PriceFrom,version=original is null?(Guid?)null:Version(original)};
    if(original is null)await api.Post<JsonElement>("team/appointments",body);else await api.Put<JsonElement>("team/appointments/"+Uri.EscapeDataString(item.Id),body);
   }
   else

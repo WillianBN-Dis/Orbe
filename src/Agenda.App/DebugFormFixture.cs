@@ -33,6 +33,12 @@ internal static class DebugFormFixture
    Find<Button>(page).Single(b=>b.Text=="14").SendClicked();
    Find<Button>(page).Single(b=>b.Text=="16").SendClicked();
    if(!Find<Label>(page).Any(l=>l.Text?.Contains("2 data(s) selecionada(s)")==true))throw new Exception("Multiple dates selection failed");
+   await Task.Delay(300);var selectedDay=Find<Button>(page).Single(b=>b.Text=="14");
+   if(selectedDay.Width<30||selectedDay.Height<30||Math.Abs(selectedDay.Width-selectedDay.Height)>2)throw new Exception("Selected date must have a square, visible hit target");
+#if WINDOWS
+   if(page.Window?.Handler?.PlatformView is Microsoft.UI.Xaml.Window dateWindow&&dateWindow.Content is Microsoft.UI.Xaml.FrameworkElement dateRoot)
+    await StartupCapture.Capture(dateRoot,Path.Combine(Path.GetTempPath(),$"orbe-multiple-dates-{Environment.ProcessId}.png"));
+#endif
    selector.SelectedIndex=2;
    var pickers=Find<DatePicker>(page).ToArray();
    pickers[1].Date=new DateTime(2026,12,20);pickers[2].Date=new DateTime(2026,12,31);

@@ -61,10 +61,7 @@ public sealed partial class DashboardPage
          option.BackgroundColor=mode==agendaView?Raised:Colors.Transparent;modes.Add(option);
         }
         if(agendaView=="Ano")return BuildYear(modes);
-        if(agendaView=="Dia"){
-         var dayTitle=Text(Selected.ToString("dd MMMM yyyy",Finance.Brazilian),18,Ink,true);
-         return Card(Stack(18,modes,dayTitle,Row(8,Button("‹",()=>SelectDay(Selected.AddDays(-1)),quiet:true),Button("Hoje",()=>SelectDay(DateOnly.FromDateTime(DateTime.Today)),quiet:true),Button("›",()=>SelectDay(Selected.AddDays(1)),quiet:true))),18);
-        }
+        if(agendaView=="Dia")return BuildDayGrid(modes);
         var title=Text(TitleCase(calendarMonth.ToString("MMMM yyyy",Finance.Brazilian)),19,Ink,true);
         var previous=Button("‹",()=>MoveMonth(-1),quiet:true); previous.WidthRequest=compact?40:48;previous.FontSize=22;
         var next=Button("›",()=>MoveMonth(1),quiet:true); next.WidthRequest=compact?40:48;next.FontSize=22;
@@ -91,7 +88,7 @@ public sealed partial class DashboardPage
                 cell.BorderWidth=day==DateOnly.FromDateTime(DateTime.Today)&&!isSelected?1:0;cell.BorderColor=Violet.WithAlpha(.5f);
                 SemanticProperties.SetDescription(cell,$"{day:dd/MM/yyyy}, {events.Length} eventos");
                 var layer=new Grid();layer.Add(cell);
-                if(events.Length>0)
+                if(events.Length>0||BirthdayOn(day).Any())
                 {
                     var markers=new HorizontalStackLayout
                     {
@@ -108,6 +105,7 @@ public sealed partial class DashboardPage
                             Stroke=new SolidColorBrush(CanvasColor),StrokeThickness=1
                         });
                     }
+                    if(BirthdayOn(day).Any())markers.Add(new Microsoft.Maui.Controls.Shapes.Ellipse{WidthRequest=7,HeightRequest=7,Fill=new SolidColorBrush(BirthdayColor),Stroke=new SolidColorBrush(CanvasColor),StrokeThickness=1});
                     layer.Add(markers);
                 }
                 grid.Add(layer,col,row+1);
@@ -122,7 +120,7 @@ public sealed partial class DashboardPage
         s.Add(grid);s.Add(Rule());
         var legend=new FlexLayout{Wrap=Microsoft.Maui.Layouts.FlexWrap.Wrap,Direction=Microsoft.Maui.Layouts.FlexDirection.Row};
         foreach(var kind in Enum.GetValues<EventKind>()) {var r=Row(6,new BoxView{Color=KindColor(kind),HeightRequest=5,WidthRequest=5,CornerRadius=3,VerticalOptions=LayoutOptions.Center},Text(kind.ToString(),10,Muted));r.Margin=new Thickness(0,0,14,6);legend.Add(r);}
-        s.Add(legend);
+        legend.Add(Legend("Aniversário",BirthdayColor));s.Add(legend);
         s.Add(Text("Selecione um dia para ver seus agendamentos.",11,Dim));
         return Card(s,compact?14:22);
     }
@@ -162,8 +160,9 @@ public sealed partial class DashboardPage
         var filter=new Picker{Title="Filtrar eventos",ItemsSource=new[]{"Todos os eventos","Atendimento","Compromisso","Folga","Outro"},SelectedIndex=kindFilter is null?0:(int)kindFilter+1,FontSize=12};
         filter.SelectedIndexChanged+=(_,_)=>{kindFilter=filter.SelectedIndex==0?null:(EventKind)(filter.SelectedIndex-1);UpdateAgendaDay();};
         s.Add(filter);
+        foreach(var birthday in BirthdayOn(Selected))s.Add(Card(Stack(6,Pill("Aniversário",BirthdayColor),Text(birthday.Name,16,Ink,true),Text("Dia inteiro · não ocupa horários",11,Muted)),14));
         var filtered=today.Where(a=>kindFilter is null||a.Value.Kind==kindFilter).ToArray();
-        if(filtered.Length==0)
+        if(filtered.Length==0&&!BirthdayOn(Selected).Any())
         {
             var empty=Stack(12,Icon("calendar",Violet,40),Text(!HasData?"Seu dia começa aqui":"Um espaço na sua rotina",17,Ink,true),Text(!HasData?"Atualize os dados para visualizar sua agenda.":"Nenhum evento para este dia ou filtro. Que tal planejar seu próximo compromisso?",12,Muted),Button("+  Agendar neste dia",()=>OpenAppointment(),quiet:true));
             empty.Padding=new Thickness(4,24);s.Add(empty);
@@ -176,6 +175,7 @@ public sealed partial class DashboardPage
             if(!string.IsNullOrWhiteSpace(a.Client))content.Add(Text(a.Client,12,Muted));
             if(!string.IsNullOrWhiteSpace(a.Notes))content.Add(Text(a.Notes,11,Dim));
             if(a.ExpectedCents>0) content.Add(Text(a.PriceFrom?"A partir de "+Finance.Currency(a.ExpectedCents):Finance.Currency(a.ExpectedCents)+" previsto",12,color,true));
+            if(entries.Any(e=>e.Value.AppointmentId==a.Id&&e.Value.Kind==EntryKind.Receita))content.Add(Text("Recebimento registrado",12,Mint,true));
             var card=Card(content,16,CanvasColor,Line,12);
             var row=new Grid{ColumnDefinitions=new(){new(new GridLength(3)),new(GridLength.Star)},ColumnSpacing=10};
             row.Add(new BoxView{Color=color,CornerRadius=2,Margin=new Thickness(0,8)});row.Add(card,1);s.Add(row);
@@ -184,10 +184,12 @@ public sealed partial class DashboardPage
     }
     private async Task AppointmentActions(Stored<Appointment> stored)
     {
-        var actions=stored.Value.Kind==EventKind.Atendimento?new[]{"Editar agendamento","Lançar recebimento","Cancelar atendimento","Excluir agendamento"}:new[]{"Editar agendamento","Excluir agendamento"};
+        var receipt=entries.FirstOrDefault(e=>e.Value.AppointmentId==stored.Value.Id&&e.Value.Kind==EntryKind.Receita);
+        var receiptAction=receipt is null?"Lançar recebimento":"Recebimento registrado · editar";
+        var actions=stored.Value.Kind==EventKind.Atendimento?new[]{"Editar agendamento",receiptAction,"Cancelar atendimento","Excluir agendamento"}:new[]{"Editar agendamento","Excluir agendamento"};
         var action=await DisplayActionSheetAsync(stored.Value.Title,"Voltar",null,actions);
         if(action=="Editar agendamento")await OpenAppointment(stored);
-        else if(action=="Lançar recebimento")await OpenEntry(stored.Value);
+        else if(action==receiptAction)await OpenEntry(stored.Value);
         else if(action=="Cancelar atendimento")
         {
             if(await DisplayAlertAsync("Cancelar atendimento?","O horário será liberado. O histórico e os lançamentos financeiros serão preservados.","Cancelar atendimento","Manter"))
@@ -229,7 +231,7 @@ public sealed partial class DashboardPage
         foreach(var stored in filtered)
         {
             var e=stored.Value;var income=e.Kind==EntryKind.Receita;
-            var left=Row(12,Card(Icon(income?"arrow":"down",income?Mint:Coral,18),10,(income?Mint:Coral).WithAlpha(.08f),Colors.Transparent,12),Stack(4,Text(e.Description,13,Ink,true),Text($"{e.Date:dd MMM yyyy}  ·  {(income?"Recebimento":"Despesa")}",10,Dim)));
+            var left=Row(12,Card(Icon(income?"arrow":"down",income?Mint:Coral,18),10,(income?Mint:Coral).WithAlpha(.08f),Colors.Transparent,12),Stack(4,Text(e.Description,13,Ink,true),Text($"{e.Date:dd MMM yyyy}  ·  {(e.Automatic?"Recebimento automático":income?"Recebimento":"Despesa")}",10,Dim)));
             var right=Row(8,Text((income?"+ ":"− ")+Finance.Currency(e.Cents),13,income?Mint:Coral,true),Button("···",()=>EntryActions(stored),quiet:true));
             transactionStack.Add(compact?Stack(8,left,right):Between(left,right));transactionStack.Add(Rule());
         }
@@ -241,7 +243,9 @@ public sealed partial class DashboardPage
     private static string TitleCase(string value)=>string.IsNullOrEmpty(value)?value:char.ToUpper(value[0],Finance.Brazilian)+value[1..];
     private async Task EntryActions(Stored<MoneyEntry> stored)
     {
-        if(await DisplayActionSheetAsync(stored.Value.Description,"Voltar",null,"Excluir lançamento")!="Excluir lançamento")return;
+        var choice=await DisplayActionSheetAsync(stored.Value.Description,"Voltar",null,"Editar lançamento","Excluir lançamento");
+        if(choice=="Editar lançamento"){await EditReceipt(stored);return;}
+        if(choice!="Excluir lançamento")return;
         if(repository is null){await NeedConnection();return;}
         if(await DisplayAlertAsync("Excluir lançamento?","O lançamento será removido e o resultado financeiro será recalculado.","Excluir","Manter"))
             await Guard(async()=>{await repository.Delete(stored);await Reload();await Render();});

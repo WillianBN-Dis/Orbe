@@ -4,7 +4,11 @@
 
 <p align="center"><img src="assets/orbe-icon.png" width="128" alt="Ícone Orbe" /></p>
 
-## Versão 2.0.8
+## Versão 2.0.9
+
+Visualização diária com grade de horários e eventos proporcionais à duração, incluindo colunas para sobreposições. Seleção múltipla de datas especiais com células quadradas e realce visível em PC e celular.
+
+Recebimento único por atendimento, com edição do lançamento registrado. Valores fixos são lançados automaticamente após o término para atendimentos encerrados a partir da ativação desta versão; valores A partir de geram um aviso para informar o valor recebido. A rotina funciona no servidor e identifica a origem automática. Aniversários usam o nascimento já cadastrado na conta, com vínculo persistente à empresa e ao profissional, sem ocupar horários ou gerar valores.
 
 Notificações individuais para cada profissional, inclusive administradores. Datas especiais, folgas e compromissos podem ser aplicados a dias separados ou a um intervalo com filtro de dias da semana, com conferência antes de salvar. Datas especiais passam a aceitar ampliações mesmo quando existem atendimentos manuais fora da jornada.
 
@@ -16,9 +20,9 @@ A versão 2 centraliza contas, agenda e financeiro na Discloud e funciona com o 
 
 - [Site de testes](https://agendaorbe.com.br) · [Administração](https://agendaorbe.com.br/equipe)
 - [Versões e downloads](https://github.com/WillianBN-Dis/Orbe/releases)
-- Downloads atuais 2.0.8: [Windows](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.8/Orbe-Setup-2.0.8.exe) · [Android](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.8/Orbe-2.0.8.apk). Android atual: build 20023, sem configurar servidor no login. A conexão fica somente em Conta para o administrador e é compartilhada por todos os dispositivos. O endereço inicial de descoberta precisa continuar acessível; a troca de endereço não migra o banco.
+- Downloads atuais 2.0.9: [Windows](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.9/Orbe-Setup-2.0.9.exe) · [Android](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.9/Orbe-2.0.9.apk). Android atual: build 20024, sem configurar servidor no login. A conexão fica somente em Conta para o administrador e é compartilhada por todos os dispositivos. O endereço inicial de descoberta precisa continuar acessível; a troca de endereço não migra o banco.
 - [Primeiros passos](docs/PRIMEIROS-PASSOS.md) · [Operação e backups](deploy/discloud/README.md)
-- Android: **Atualizar aplicativo** no login e em Conta, a partir do **2.0.0 ajuste 1**. A versão atual é 2.0.8. [Como atualizar e publicar ajustes](docs/ATUALIZACOES-ANDROID.md).
+- Android: **Atualizar aplicativo** no login e em Conta, a partir do **2.0.0 ajuste 1**. A versão atual é 2.0.9. [Como atualizar e publicar ajustes](docs/ATUALIZACOES-ANDROID.md).
 
 ## Agenda, equipe e financeiro
 
@@ -28,7 +32,7 @@ Desktop usa a área disponível ao lado da navegação, com login em duas coluna
 
 No aplicativo: calendário mensal e agenda do dia, criar/editar/excluir eventos, cancelar atendimentos, conta pessoal e gráficos financeiros animados por dia/mês/ano. Funcionários veem apenas a própria agenda e financeiro; o proprietário tem visão geral.
 
-**Agendar não gera receita.** Lucro é receita menos despesa registrada. Cancelar libera o horário e mantém histórico/financeiro. Excluir o evento também exclui seus lançamentos vinculados em uma transação; avulsos são mantidos. Confirmações repetidas usam IDs estáveis para evitar duplicar lançamentos.
+**Agendar não gera receita imediatamente.** Ao terminar, atendimentos de preço fixo passam a ser considerados recebidos automaticamente, salvo quando já existe um recebimento ou ele foi excluído. Valores flexíveis exigem confirmação. O histórico encerrado antes da ativação é preservado. Lucro é receita menos despesa registrada. Cancelar libera o horário e mantém histórico/financeiro. Excluir o evento também exclui seus lançamentos vinculados em uma transação; avulsos são mantidos. Confirmações repetidas usam IDs estáveis para evitar duplicar lançamentos.
 
 O fluxo público preparado é profissional → serviço → dia → horário → confirmação automática. A duração inteira precisa caber no intervalo livre. O servidor impede reservas sobrepostas/duplicadas, oculta detalhes de bloqueios privados e valida o prazo de cancelamento/remarcação, por padrão 24 horas. Preço/duração ficam congelados na reserva. Defaults: intervalos de 15 min, antecedência de 2 h, horizonte de 60 dias, fuso America/Sao_Paulo.
 

@@ -23,7 +23,7 @@ internal static partial class AccountPages
    for(var i=0;i<7;i++){
     var box=new CheckBox{IsChecked=true,Color=Violet};weekdays.Add(box);
     box.CheckedChanged+=(_,_)=>UpdatePreview();
-    filters.Add(Row(3,box,Text(Days[i][..3],12,Muted)));
+    filters.Add(new HorizontalStackLayout{Spacing=3,Margin=new Thickness(0,0,12,4),Children={box,Text(Days[i][..3],12,Muted)}});
    }
    range.Add(filters);
    single.Date=day.Date;
@@ -66,11 +66,13 @@ internal static partial class AccountPages
    for(var d=1;d<=DateTime.DaysInMonth(month.Year,month.Month);d++){
     var date=month.AddDays(d-1);var position=(int)month.DayOfWeek+d-1;
     var button=Button(d.ToString(),()=>{if(!selected.Remove(date))selected.Add(date);RenderMonth();UpdatePreview();return Task.CompletedTask;},quiet:true);
-    button.Padding=0;button.FontSize=12;button.MinimumWidthRequest=0;button.MinimumHeightRequest=40;
+    button.Padding=0;button.FontSize=12;button.MinimumWidthRequest=0;button.MinimumHeightRequest=0;button.WidthRequest=40;button.HeightRequest=40;button.MaximumWidthRequest=44;button.HorizontalOptions=LayoutOptions.Center;button.VerticalOptions=LayoutOptions.Center;button.CornerRadius=10;
+    button.BorderWidth=selected.Contains(date)?0:1;button.BorderColor=Line.WithAlpha(.5f);
     button.BackgroundColor=selected.Contains(date)?Violet:Colors.Transparent;button.TextColor=selected.Contains(date)?CanvasColor:Ink;
     SemanticProperties.SetDescription(button,date.ToString("dd/MM/yyyy")+(selected.Contains(date)?", selecionado":""));
     grid.Add(button,position%7,position/7+1);
    }
+   grid.SizeChanged+=(_,_)=>{if(grid.Width<=0)return;var size=Math.Clamp((grid.Width-grid.ColumnSpacing*6)/7,24,44);foreach(var cell in grid.Children.OfType<Button>()){cell.WidthRequest=size;cell.HeightRequest=size;}};
    calendar.Add(grid);
   }
  }

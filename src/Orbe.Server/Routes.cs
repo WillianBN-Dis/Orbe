@@ -27,17 +27,19 @@ public static class Routes
   team.MapProfessionalServices();
   team.MapRecurring();
   team.MapBlockBatches();
+  team.MapBirthdays();
   team.MapGet("/employees",async(Actor actor,OrbeDb db)=>Results.Ok(await db.Employees.Where(x=>actor.Owner||x.UserId==actor.Id).OrderBy(x=>x.DisplayName).Select(x=>new{x.Id,x.DisplayName,x.Enabled,x.Version}).ToArrayAsync()));
   team.MapGet("/hours",async(string? employeeId,Scheduling s)=>Results.Ok(await s.ReadHours(employeeId)));
   team.MapPut("/hours",async(string? employeeId,HoursInput input,Scheduling s)=>{await s.SaveHours(employeeId,input);return Results.Ok(await s.ReadHours(employeeId));});
   team.MapPost("/blocks",async(BlockInput input,Scheduling s)=>Results.Ok(await s.Block(input)));
   team.MapPut("/blocks/{id}",async(string id,BlockInput input,Scheduling s)=>Results.Ok(await s.EditBlock(id,input)));
+  team.MapGet("/appointments/{id}",async(string id,Scheduling scheduling)=>Results.Ok(await scheduling.Accessible(id,true)));
   team.MapGet("/appointments",async(string? employeeId,DateTimeOffset? from,DateTimeOffset? until,int? offset,Actor actor,OrbeDb db)=>
   {
    var id=actor.Owner?employeeId:await actor.Employee(employeeId);var skip=Math.Max(0,offset??0);
    var query=db.Appointments.AsNoTracking().Where(x=>id==null||x.EmployeeId==id);
    if(from is not null)query=query.Where(x=>x.End>from);if(until is not null)query=query.Where(x=>x.Start<until);
-   return Results.Ok(await query.OrderBy(x=>x.Start).ThenBy(x=>x.Id).Skip(skip).Take(200).Select(x=>new{x.Id,x.EmployeeId,x.ClientId,x.ServiceId,x.Title,x.Kind,x.Status,x.Start,x.End,x.LegacyClient,x.Notes,x.ExpectedCents,x.PriceFrom,x.DurationMinutes,x.Version,clientName=x.ClientId==null?x.LegacyClient:db.Users.Where(u=>u.Id==x.ClientId).Select(u=>u.FullName).FirstOrDefault(),clientPhone=db.Users.Where(u=>u.Id==x.ClientId).Select(u=>u.PhoneNumber).FirstOrDefault()}).ToArrayAsync());
+   return Results.Ok(await query.OrderBy(x=>x.Start).ThenBy(x=>x.Id).Skip(skip).Take(200).Select(x=>new{x.Id,x.EmployeeId,x.ClientId,x.ServiceId,x.Title,x.Kind,x.Status,x.Start,x.End,x.LegacyClient,x.Notes,x.ExpectedCents,x.PriceFrom,x.DurationMinutes,x.Version,receiptId=db.Entries.Where(e=>e.AppointmentId==x.Id&&e.Kind=="Receita").OrderBy(e=>e.Id).Select(e=>e.Id).FirstOrDefault(),clientName=x.ClientId==null?x.LegacyClient:db.Users.Where(u=>u.Id==x.ClientId).Select(u=>u.FullName).FirstOrDefault(),clientPhone=db.Users.Where(u=>u.Id==x.ClientId).Select(u=>u.PhoneNumber).FirstOrDefault()}).ToArrayAsync());
   });
   team.MapPost("/appointments",async(TeamAppointmentInput input,Actor actor,OrbeDb db,TimeProvider clock)=>
   {
@@ -47,8 +49,8 @@ public static class Routes
    if(input.ClientId is not null&&!await db.UserRoles.Join(db.Roles,x=>x.RoleId,x=>x.Id,(u,r)=>new{u.UserId,r.Name}).AnyAsync(x=>x.UserId==input.ClientId&&x.Name==Roles.Client))throw new ApiError(400,"Cliente inválido.");
    await using var tx=await db.Database.BeginTransactionAsync();await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Employees\" WHERE \"Id\"={id} FOR UPDATE");
    if(input.Id is not null&&await db.Appointments.SingleOrDefaultAsync(x=>x.Id==input.Id) is {} prior)
-   {if(prior.EmployeeId!=id||prior.Title!=input.Title.Trim()||prior.Start!=input.Start||prior.End!=input.End||prior.ClientId!=input.ClientId||prior.LegacyClient!=input.LegacyClient||prior.Notes!=input.Notes||prior.ExpectedCents!=input.ExpectedCents||prior.Kind!="Atendimento"||prior.Status!="Confirmed")throw new ApiError(409,"Esta confirmação já foi usada para outro agendamento.");return Results.Ok(prior);}
-   var item=new ScheduleItem{RecordedAt=clock.GetUtcNow(),EmployeeId=id,Title=input.Title.Trim(),Start=input.Start.ToUniversalTime(),End=input.End.ToUniversalTime(),ClientId=input.ClientId,LegacyClient=input.LegacyClient,Notes=input.Notes,ExpectedCents=input.ExpectedCents,DurationMinutes=(int)(input.End-input.Start).TotalMinutes};
+   {if(prior.EmployeeId!=id||prior.Title!=input.Title.Trim()||prior.Start!=input.Start||prior.End!=input.End||prior.ClientId!=input.ClientId||prior.LegacyClient!=input.LegacyClient||prior.Notes!=input.Notes||prior.ExpectedCents!=input.ExpectedCents||prior.PriceFrom!=(input.PriceFrom??false)||prior.Kind!="Atendimento"||prior.Status!="Confirmed")throw new ApiError(409,"Esta confirmação já foi usada para outro agendamento.");return Results.Ok(prior);}
+   var item=new ScheduleItem{RecordedAt=clock.GetUtcNow(),EmployeeId=id,Title=input.Title.Trim(),Start=input.Start.ToUniversalTime(),End=input.End.ToUniversalTime(),ClientId=input.ClientId,LegacyClient=input.LegacyClient,Notes=input.Notes,ExpectedCents=input.ExpectedCents,PriceFrom=input.PriceFrom??false,DurationMinutes=(int)(input.End-input.Start).TotalMinutes};
    if(input.Id is not null)item.Id=input.Id;
    db.Appointments.Add(item);await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(item);
   });
@@ -68,7 +70,7 @@ public static class Routes
      throw new ApiError(409,"Escolha um horário futuro, livre e dentro da jornada.");
     item.Status="Confirmed";item.RecordedAt=clock.GetUtcNow();
    }
-   if(item.Start!=input.Start){item.ClientReservedAt??=item.RecordedAt;item.RecordedAt=clock.GetUtcNow();}item.Title=input.Title.Trim();item.Start=input.Start.ToUniversalTime();item.End=input.End.ToUniversalTime();item.Notes=input.Notes;item.LegacyClient=input.LegacyClient;item.ExpectedCents=input.ExpectedCents;item.DurationMinutes=(int)(input.End-input.Start).TotalMinutes;item.Version=Guid.NewGuid();await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(item);
+   if(item.Start!=input.Start){item.ClientReservedAt??=item.RecordedAt;item.RecordedAt=clock.GetUtcNow();}item.Title=input.Title.Trim();item.Start=input.Start.ToUniversalTime();item.End=input.End.ToUniversalTime();item.Notes=input.Notes;item.LegacyClient=input.LegacyClient;item.ExpectedCents=input.ExpectedCents;item.PriceFrom=input.PriceFrom??item.PriceFrom;item.DurationMinutes=(int)(input.End-input.Start).TotalMinutes;item.Version=Guid.NewGuid();await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(item);
   });
   api.MapGet("/bookings/mine",async(Actor actor,OrbeDb db,int? offset,string? business,TimeProvider clock)=>{
    if(!actor.Client)throw new ApiError(403,"Acesso para clientes.");
@@ -90,25 +92,9 @@ public static class Routes
   api.MapGet("/bookings/{id}/availability",async(string id,DateOnly from,int? days,Scheduling s)=>Results.Ok(await s.AvailabilityForBooking(id,from,days??1))).RequireAuthorization();
   team.MapDelete("/appointments/{id}",async(string id,[FromBody] VersionInput input,Scheduling s)=>{await s.Delete(id,input);return Results.NoContent();});
   team.MapGet("/entries",async(string? employeeId,int? offset,Actor actor,OrbeDb db)=>{var id=actor.Owner?employeeId:await actor.Employee(employeeId);return Results.Ok(await db.Entries.AsNoTracking().Where(x=>id==null||x.EmployeeId==id).OrderBy(x=>x.Date).ThenBy(x=>x.Id).Skip(Math.Max(0,offset??0)).Take(200).ToArrayAsync());});
-  team.MapPost("/entries",async(MoneyInput input,Actor actor,OrbeDb db,Scheduling s,TimeProvider clock)=>
-  {
-   Text(input.Description,200,"a descrição");if(input.Kind is not ("Receita" or "Despesa")||input.Cents<=0)throw new ApiError(400,"Informe um valor positivo e o tipo do lançamento.");
-   if(input.Id is not null&&!Guid.TryParse(input.Id,out _))throw new ApiError(400,"Identificador de confirmação inválido.");
-   var employee=actor.Owner&&input.EmployeeId is null?null:await actor.Employee(input.EmployeeId,true);
-   await using var tx=await db.Database.BeginTransactionAsync();
-   if(input.Id is not null)await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({'M'+input.Id},0))");
-   if(input.AppointmentId is not null)
-   {
-    // Lock the event so a linked entry cannot race with cascade deletion.
-    await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Appointments\" WHERE \"Id\"={input.AppointmentId} FOR UPDATE");
-    var appointment=await s.Accessible(input.AppointmentId,true);
-    if(employee is not null&&employee!=appointment.EmployeeId)throw new ApiError(400,"O vínculo pertence a outro funcionário.");employee=appointment.EmployeeId;
-   }
-   if(input.Id is not null&&await db.Entries.SingleOrDefaultAsync(x=>x.Id==input.Id) is {} prior)
-   {if(prior.EmployeeId!=employee||prior.AppointmentId!=input.AppointmentId||prior.Description!=input.Description.Trim()||prior.Kind!=input.Kind||prior.Date!=input.Date||prior.Cents!=input.Cents)throw new ApiError(409,"Esta confirmação já foi usada para outro lançamento.");return Results.Ok(prior);}
-   var row=new FinancialEntry{EmployeeId=employee,AppointmentId=input.AppointmentId,Description=input.Description.Trim(),Kind=input.Kind,Date=input.Date,Cents=input.Cents};if(input.Id is not null)row.Id=input.Id;db.Entries.Add(row);await db.SaveChangesAsync();await tx.CommitAsync();return Results.Ok(row);
-  });
-  team.MapDelete("/entries/{id}",async(string id,[FromBody] VersionInput input,Actor actor,OrbeDb db)=>{var row=await db.Entries.SingleOrDefaultAsync(x=>x.Id==id)??throw new ApiError(404,"Lançamento não encontrado.");if(!actor.Owner)await actor.Employee(row.EmployeeId??"unassigned");if(row.Version!=input.Version)throw new ApiError(409,"Lançamento alterado. Atualize antes de excluir.");db.Entries.Remove(row);await db.SaveChangesAsync();return Results.NoContent();});
+  team.MapPost("/entries",async(MoneyInput input,Receipts receipts)=>Results.Ok(await receipts.Create(input)));
+  team.MapPut("/entries/{id}",async(string id,ReceiptChange input,Receipts receipts)=>Results.Ok(await receipts.Edit(id,input)));
+  team.MapDelete("/entries/{id}",async(string id,[FromBody] VersionInput input,Receipts receipts)=>{await receipts.Delete(id,input);return Results.NoContent();});
   var owner=api.MapGroup("/owner").RequireAuthorization(p=>p.RequireRole(Roles.Owner));
   owner.MapGet("/employees",async(OrbeDb db)=>Results.Ok(await db.Employees.OrderBy(x=>x.DisplayName).Select(x=>new{x.Id,x.UserId,x.DisplayName,x.Enabled,x.Version,userName=x.User.UserName,email=x.User.Email,services=db.EmployeeServices.Where(e=>e.EmployeeId==x.Id).Select(e=>e.ServiceId).ToArray()}).ToArrayAsync()));
   owner.MapPost("/employees",async(EmployeeInput input,Actor actor,UserManager<AppUser> users,OrbeDb db)=>

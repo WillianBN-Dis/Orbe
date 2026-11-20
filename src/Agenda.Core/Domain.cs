@@ -20,7 +20,7 @@ public sealed record Appointment(string Id, string Title, EventKind Kind, DateTi
         && End > date.ToDateTime(TimeOnly.MinValue);
 }
 
-public sealed record MoneyEntry(string Id, string Description, EntryKind Kind, DateOnly Date, long Cents, string? AppointmentId)
+public sealed record MoneyEntry(string Id, string Description, EntryKind Kind, DateOnly Date, long Cents, string? AppointmentId, bool Automatic=false)
 {
     public void Validate()
     {

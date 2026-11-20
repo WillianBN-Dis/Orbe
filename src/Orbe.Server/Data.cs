@@ -74,6 +74,7 @@ public sealed class ScheduleItem : IBusinessRecord
  public DateTimeOffset? RecordedAt {get;set;}
  public DateTimeOffset? ClientReservedAt {get;set;}
  public bool PriceFrom {get;set;}
+ public bool AutoReceiptSuppressed {get;set;}
  public string Id {get;set;}=Guid.NewGuid().ToString("N");
  public string? EmployeeId {get;set;}
  public string? ClientId {get;set;}
@@ -91,6 +92,7 @@ public sealed class ScheduleItem : IBusinessRecord
 }
 public sealed class FinancialEntry : IBusinessRecord
 {
+ public bool Automatic {get;set;}
  public int BusinessId {get;set;}
  public string Id {get;set;}=Guid.NewGuid().ToString("N");
  public string? EmployeeId {get;set;}
@@ -113,6 +115,7 @@ public sealed class MembershipApplication : IBusinessRecord
 }
 public sealed class BusinessSettings
 {
+ public DateTimeOffset AutoFinanceStart {get;set;}=DateTimeOffset.UtcNow;
  public string? InvitationCode {get;set;}=Invitations.NewCode();
  public Guid InstanceId {get;set;}=Guid.NewGuid();
  public string? ApiBaseUrl {get;set;}
@@ -161,6 +164,7 @@ public sealed class OrbeDb(DbContextOptions<OrbeDb> options) : IdentityDbContext
    entry.Entity.BusinessId=BusinessId;
   return base.SaveChangesAsync(acceptAllChangesOnSuccess,cancellationToken);
  }
+ public DbSet<ClientRelationship> ClientRelationships=>Set<ClientRelationship>();
  public DbSet<InboxNotification> Notifications=>Set<InboxNotification>();
  public DbSet<DataProtectionKey> DataProtectionKeys {get;set;}
  public DbSet<MembershipApplication> MembershipApplications=>Set<MembershipApplication>();
@@ -179,6 +183,11 @@ public sealed class OrbeDb(DbContextOptions<OrbeDb> options) : IdentityDbContext
  protected override void OnModelCreating(ModelBuilder b)
  {
   base.OnModelCreating(b);
+  b.Entity<ClientRelationship>().HasKey(x=>new{x.EmployeeId,x.ClientId});
+  b.Entity<ClientRelationship>().HasQueryFilter(x=>x.BusinessId==BusinessId);
+  b.Entity<ClientRelationship>().HasOne<Employee>().WithMany().HasForeignKey(x=>x.EmployeeId).OnDelete(DeleteBehavior.Cascade);
+  b.Entity<ClientRelationship>().HasOne<AppUser>().WithMany().HasForeignKey(x=>x.ClientId).OnDelete(DeleteBehavior.Cascade);
+  b.Entity<BusinessSettings>().Property(x=>x.AutoFinanceStart).HasDefaultValueSql("now()");
   b.Entity<BusinessSettings>().HasIndex(x=>x.Slug).IsUnique();
   b.Entity<BusinessSettings>().HasIndex(x=>x.InvitationCode).IsUnique();
   b.Entity<MembershipApplication>().HasQueryFilter(x=>x.BusinessId==BusinessId);

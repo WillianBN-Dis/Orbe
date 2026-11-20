@@ -9,7 +9,7 @@ public sealed record ReservationInput(string EmployeeId,string ServiceId,DateTim
 public sealed record MoveInput(DateTimeOffset Start,Guid Version);
 public sealed record VersionInput(Guid Version);
 public sealed record BlockInput(string? EmployeeId,string Title,string Kind,DateTimeOffset Start,DateTimeOffset End,string? Notes,Guid? Version=null,string? Id=null);
-public sealed record TeamAppointmentInput(string? EmployeeId,string Title,DateTimeOffset Start,DateTimeOffset End,string? ClientId,string? LegacyClient,string? Notes,long ExpectedCents,Guid? Version,string? Id=null);
+public sealed record TeamAppointmentInput(string? EmployeeId,string Title,DateTimeOffset Start,DateTimeOffset End,string? ClientId,string? LegacyClient,string? Notes,long ExpectedCents,Guid? Version,string? Id=null,bool? PriceFrom=null);
 public sealed record MoneyInput(string? EmployeeId,string? AppointmentId,string Description,string Kind,DateOnly Date,long Cents,string? Id=null);
 
 public sealed class Scheduling(OrbeDb db,Actor actor,TimeProvider clock)

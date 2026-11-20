@@ -49,7 +49,7 @@ public sealed partial class DashboardPage
   if(inbox.Items.Length==0){body.Add(Card(Stack(16,Icon("bell",Violet,40),Text("Tudo em dia por aqui",22,Ink,true),Text("Novos agendamentos e lembretes de 1 dia e 1 hora antes aparecerão aqui.",14,Muted)),28));return;}
   foreach(var notice in inbox.Items)
   {
-   var title=notice.Kind switch{"Day"=>"Lembrete · 1 dia antes","Hour"=>"Lembrete · 1 hora antes","Review"=>"Agendamento fixo precisa ser remarcado","Cancellation"=>"Agendamento cancelado",_=>"Agendamento confirmado"};
+   var title=notice.Kind switch{"Payment"=>"Informe o valor recebido","Day"=>"Lembrete · 1 dia antes","Hour"=>"Lembrete · 1 hora antes","Review"=>"Agendamento fixo precisa ser remarcado","Cancellation"=>"Agendamento cancelado",_=>"Agendamento confirmado"};
    var content=Stack(12,Between(Text(title,16,Ink,true),Pill(notice.ReadAt is null?"NOVA":"LIDA",notice.ReadAt is null?Coral:Muted)),Text(notice.Subject,18,Ink,true));
    if(!string.IsNullOrWhiteSpace(notice.Person))content.Add(Text(notice.Person,13,Muted));
    content.Add(Text($"Evento: {client.Local(notice.OccurrenceStart):dd/MM/yyyy 'às' HH:mm}",14,Ink));
@@ -75,6 +75,16 @@ public sealed partial class DashboardPage
      await OpenAppointment(pending,scope);
     }),primary:true));
    }
+   if(notice.Kind=="Payment"&&notice.EmployeeId is {} paymentEmployee)
+    actions.Add(Button("Informar valor recebido",()=>Guard(async()=>{
+     if(notice.Business is {} company&&company!=(client.Business??"orbe")){
+      var next=new CloudApi(client.BaseUrl){AccessToken=client.AccessToken,Business=company};
+      try{var account=await next.Me();await next.ConfigureZone();var dashboard=new DashboardPage(next,account){tab="Notificações"};client.Dispose();CloudSessionStore.Show(this,dashboard);}catch{next.Dispose();throw;}return;
+     }
+     var scope=new CloudAgendaRepository(client,paymentEmployee);var item=(await scope.Appointments()).FirstOrDefault(a=>a.Value.Id==notice.AppointmentId);
+     if(item is null){await LoadNotifications();return;}
+     await Reload();await OpenEntry(item.Value);
+    }),primary:true));
    if(WhatsAppUri(notice.ClientPhone,true) is {} whatsapp)
     actions.Add(Button("WhatsApp da cliente",()=>Guard(async()=>await Launcher.Default.OpenAsync(whatsapp)),quiet:true));
    if(notice.ReadAt is null)actions.Add(Button("Marcar como lida",()=>Guard(()=>NoticeAction(notice,false))));
