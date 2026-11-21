@@ -1,7 +1,7 @@
 {
-  "version": "2.0.11",
-  "build": 20027,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.11/Orbe-2.0.11.apk",
-  "sha256": "7dcfc3b19401e7879c303a49f75d5a8d0b9a8d683dd707a7f01c530ed1e2ad82",
-  "notes": "Duração dos serviços em horas e minutos no app e site, com seletores separados."
+  "version": "2.0.12",
+  "build": 20028,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.12/Orbe-2.0.12.apk",
+  "sha256": "8c4c85e6873e5c1dcda29a8cdaa3ea7553dd84f30013c6d3f815aa5d4d153d46",
+  "notes": "Aviso de preço A partir de para a cliente e contato do profissional no WhatsApp."
 }
