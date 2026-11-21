@@ -29,4 +29,4 @@ Não há nova migração de banco nesta versão.
 - Windows: 98f2ac648db62e7199e191d305d2a6098937b5ab26e118ae5e1a2eb391af37d1
 - Android: 2121966b889812ab01a80ef6017fd79bf3c998c01d4a28d971921efb9d103e50
 
-Publicação: release v2.0.10 com somente Setup e APK; feeds serão conferidos após a publicação.
+Publicação concluída em 21/11/2026: [v2.0.10](https://github.com/WillianBN-Dis/Orbe/releases/tag/v2.0.10), com somente Setup e APK. Ambos baixados da release pública e conferidos por SHA-256. O próprio cliente AppUpdates validou os dois feeds públicos em 2.0.10/build20025, com URLs e hashes corretos, após propagação do cache do GitHub.
