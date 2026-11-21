@@ -1,7 +1,7 @@
 {
   "version": "2.0.10",
-  "build": 20025,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.10/Orbe-2.0.10.apk",
-  "sha256": "2121966b889812ab01a80ef6017fd79bf3c998c01d4a28d971921efb9d103e50",
-  "notes": "Agendar diretamente na agenda diária, formulários renovados e reserva no site por etapas."
+  "build": 20026,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.10.8249/Orbe-2.0.10.8249.apk",
+  "sha256": "bb610cc98d6b50c9baa7712ecf6e99e88c1123d8c464c51e512eadb5d002306c",
+  "notes": "Correção 8249: rolagem da agenda diária independente da página, no PC e Android."
 }

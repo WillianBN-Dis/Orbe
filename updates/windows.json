@@ -1,7 +1,7 @@
 {
   "version": "2.0.10",
-  "build": 20025,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.10/Orbe-Setup-2.0.10.exe",
-  "sha256": "98f2ac648db62e7199e191d305d2a6098937b5ab26e118ae5e1a2eb391af37d1",
-  "notes": "Agendar diretamente na agenda diária, formulários renovados e reserva no site por etapas."
+  "build": 20026,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.10.8249/Orbe-Setup-2.0.10.8249.exe",
+  "sha256": "fe72688a7f8dfc890bbaee1d8fe1e4b014d96bfbb9914045d823c7c480afecfd",
+  "notes": "Correção 8249: rolagem da agenda diária independente da página, no PC e Android."
 }
