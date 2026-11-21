@@ -15,7 +15,7 @@ public class MainActivity : MauiAppCompatActivity
             System.Environment.SetEnvironmentVariable("ORBE_QA_SCROLL","true");
         // Synthetic local UI fixture; absent from distributed Release builds.
         var form=Intent?.GetStringExtra("orbe.qa.form");
-        if(form is "hours" or "block" or "services"){
+        if(form is "hours" or "block" or "services" or "service-edit"){
             System.Environment.SetEnvironmentVariable("ORBE_QA_FORM",form);
             System.Environment.SetEnvironmentVariable("ORBE_QA_FORMS","true");
         }

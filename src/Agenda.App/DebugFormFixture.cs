@@ -12,7 +12,7 @@ internal static class DebugFormFixture
   var api=new CloudApi("http://localhost",new FixtureHandler());
   var profile=new CloudProfile("qa","Equipe QA","qa@example.test",null,null,true,["Owner"],"a");
   return Environment.GetEnvironmentVariable("ORBE_QA_FORM") switch{
-   "profile"=>AccountPages.Profile(api,profile),"categories"=>AccountPages.Categories(api,"a"),"invitations"=>AccountPages.Invitations(api),"platform"=>AccountPages.PlatformInvitations(api),"services"=>AccountPages.Services(api),"block" or "dates"=>AccountPages.Block(api,"a"),_=>AccountPages.Hours(api,profile,"a")
+   "profile"=>AccountPages.Profile(api,profile),"categories"=>AccountPages.Categories(api,"a"),"invitations"=>AccountPages.Invitations(api),"platform"=>AccountPages.PlatformInvitations(api),"services" or "service-edit"=>AccountPages.Services(api),"block" or "dates"=>AccountPages.Block(api,"a"),_=>AccountPages.Hours(api,profile,"a")
   };
  }
  private static IEnumerable<T> Find<T>(IVisualTreeElement root)where T:class
@@ -21,7 +21,19 @@ internal static class DebugFormFixture
  {
   for(var i=0;i<30&&!(page is CloudFormPage formPage&&formPage.Fields.Children.Count>0);i++)await Task.Delay(100);
   var mode=Environment.GetEnvironmentVariable("ORBE_QA_FORM")??"hours";
-  if(mode=="hours"){
+  if(mode=="service-edit"){
+   Find<Button>(page).Single(b=>b.Text=="Editar serviço").SendClicked();
+   for(var i=0;i<30&&!Find<ServiceDurationEditor>(page.Navigation.NavigationStack.Last()).Any();i++)await Task.Delay(100);
+   page=page.Navigation.NavigationStack.Last();var duration=Find<ServiceDurationEditor>(page).Single();
+   if(duration.Minutes!=30)throw new Exception("Existing duration not preserved");
+   duration.Hours.SelectedIndex=1;duration.Remainder.SelectedIndex=30;if(duration.Minutes!=90)throw new Exception("Hour/minute conversion failed");
+   foreach(var pair in new[]{(0,0),(24,1)}){duration.Hours.SelectedIndex=pair.Item1;duration.Remainder.SelectedIndex=pair.Item2;try{_ = duration.Minutes;throw new Exception("Invalid duration accepted");}catch(ArgumentException){}}
+   duration.Hours.SelectedIndex=24;duration.Remainder.SelectedIndex=0;if(duration.Minutes!=1440)throw new Exception("24h unsupported");
+   duration.Hours.SelectedIndex=0;duration.Remainder.SelectedIndex=1;if(duration.Minutes!=1)throw new Exception("1min unsupported");
+   duration.Hours.SelectedIndex=2;duration.Remainder.SelectedIndex=15;if(duration.Minutes!=135)throw new Exception("Exact minutes changed");
+   if(ServiceDuration.Format(90)!="1h 30min"||ServiceDuration.Format(60)!="1h"||ServiceDuration.Format(45)!="45min"||ServiceDuration.Format(1440)!="24h")throw new Exception("Service duration text invalid");
+  }else if(mode=="hours"){
+
    Find<Button>(page).Single(x=>x.Text=="+ Jornada · manhã e tarde").SendClicked();
    var clocks=Find<TimePicker>(page).Take(4).ToArray();if(clocks.Length!=4)throw new Exception("Morning/afternoon selectors missing");
    var boxes=Find<CheckBox>(page).ToArray();boxes[2].IsChecked=true;
