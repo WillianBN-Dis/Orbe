@@ -52,6 +52,9 @@ try {
  Adb shell am force-stop $package | Out-Null
  Adb shell am start -W -n $activity --es orbe.qa.form hours | Out-Null
  $null=CheckScreen 'release-sem-fixture' 'Tudo no seu tempo.'
+ Adb shell am force-stop $package | Out-Null
+ Adb shell am start -W -n $activity --ez orbe.qa.scroll true | Out-Null
+ $null=CheckScreen 'release-sem-fixture-scroll' 'Tudo no seu tempo.'
  Adb shell input keyevent KEYCODE_HOME | Out-Null
  Start-Sleep -Seconds 2
  Adb shell am start -W -n $activity | Out-Null

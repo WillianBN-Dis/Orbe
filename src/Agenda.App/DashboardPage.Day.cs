@@ -91,7 +91,7 @@ public sealed partial class DashboardPage
    AbsoluteLayout.SetLayoutBounds(current,new Rect(0,now.TimeOfDay.TotalMinutes*hourHeight/60+10,1,2));AbsoluteLayout.SetLayoutFlags(current,Microsoft.Maui.Layouts.AbsoluteLayoutFlags.WidthProportional);
   }
   var grid=new Grid{ColumnDefinitions=new(){new(new GridLength(48)),new(GridLength.Star)},ColumnSpacing=4,HeightRequest=totalHeight};grid.Add(hours);grid.Add(canvas,1);
-  var scroll=new ScrollView{Content=grid,HeightRequest=compact?560:640,VerticalScrollBarVisibility=ScrollBarVisibility.Always};
+  var scroll=new DayTimelineScrollView{Content=grid,HeightRequest=compact?560:640,VerticalScrollBarVisibility=ScrollBarVisibility.Always};
   var renderedDay=Selected;
   scroll.Scrolled+=(_,e)=>{dayScrollDate=renderedDay;dayScrollOffset=e.ScrollY;};
   scroll.Loaded+=async(_,_)=>{if(Selected!=renderedDay)return;var minute=slots.Length==0?7*60:Math.Max(0,slots.Min(s=>s.Start)-60);var target=dayScrollDate==Selected?dayScrollOffset:minute*hourHeight/60;await scroll.ScrollToAsync(0,Math.Min(target,totalHeight-scroll.Height),false);};

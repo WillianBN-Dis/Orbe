@@ -42,6 +42,10 @@ public partial class App : Application
         {Title="Orbe · Agenda e finanças",Width=compactPreview?430:1440,Height=compactPreview?900:960};
         window.Created+=(_,_)=>window.Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(8),async()=>await CheckUpdates(window));
 #if DEBUG
+        if(args.Contains("--scroll-check")||Environment.GetEnvironmentVariable("ORBE_QA_SCROLL")=="true"){
+            var fixture=new DebugScrollFixture();window.Page=Navigation(fixture);
+            window.Created+=(_,_)=>window.Dispatcher.Dispatch(async()=>await fixture.Verify());
+        }
         if(args.Contains("--forms-check")||Environment.GetEnvironmentVariable("ORBE_QA_FORMS")=="true"){
             var form=DebugFormFixture.Create();window.Page=Navigation(form);
             window.Created+=(_,_)=>window.Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(1),async()=>{try{await DebugFormFixture.Verify(form);}catch(Exception e){System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(),$"orbe-forms-{Environment.ProcessId}.json"),e.ToString());Environment.Exit(1);}});

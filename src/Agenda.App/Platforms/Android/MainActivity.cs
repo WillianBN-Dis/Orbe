@@ -11,6 +11,8 @@ public class MainActivity : MauiAppCompatActivity
     protected override void OnCreate(Bundle? savedInstanceState)
     {
 #if DEBUG
+        if(Intent?.GetBooleanExtra("orbe.qa.scroll",false)==true)
+            System.Environment.SetEnvironmentVariable("ORBE_QA_SCROLL","true");
         // Synthetic local UI fixture; absent from distributed Release builds.
         var form=Intent?.GetStringExtra("orbe.qa.form");
         if(form is "hours" or "block" or "services"){

@@ -15,6 +15,7 @@ public static class MauiProgram
 #endif
 		builder
 			.UseMauiApp<App>()
+            .ConfigureMauiHandlers(handlers => handlers.AddHandler<DayTimelineScrollView, DayTimelineScrollHandler>())
 			.ConfigureFonts(fonts =>
 			{
 				fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
