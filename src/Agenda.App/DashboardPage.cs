@@ -56,7 +56,7 @@ public sealed partial class DashboardPage : ContentPage
         InboxActivation.Requested+=OpenInboxFromSystem;
         if(InboxActivation.Consume())tab="Notificações";
 #if DEBUG
-        if(Environment.GetCommandLineArgs().Contains("--layout-check"))
+        if(Environment.GetCommandLineArgs().Contains("--layout-check")||Environment.GetEnvironmentVariable("ORBE_QA_PRICE_NOTICE")=="true")
         {
             loaded=dataLoaded=true;tab=Environment.GetEnvironmentVariable("ORBE_QA_TAB")??"Agenda";
             if(Environment.GetCommandLineArgs().Contains("--interaction-check"))SeedCalendarMarkers();
