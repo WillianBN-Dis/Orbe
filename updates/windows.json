@@ -1,7 +1,7 @@
 {
-  "version": "2.0.9",
-  "build": 20024,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.9/Orbe-Setup-2.0.9.exe",
-  "sha256": "4dc124a14108689867e8251f06c047f4b24f20021efd0588fcb13ce6d300a2ce",
-  "notes": "Recebimento único e automático, aniversários das clientes e agenda diária com horários."
+  "version": "2.0.10",
+  "build": 20025,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.10/Orbe-Setup-2.0.10.exe",
+  "sha256": "98f2ac648db62e7199e191d305d2a6098937b5ab26e118ae5e1a2eb391af37d1",
+  "notes": "Agendar diretamente na agenda diária, formulários renovados e reserva no site por etapas."
 }

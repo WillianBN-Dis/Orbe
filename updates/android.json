@@ -1,7 +1,7 @@
 {
-  "version": "2.0.9",
-  "build": 20024,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.9/Orbe-2.0.9.apk",
-  "sha256": "b66a480ebb5439be1d5148d23a38f0a8a14aa7c2107e871f1c988ca29b99a32d",
-  "notes": "Recebimento único e automático, aniversários das clientes e agenda diária com horários."
+  "version": "2.0.10",
+  "build": 20025,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.10/Orbe-2.0.10.apk",
+  "sha256": "2121966b889812ab01a80ef6017fd79bf3c998c01d4a28d971921efb9d103e50",
+  "notes": "Agendar diretamente na agenda diária, formulários renovados e reserva no site por etapas."
 }
