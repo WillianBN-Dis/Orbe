@@ -1,7 +1,7 @@
 {
-  "version": "2.0.10",
-  "build": 20026,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.10.8249/Orbe-2.0.10.8249.apk",
-  "sha256": "bb610cc98d6b50c9baa7712ecf6e99e88c1123d8c464c51e512eadb5d002306c",
-  "notes": "Correção 8249: rolagem da agenda diária independente da página, no PC e Android."
+  "version": "2.0.11",
+  "build": 20027,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.11/Orbe-2.0.11.apk",
+  "sha256": "7dcfc3b19401e7879c303a49f75d5a8d0b9a8d683dd707a7f01c530ed1e2ad82",
+  "notes": "Duração dos serviços em horas e minutos no app e site, com seletores separados."
 }
