@@ -19,4 +19,14 @@ Versão 2.0.10, Android 20025. Revisão de interface aprovada no chat.
 - Android Debug sintético: formulários e seletores conferidos; teclado aberto mantém Cancelar/Salvar visíveis acima do teclado após configurar Resize explicitamente no MAUI.
 - Backup privado antes de implantar o site. HTTPS/health prontos, Studio com reservas abertas, catálogos preservados, e-mail ativo. Login público conferido em navegador 390/1440 px.
 
-APK final e publicação serão registrados após os testes finais. Não há nova migração de banco nesta versão.
+- Android final: atualização 2.0.9/20024 → 2.0.10/20025 no emulador Android16; duas aberturas, retorno do segundo plano e ausência de fixture Debug/crash. Uma tentativa precisou ser repetida por falha transitória do logcat do emulador.
+- Assinatura Android original preservada; pacote br.com.agendafinanceira.app, versionCode20025 e versionName2.0.10 conferidos.
+
+Não há nova migração de banco nesta versão.
+
+## SHA-256
+
+- Windows: 98f2ac648db62e7199e191d305d2a6098937b5ab26e118ae5e1a2eb391af37d1
+- Android: 2121966b889812ab01a80ef6017fd79bf3c998c01d4a28d971921efb9d103e50
+
+Publicação: release v2.0.10 com somente Setup e APK; feeds serão conferidos após a publicação.
