@@ -25,7 +25,14 @@ public partial class App : Application
         { /* Background checks must not interrupt access when the feed is unavailable. */ }
     }
     internal static NavigationPage Navigation(Page page)=>new(page){BarBackgroundColor=Color.FromArgb("#0D101B"),BarTextColor=Colors.White};
-    public App() { InitializeComponent(); }
+    public App()
+    {
+        InitializeComponent();
+#if ANDROID
+        Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.Application.SetWindowSoftInputModeAdjust(
+            this, Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.WindowSoftInputModeAdjust.Resize);
+#endif
+    }
     protected override Window CreateWindow(IActivationState? activationState)
     {
         UserAppTheme=AppTheme.Dark;

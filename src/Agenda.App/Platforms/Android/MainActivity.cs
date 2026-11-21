@@ -20,6 +20,7 @@ public class MainActivity : MauiAppCompatActivity
 #endif
         OpenInbox(Intent);
         base.OnCreate(savedInstanceState);
+        Window?.SetSoftInputMode(Android.Views.SoftInput.AdjustResize);
     }
     protected override void OnNewIntent(Intent? intent)
     {
