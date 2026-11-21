@@ -14,7 +14,7 @@ public sealed record CloudItem(string Id,string? EmployeeId,string? ClientId,str
 public sealed record CloudMoney(string Id,string? EmployeeId,string? AppointmentId,string Description,string Kind,DateOnly Date,long Cents,Guid Version,bool Automatic=false);
 public sealed record CloudBirthday(string ClientId,string Name,int Month,int Day)
 {public DateOnly ForYear(int year)=>new(year,Month,Math.Min(Day,DateTime.DaysInMonth(year,Month)));}
-public sealed record CloudNotice(Guid Id,string AppointmentId,string Kind,DateTimeOffset OccurrenceStart,DateTimeOffset DeliverAt,DateTimeOffset? ReadAt,string Subject,string? Person,string? ClientPhone=null,string? EmployeeId=null,string? Business=null);
+public sealed record CloudNotice(Guid Id,string AppointmentId,string Kind,DateTimeOffset OccurrenceStart,DateTimeOffset DeliverAt,DateTimeOffset? ReadAt,string Subject,string? Person,string? ClientPhone=null,string? EmployeeId=null,string? Business=null,bool PriceAdvice=false,long? StartingPriceCents=null,string? ProfessionalName=null,string? ProfessionalPhone=null,string? TimeZoneId=null);
 public sealed record CloudSupport(string? WhatsApp,string? Email);
 public sealed record CloudInbox(CloudNotice[] Items,int UnreadCount,int Total);
 public sealed class CloudApi:IDisposable

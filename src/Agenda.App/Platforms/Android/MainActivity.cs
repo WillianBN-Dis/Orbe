@@ -11,6 +11,10 @@ public class MainActivity : MauiAppCompatActivity
     protected override void OnCreate(Bundle? savedInstanceState)
     {
 #if DEBUG
+        if(Intent?.GetBooleanExtra("orbe.qa.price-notice",false)==true){
+            System.Environment.SetEnvironmentVariable("ORBE_QA_PRICE_NOTICE","true");
+            System.Environment.SetEnvironmentVariable("ORBE_QA_NOTICES","true");
+        }
         if(Intent?.GetBooleanExtra("orbe.qa.scroll",false)==true)
             System.Environment.SetEnvironmentVariable("ORBE_QA_SCROLL","true");
         // Synthetic local UI fixture; absent from distributed Release builds.

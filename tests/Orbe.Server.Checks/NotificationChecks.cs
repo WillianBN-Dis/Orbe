@@ -34,6 +34,17 @@ internal static class NotificationChecks
    var shortStart=factory.Clock.Now.AddMinutes(30);booking=await Send(staff,HttpMethod.Post,"/team/appointments",Input(shortStart));id=booking.GetProperty("id").GetString()!;rows=await Items(staff);Check(rows.Length==1&&rows[0].GetProperty("kind").GetString()=="Booking","reserva tardia não fabrica lembretes retroativos de dia/hora");
    await Send(staff,HttpMethod.Delete,"/team/appointments/"+id,new{version=booking.GetProperty("version").GetGuid()},204);Check((await Items(staff)).Length==0,"excluir agendamento remove avisos vinculados");
    await Send(anonymous,HttpMethod.Get,"/notifications",expected:401);await Send(staff,HttpMethod.Get,"/notifications?limit=101",expected:400);Check(true,"autenticação e limite de página validados no servidor");
+   var flexible=await Send(staff,HttpMethod.Post,"/team/appointments",new{employeeId=employee,title="Alisamento sintético",start=factory.Clock.Now.AddDays(3),end=factory.Clock.Now.AddDays(3).AddHours(2),clientId,expectedCents=12500,priceFrom=true});id=flexible.GetProperty("id").GetString()!;
+   var advice=(await Items(client)).Single();
+   Check(advice.GetProperty("priceAdvice").GetBoolean()&&advice.GetProperty("startingPriceCents").GetInt64()==12500&&advice.GetProperty("professionalName").GetString()=="notice.staff"&&advice.GetProperty("professionalPhone").ValueKind==JsonValueKind.Null,"preço flexível avisa a cliente com mínimo congelado e mantém aviso sem telefone");
+   await Send(staff,HttpMethod.Put,"/auth/me",new{fullName="Profissional QA",phone="+5511900000001",birthDate=(string?)null});
+   advice=(await Items(client)).Single();
+   Check(advice.GetProperty("professionalPhone").GetString()=="+5511900000001"&&advice.GetProperty("timeZoneId").GetString()=="America/Sao_Paulo","contato e fuso correspondem ao profissional da reserva");
+   var staffNotice=(await Items(staff)).Single();
+   Check(!staffNotice.GetProperty("priceAdvice").GetBoolean()&&staffNotice.GetProperty("professionalPhone").ValueKind==JsonValueKind.Null&&(await Items(other)).Length==0,"aviso comercial é pessoal da cliente e não aparece para profissional ou terceiros");
+   var fixedBooking=await Send(staff,HttpMethod.Post,"/team/appointments",Input(factory.Clock.Now.AddDays(4)));id=fixedBooking.GetProperty("id").GetString()!;
+   var fixedNotice=(await Items(client)).Single();
+   Check(!fixedNotice.GetProperty("priceAdvice").GetBoolean()&&fixedNotice.GetProperty("startingPriceCents").ValueKind==JsonValueKind.Null&&fixedNotice.GetProperty("professionalPhone").ValueKind==JsonValueKind.Null,"preço fixo mantém confirmação sem aviso nem novo contato");
   }finally{factory.Clock.Now=previous;}
  }
 }

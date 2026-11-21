@@ -57,7 +57,7 @@ public partial class App : Application
 #endif
             }catch(Exception e){System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(),$"orbe-login-check-{Environment.ProcessId}.json"),e.ToString());Environment.Exit(1);}});
         // Synthetic layout fixture, compiled out of distributed Release packages.
-        if(args.Contains("--layout-check"))
+        if(args.Contains("--layout-check")||Environment.GetEnvironmentVariable("ORBE_QA_PRICE_NOTICE")=="true")
         {
             var qa=new DashboardPage(Environment.GetEnvironmentVariable("ORBE_QA_NOTICES")=="true"?DebugNotificationFixture.Api():new Agenda.Core.CloudApi(Agenda.Core.CloudApi.DefaultUrl),new Agenda.Core.CloudProfile("qa","Equipe QA","qa@example.test",null,null,true,["Owner"],null));
             window.Page=Navigation(qa);

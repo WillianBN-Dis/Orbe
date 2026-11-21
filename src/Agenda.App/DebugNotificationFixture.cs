@@ -6,7 +6,11 @@ namespace Agenda.App;
 internal sealed class DebugNotificationFixture:HttpMessageHandler
 {
  internal static CloudApi Api()=>new("http://localhost",new DebugNotificationFixture());
- private readonly List<CloudNotice> rows=[new(Guid.NewGuid(),"qa-1","Booking",DateTimeOffset.UtcNow.AddDays(2),DateTimeOffset.UtcNow,null,"Atendimento de teste","Cliente sintética"),new(Guid.NewGuid(),"qa-2","Hour",DateTimeOffset.UtcNow.AddHours(1),DateTimeOffset.UtcNow,null,"Serviço de teste","Cliente sintética")];
+ private readonly List<CloudNotice> rows=Environment.GetEnvironmentVariable("ORBE_QA_PRICE_NOTICE")=="true"?[
+ new(Guid.NewGuid(),"qa-price","Booking",DateTimeOffset.UtcNow.AddDays(2),DateTimeOffset.UtcNow,null,"Alisamento sintético","Profissional QA",PriceAdvice:true,StartingPriceCents:12500,ProfessionalName:"Profissional QA",ProfessionalPhone:"+5511900000001",TimeZoneId:"America/Sao_Paulo"),
+ new(Guid.NewGuid(),"qa-no-phone","Booking",DateTimeOffset.UtcNow.AddDays(3),DateTimeOffset.UtcNow,null,"Flexível sem telefone","Profissional QA",PriceAdvice:true,StartingPriceCents:8000,ProfessionalName:"Profissional QA"),
+ new(Guid.NewGuid(),"qa-fixed","Booking",DateTimeOffset.UtcNow.AddDays(4),DateTimeOffset.UtcNow,null,"Preço fixo","Profissional QA")
+ ]:[new(Guid.NewGuid(),"qa-1","Booking",DateTimeOffset.UtcNow.AddDays(2),DateTimeOffset.UtcNow,null,"Atendimento de teste","Cliente sintética"),new(Guid.NewGuid(),"qa-2","Hour",DateTimeOffset.UtcNow.AddHours(1),DateTimeOffset.UtcNow,null,"Serviço de teste","Cliente sintética")];
  protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken token)
  {
   var parts=request.RequestUri!.AbsolutePath.Split('/');if(parts.Length>4&&Guid.TryParse(parts[4],out var id)){
@@ -20,7 +24,15 @@ public sealed partial class DashboardPage
 {
  internal async Task QaNotificationCheck(bool actions)
  {
-  tab="Notificações";await LoadNotifications();if(inbox.Items.Length!=2||inbox.UnreadCount!=2||!notificationBadges.Any(b=>b.IsVisible))throw new Exception("Unread badge/list missing");
+  tab="Notificações";await LoadNotifications();
+  if(Environment.GetEnvironmentVariable("ORBE_QA_PRICE_NOTICE")=="true"){
+   if(inbox.Items.Length!=3||FindViews<Label>(this).Count(l=>l.Text?.Contains("entrará em contato com você para informar o valor final.")==true)!=2||FindViews<Button>(this).Count(b=>b.Text=="Falar com o profissional no WhatsApp")!=1)throw new Exception("Price advice/contact gating invalid");
+#if WINDOWS
+   await Task.Delay(300);if(Window?.Handler?.PlatformView is Microsoft.UI.Xaml.Window nativeWindow&&nativeWindow.Content is Microsoft.UI.Xaml.FrameworkElement root)await StartupCapture.Capture(root,Path.Combine(Path.GetTempPath(),$"orbe-price-notices-{Environment.ProcessId}.png"));
+#endif
+   File.WriteAllText(Path.Combine(Path.GetTempPath(),$"orbe-notifications-{Environment.ProcessId}.json"),System.Text.Json.JsonSerializer.Serialize(new{passed=true,priceAdvice=true}));return;
+  }
+  if(inbox.Items.Length!=2||inbox.UnreadCount!=2||!notificationBadges.Any(b=>b.IsVisible))throw new Exception("Unread badge/list missing");
   if(actions){await NoticeAction(inbox.Items[0],false);if(inbox.UnreadCount!=1)throw new Exception("Read count not updated");await NoticeAction(inbox.Items.Single(x=>x.ReadAt is null),true);if(inbox.UnreadCount!=0||inbox.Items.Length!=1||notificationBadges.Any(b=>b.IsVisible))throw new Exception("Delete/badge not updated");}
   System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(),$"orbe-notifications-{Environment.ProcessId}.json"),System.Text.Json.JsonSerializer.Serialize(new{passed=true,actions,unread=inbox.UnreadCount,items=inbox.Items.Length}));
  }

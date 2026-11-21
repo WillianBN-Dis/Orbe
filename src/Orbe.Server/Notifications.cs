@@ -67,10 +67,15 @@ public sealed class NotificationInbox(OrbeDb db,Actor actor,TimeProvider clock)
   if(offset<0||offset>100000||limit is <1 or >100)throw new ApiError(400,"Página inválida.");
   await Materialize();var visible=Visible();var unread=await visible.CountAsync(n=>n.ReadAt==null);var total=await visible.CountAsync();
   var items=await (from n in visible join a in db.Appointments.IgnoreQueryFilters() on n.AppointmentId equals a.Id
+   let priceAdvice=n.Kind=="Booking"&&a.Kind=="Atendimento"&&a.PriceFrom&&a.ClientId==actor.Id
    orderby n.DeliverAt descending,n.Id descending
    select new{n.Id,n.AppointmentId,n.Kind,n.OccurrenceStart,n.DeliverAt,n.ReadAt,a.EmployeeId,business=db.Settings.IgnoreQueryFilters().Where(b=>b.Id==a.BusinessId).Select(b=>b.Slug).FirstOrDefault(),subject=a.Title,
     person=actor.Client&&a.ClientId==actor.Id?db.Employees.IgnoreQueryFilters().Where(e=>e.Id==a.EmployeeId).Select(e=>e.DisplayName).FirstOrDefault():db.Users.Where(u=>u.Id==a.ClientId).Select(u=>u.FullName).FirstOrDefault()??a.LegacyClient,
-    clientPhone=actor.Client&&a.ClientId==actor.Id?null:db.Users.Where(u=>u.Id==a.ClientId).Select(u=>u.PhoneNumber).FirstOrDefault()})
+    clientPhone=actor.Client&&a.ClientId==actor.Id?null:db.Users.Where(u=>u.Id==a.ClientId).Select(u=>u.PhoneNumber).FirstOrDefault(),
+    priceAdvice,startingPriceCents=priceAdvice?(long?)a.ExpectedCents:null,
+    professionalName=priceAdvice?db.Employees.IgnoreQueryFilters().Where(e=>e.Id==a.EmployeeId&&e.BusinessId==a.BusinessId).Select(e=>e.DisplayName).FirstOrDefault():null,
+    professionalPhone=priceAdvice?db.Employees.IgnoreQueryFilters().Where(e=>e.Id==a.EmployeeId&&e.BusinessId==a.BusinessId).Select(e=>e.User.PhoneNumber).FirstOrDefault():null,
+    timeZoneId=db.Settings.IgnoreQueryFilters().Where(b=>b.Id==a.BusinessId).Select(b=>b.TimeZoneId).FirstOrDefault()})
    .Skip(offset).Take(limit).ToArrayAsync();
   return new{items,unreadCount=unread,total};
  }

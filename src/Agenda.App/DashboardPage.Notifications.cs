@@ -55,6 +55,18 @@ public sealed partial class DashboardPage
    content.Add(Text($"Evento: {client.Local(notice.OccurrenceStart):dd/MM/yyyy 'às' HH:mm}",14,Ink));
    content.Add(Text($"Aviso de {client.Local(notice.DeliverAt):dd/MM/yyyy HH:mm}",11,Dim));
    var actions=Stack(8);
+   if(notice.PriceAdvice&&notice.Kind=="Booking"&&notice.StartingPriceCents is {} startingPrice)
+   {
+    var professional=string.IsNullOrWhiteSpace(notice.ProfessionalName)?"responsável":notice.ProfessionalName;
+    content.Add(Text($"Este serviço tem valor a partir de {Finance.Currency(startingPrice)}. O profissional {professional} entrará em contato com você para informar o valor final.",14,Muted));
+    if(WhatsAppUri(notice.ProfessionalPhone,true) is {} contact)
+    {
+     var when=notice.TimeZoneId is {} zoneId&&TimeZoneInfo.TryFindSystemTimeZoneById(zoneId,out var zone)?TimeZoneInfo.ConvertTime(notice.OccurrenceStart,zone).DateTime:client.Local(notice.OccurrenceStart);
+     var message=$"Olá, {professional}! Agendei {notice.Subject} para {when:dd/MM/yyyy 'às' HH:mm} pelo Orbe e gostaria de confirmar o valor final.";
+     var address=new Uri(contact.AbsoluteUri+"?text="+Uri.EscapeDataString(message));
+     actions.Add(Button("Falar com o profissional no WhatsApp",()=>Guard(async()=>await Launcher.Default.OpenAsync(address)),quiet:true));
+    }
+   }
    if(notice.Kind=="Review"&&notice.EmployeeId is {} employee)
    {
     var anotherBusiness=notice.Business is {} business&&business!=(client.Business??"orbe");
