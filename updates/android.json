@@ -1,7 +1,7 @@
 {
-  "version": "2.0.12",
-  "build": 20028,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.12/Orbe-2.0.12.apk",
-  "sha256": "8c4c85e6873e5c1dcda29a8cdaa3ea7553dd84f30013c6d3f815aa5d4d153d46",
-  "notes": "Aviso de preço A partir de para a cliente e contato do profissional no WhatsApp."
+  "version": "2.0.13",
+  "build": 20029,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.13/Orbe-2.0.13.apk",
+  "sha256": "5205d8b366151c43039f2d9ff6e7e5551aed1b2b26c89a011e898025c06a0c51",
+  "notes": "Notificações push no Orbe para profissionais e administradores."
 }

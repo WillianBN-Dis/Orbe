@@ -1,7 +1,7 @@
 {
-  "version": "2.0.12",
-  "build": 20028,
-  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.12/Orbe-Setup-2.0.12.exe",
-  "sha256": "b7092246a0cce4a83c144d877387c329e3e1ee660efe1855bbb1dd56ea212c9b",
-  "notes": "Aviso de preço A partir de para a cliente e contato do profissional no WhatsApp."
+  "version": "2.0.13",
+  "build": 20029,
+  "url": "https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.13/Orbe-Setup-2.0.13.exe",
+  "sha256": "589c11a35c8de0fd7cbc1cf6328b381c7599521ad83aff55e58dcd9873e88671",
+  "notes": "Instalador Windows correspondente à versão 2.0.13."
 }
