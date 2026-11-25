@@ -4,6 +4,10 @@
 
 <p align="center"><img src="assets/orbe-icon.png" width="128" alt="Ícone Orbe" /></p>
 
+## Versão 2.0.13
+
+O aplicativo Android oficial passa a incluir notificações via Firebase Cloud Messaging para contas profissionais e administrativas. Permita as notificações ao entrar no app. O APK preserva a assinatura da 2.0.12 e tem código Android 20029. O Orbe Teste continua como um aplicativo separado para validar mudanças de ícone e texto antes de lançá-las. [Validação e hashes](docs/VALIDACAO-2.0.13.md).
+
 ## Versão 2.0.12
 
 Confirmações de serviços A partir de para a cliente incluem aviso sobre o valor final e contato do profissional no WhatsApp. O aviso de informar o valor recebido para o profissional permanece.
@@ -28,9 +32,9 @@ A versão 2 centraliza contas, agenda e financeiro na Discloud e funciona com o 
 
 - [Site de testes](https://agendaorbe.com.br) · [Administração](https://agendaorbe.com.br/equipe)
 - [Versões e downloads](https://github.com/WillianBN-Dis/Orbe/releases)
-- Downloads atuais 2.0.12: [Windows](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.12/Orbe-Setup-2.0.12.exe) · [Android](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.12/Orbe-2.0.12.apk). Android atual: build 20028, sem configurar servidor no login. A conexão fica somente em Conta para o administrador e é compartilhada por todos os dispositivos. O endereço inicial de descoberta precisa continuar acessível; a troca de endereço não migra o banco.
+- Downloads atuais 2.0.13: [Windows](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.13/Orbe-Setup-2.0.13.exe) · [Android](https://github.com/WillianBN-Dis/Orbe/releases/download/v2.0.13/Orbe-2.0.13.apk). Android atual: build 20029, sem configurar servidor no login. A conexão fica somente em Conta para o administrador e é compartilhada por todos os dispositivos. O endereço inicial de descoberta precisa continuar acessível; a troca de endereço não migra o banco.
 - [Primeiros passos](docs/PRIMEIROS-PASSOS.md) · [Operação e backups](deploy/discloud/README.md)
-- Android: **Atualizar aplicativo** no login e em Conta, a partir do **2.0.0 ajuste 1**. A versão atual é 2.0.12. [Como atualizar e publicar ajustes](docs/ATUALIZACOES-ANDROID.md).
+- Android: **Atualizar aplicativo** no login e em Conta, a partir do **2.0.0 ajuste 1**. A versão atual é 2.0.13. [Como atualizar e publicar ajustes](docs/ATUALIZACOES-ANDROID.md).
 
 ## Agenda, equipe e financeiro
 
